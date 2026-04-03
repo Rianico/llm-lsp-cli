@@ -1,0 +1,44 @@
+{
+    "processId": "os.getpid()",
+    "clientInfo": {
+        "name": "llm-lsp-cli",
+        "version": "0.1.0"
+    },
+    "rootUri": "$rootUri",
+    "capabilities": {
+        "textDocument": {
+            "synchronization": {
+                "dynamicRegistration": false
+            },
+            "completion": {
+                "completionItem": {
+                    "snippetSupport": false
+                }
+            },
+            "definition": {
+                "dynamicRegistration": false
+            },
+            "references": {
+                "dynamicRegistration": false
+            },
+            "hover": {
+                "contentFormat": ["markdown", "plaintext"]
+            },
+            "documentSymbol": {
+                "hierarchicalDocumentSymbolSupport": true
+            }
+        },
+        "workspace": {
+            "workspaceFolders": true,
+            "symbol": {
+                "dynamicRegistration": false
+            }
+        }
+    },
+    "workspaceFolders": [
+        {
+            "uri": "$uri",
+            "name": "$name"
+        }
+    ]
+}

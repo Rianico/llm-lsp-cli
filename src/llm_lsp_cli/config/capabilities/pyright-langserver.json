@@ -1,0 +1,12 @@
+{
+  "_description": "Initialize params for pyright-langserver",
+  "processId": "os.getpid()",
+  "rootUri": "$rootUri",
+  "capabilities": {},
+  "workspaceFolders": [
+    {
+      "uri": "$uri",
+      "name": "$name"
+    }
+  ]
+}

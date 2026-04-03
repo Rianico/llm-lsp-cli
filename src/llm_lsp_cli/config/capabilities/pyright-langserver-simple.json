@@ -1,0 +1,18 @@
+{
+    "_description": "Minimal pyright-langserver initialize params",
+    "processId": "os.getpid()",
+    "rootUri": null,
+    "capabilities": {
+        "textDocument": {
+            "synchronization": {
+                "dynamicRegistration": false
+            },
+            "documentSymbol": {
+                "hierarchicalDocumentSymbolSupport": true
+            }
+        },
+        "workspace": {
+            "workspaceFolders": false
+        }
+    }
+}
