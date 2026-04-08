@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ import typer
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.ipc import UNIXClient
+from llm_lsp_cli.utils import OutputFormat, format_output, get_symbol_kind_name
 from llm_lsp_cli.utils.language_detector import (
     detect_language_from_file,
     detect_language_with_fallback,
@@ -162,6 +164,28 @@ def _send_request(
     return asyncio.run(send())
 
 
+def _output_result(
+    response: Any,
+    output_format: OutputFormat,
+    text_formatter: Callable[[Any], None],
+) -> None:
+    """Output response in the specified format.
+
+    Args:
+        response: The LSP response dict
+        output_format: The desired output format (text, yaml, or json)
+        text_formatter: Function to format response for text output
+    """
+    if output_format == OutputFormat.YAML:
+        # YAML output already ends with newline from yaml.safe_dump()
+        typer.echo(format_output(response, output_format), nl=False)
+    elif output_format == OutputFormat.JSON:
+        # JSON output needs a trailing newline
+        typer.echo(format_output(response, output_format))
+    else:
+        text_formatter(response)
+
+
 @app.command()
 def version() -> None:
     """Show the version of llm-lsp-cli."""
@@ -295,6 +319,12 @@ def definition(
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
+    ),
 ) -> None:
     """Get definition location for symbol at position."""
     # Detect language from file if not provided
@@ -306,26 +336,39 @@ def definition(
     workspace_path = workspace or str(Path.cwd())
     file_path = _validate_file_in_workspace(file, workspace)
 
+    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
+    line_index = line - 1
+    column_index = column - 1
+
     try:
         response = _send_request(
             "textDocument/definition",
             {
                 "workspacePath": workspace_path,
                 "filePath": str(file_path),
-                "line": line,
-                "column": column,
+                "line": line_index,
+                "column": column_index,
             },
             language=language,
         )
-        locations = response.get("locations", [])
-        if locations:
-            for loc in locations:
-                uri = loc.get("uri", "")
-                range_obj = loc.get("range", {})
-                start = range_obj.get("start", {})
-                typer.echo(f"{uri}:{start.get('line', 0) + 1}:{start.get('character', 0) + 1}")
-        else:
-            typer.echo("No definition found.")
+
+        def text_format(resp: Any) -> None:
+            locations = resp.get("locations", [])
+            if locations:
+                for loc in locations:
+                    uri = loc.get("uri", "")
+                    range_obj = loc.get("range", {})
+                    start = range_obj.get("start", {})
+                    end = range_obj.get("end", {})
+                    start_line = start.get("line", 0) + 1
+                    start_char = start.get("character", 0) + 1
+                    end_line = end.get("line", 0) + 1
+                    end_char = end.get("character", 0) + 1
+                    typer.echo(f"{uri}:{start_line}:{start_char}-{end_line}:{end_char}")
+            else:
+                typer.echo("No definition found.")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -340,6 +383,12 @@ def references(
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
+    ),
 ) -> None:
     """Get references to symbol at position."""
     # Detect language from file if not provided
@@ -351,26 +400,39 @@ def references(
     workspace_path = workspace or str(Path.cwd())
     file_path = _validate_file_in_workspace(file, workspace)
 
+    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
+    line_index = line - 1
+    column_index = column - 1
+
     try:
         response = _send_request(
             "textDocument/references",
             {
                 "workspacePath": workspace_path,
                 "filePath": str(file_path),
-                "line": line,
-                "column": column,
+                "line": line_index,
+                "column": column_index,
             },
             language=language,
         )
-        locations = response.get("locations", [])
-        if locations:
-            for loc in locations:
-                uri = loc.get("uri", "")
-                range_obj = loc.get("range", {})
-                start = range_obj.get("start", {})
-                typer.echo(f"{uri}:{start.get('line', 0) + 1}:{start.get('character', 0) + 1}")
-        else:
-            typer.echo("No references found.")
+
+        def text_format(resp: Any) -> None:
+            locations = resp.get("locations", [])
+            if locations:
+                for loc in locations:
+                    uri = loc.get("uri", "")
+                    range_obj = loc.get("range", {})
+                    start = range_obj.get("start", {})
+                    end = range_obj.get("end", {})
+                    start_line = start.get("line", 0) + 1
+                    start_char = start.get("character", 0) + 1
+                    end_line = end.get("line", 0) + 1
+                    end_char = end.get("character", 0) + 1
+                    typer.echo(f"{uri}:{start_line}:{start_char}-{end_line}:{end_char}")
+            else:
+                typer.echo("No references found.")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -385,6 +447,12 @@ def completion(
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
+    ),
 ) -> None:
     """Get completions at position."""
     # Detect language from file if not provided
@@ -396,25 +464,50 @@ def completion(
     workspace_path = workspace or str(Path.cwd())
     file_path = _validate_file_in_workspace(file, workspace)
 
+    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
+    line_index = line - 1
+    column_index = column - 1
+
     try:
         response = _send_request(
             "textDocument/completion",
             {
                 "workspacePath": workspace_path,
                 "filePath": str(file_path),
-                "line": line,
-                "column": column,
+                "line": line_index,
+                "column": column_index,
             },
             language=language,
         )
-        items = response.get("items", [])
-        if items:
-            for item in items:
-                label = item.get("label", "")
-                detail = item.get("detail", "")
-                typer.echo(f"{label} - {detail}" if detail else label)
-        else:
-            typer.echo("No completions found.")
+
+        def text_format(resp: Any) -> None:
+            items = resp.get("items", [])
+            if items:
+                for item in items:
+                    label = item.get("label", "")
+                    detail = item.get("detail", "")
+                    # Include range info from textEdit if available
+                    range_info = ""
+                    text_edit = item.get("textEdit", {})
+                    if text_edit and isinstance(text_edit, dict):
+                        range_obj = text_edit.get("range", {})
+                        if range_obj:
+                            start = range_obj.get("start", {})
+                            end = range_obj.get("end", {})
+                            start_line = start.get("line", 0) + 1
+                            start_char = start.get("character", 0) + 1
+                            end_line = end.get("line", 0) + 1
+                            end_char = end.get("character", 0) + 1
+                            range_info = f" [{start_line}:{start_char}-{end_line}:{end_char}]"
+
+                    if detail:
+                        typer.echo(f"{label} - {detail}{range_info}")
+                    else:
+                        typer.echo(f"{label}{range_info}")
+            else:
+                typer.echo("No completions found.")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -429,6 +522,12 @@ def hover(
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
+    ),
 ) -> None:
     """Get hover information at position."""
     # Detect language from file if not provided
@@ -440,24 +539,43 @@ def hover(
     workspace_path = workspace or str(Path.cwd())
     file_path = _validate_file_in_workspace(file, workspace)
 
+    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
+    line_index = line - 1
+    column_index = column - 1
+
     try:
         response = _send_request(
             "textDocument/hover",
             {
                 "workspacePath": workspace_path,
                 "filePath": str(file_path),
-                "line": line,
-                "column": column,
+                "line": line_index,
+                "column": column_index,
             },
             language=language,
         )
-        hover = response.get("hover")
-        if hover:
-            contents = hover.get("contents", {})
-            value = contents.get("value", "") if isinstance(contents, dict) else str(contents)
-            typer.echo(value)
-        else:
-            typer.echo("No hover information available.")
+
+        def text_format(resp: Any) -> None:
+            hover = resp.get("hover")
+            if hover:
+                contents = hover.get("contents", {})
+                value = contents.get("value", "") if isinstance(contents, dict) else str(contents)
+                # Include range info if available
+                range_obj = hover.get("range", {})
+                if range_obj:
+                    start = range_obj.get("start", {})
+                    end = range_obj.get("end", {})
+                    start_line = start.get("line", 0) + 1
+                    start_char = start.get("character", 0) + 1
+                    end_line = end.get("line", 0) + 1
+                    end_char = end.get("character", 0) + 1
+                    typer.echo(f"[{start_line}:{start_char}-{end_line}:{end_char}] {value}")
+                else:
+                    typer.echo(value)
+            else:
+                typer.echo("No hover information available.")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -469,6 +587,12 @@ def document_symbol(
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
+    ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
     ),
 ) -> None:
     """Get document symbols."""
@@ -490,19 +614,28 @@ def document_symbol(
             },
             language=language,
         )
-        symbols = response.get("symbols", [])
-        if symbols:
-            for sym in symbols:
-                name = sym.get("name", "")
-                kind = sym.get("kind", 0)
-                range_obj = sym.get("range", {})
-                start = range_obj.get("start", {})
-                typer.echo(
-                    f"{name} (kind={kind}) at {start.get('line', 0) + 1}:"
-                    f"{start.get('character', 0) + 1}"
-                )
-        else:
-            typer.echo("No symbols found.")
+
+        def text_format(resp: Any) -> None:
+            symbols = resp.get("symbols", [])
+            if symbols:
+                for sym in symbols:
+                    name = sym.get("name", "")
+                    kind = sym.get("kind", 0)
+                    kind_name = get_symbol_kind_name(kind)
+                    range_obj = sym.get("range", {})
+                    start = range_obj.get("start", {})
+                    end = range_obj.get("end", {})
+                    start_line = start.get("line", 0) + 1
+                    start_char = start.get("character", 0) + 1
+                    end_line = end.get("line", 0) + 1
+                    end_char = end.get("character", 0) + 1
+                    typer.echo(
+                        f"{name} ({kind_name}) at {start_line}:{start_char}-{end_line}:{end_char}"
+                    )
+            else:
+                typer.echo("No symbols found.")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -514,6 +647,12 @@ def workspace_symbol(
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
+    ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
     ),
 ) -> None:
     """Search workspace symbols."""
@@ -534,16 +673,32 @@ def workspace_symbol(
             },
             language=language,
         )
-        symbols = response.get("symbols", [])
-        if symbols:
-            for sym in symbols:
-                name = sym.get("name", "")
-                kind = sym.get("kind", 0)
-                location = sym.get("location", {})
-                uri = location.get("uri", "")
-                typer.echo(f"{name} (kind={kind}) in {uri}")
-        else:
-            typer.echo(f"No symbols found for query: {query}")
+
+        def text_format(resp: Any) -> None:
+            symbols = resp.get("symbols", [])
+            if symbols:
+                for sym in symbols:
+                    name = sym.get("name", "")
+                    kind = sym.get("kind", 0)
+                    kind_name = get_symbol_kind_name(kind)
+                    location = sym.get("location", {})
+                    uri = location.get("uri", "")
+                    # Include range info from location if available
+                    range_info = ""
+                    range_obj = location.get("range", {})
+                    if range_obj:
+                        start = range_obj.get("start", {})
+                        end = range_obj.get("end", {})
+                        start_line = start.get("line", 0) + 1
+                        start_char = start.get("character", 0) + 1
+                        end_line = end.get("line", 0) + 1
+                        end_char = end.get("character", 0) + 1
+                        range_info = f" [{start_line}:{start_char}-{end_line}:{end_char}]"
+                    typer.echo(f"{name} ({kind_name}) in {uri}{range_info}")
+            else:
+                typer.echo(f"No symbols found for query: {query}")
+
+        _output_result(response, output_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e

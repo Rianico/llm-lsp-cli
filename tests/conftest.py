@@ -17,6 +17,14 @@ def temp_dir() -> typing.Generator[Path, None, None]:
 
 
 @pytest.fixture
+def temp_file(temp_dir: Path) -> Path:
+    """Create a temporary file for testing."""
+    filepath = temp_dir / "test_file.py"
+    filepath.touch()
+    return filepath
+
+
+@pytest.fixture
 def sample_python_file(temp_dir: Path) -> Path:
     """Create a sample Python file for testing."""
     content = """

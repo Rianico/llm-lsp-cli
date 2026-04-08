@@ -182,7 +182,7 @@ class LSPClient:
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": column},
-            "context": {"includeDeclaration": False},
+            "context": {"includeDeclaration": True},
         }
 
         assert self._transport is not None

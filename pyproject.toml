@@ -21,6 +21,7 @@ dependencies = [
   "python-daemon>=3.0.0",
   "pydantic>=2.5.0",
   "psutil>=5.9.0",
+  "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
