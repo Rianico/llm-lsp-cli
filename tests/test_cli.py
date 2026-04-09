@@ -1451,3 +1451,317 @@ def test_all_lsp_symbol_kinds_are_mapped() -> None:
     for kind_number, expected_name in expected_mappings.items():
         result = get_symbol_kind_name(kind_number)
         assert result == expected_name, f"Kind {kind_number} should map to '{expected_name}', got '{result}'"
+
+
+# =============================================================================
+# Test Filtering Tests
+# =============================================================================
+
+
+def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
+    """Test that references command filters test files by default."""
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "locations": [
+            {
+                "uri": "file:///path/to/file.py",
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 15},
+                },
+            },
+            {
+                "uri": "file:///path/to/tests/test_file.py",
+                "range": {
+                    "start": {"line": 10, "character": 4},
+                    "end": {"line": 10, "character": 19},
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        workspace = str(temp_file.parent)
+
+        # Test without --include-tests (should filter out test locations)
+        result = runner.invoke(
+            app,
+            ["references", str(temp_file), "10", "5", "-w", workspace],
+        )
+        assert result.exit_code == 0
+        # Without flag, test locations should be filtered
+        output = json.loads(result.output)
+        assert len(output["locations"]) == 1
+        assert "test_file.py" not in output["locations"][0]["uri"]
+
+
+def test_cli_references_include_tests_flag(temp_file: Path) -> None:
+    """Test that references command accepts --include-tests flag."""
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "locations": [
+            {
+                "uri": "file:///path/to/file.py",
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 15},
+                },
+            },
+            {
+                "uri": "file:///path/to/tests/test_file.py",
+                "range": {
+                    "start": {"line": 10, "character": 4},
+                    "end": {"line": 10, "character": 19},
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        workspace = str(temp_file.parent)
+
+        # Test with --include-tests (should include all locations)
+        result = runner.invoke(
+            app,
+            ["references", str(temp_file), "10", "5", "--include-tests", "-w", workspace],
+        )
+        assert result.exit_code == 0
+        # With flag, all locations should be included
+        output = json.loads(result.output)
+        assert len(output["locations"]) == 2
+
+
+def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
+    """Test that workspace-symbol command filters test files by default."""
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "symbols": [
+            {
+                "name": "MyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
+                },
+            },
+            {
+                "name": "TestMyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/tests/test_myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        # Test without --include-tests (should filter out test symbols)
+        result = runner.invoke(
+            app,
+            ["workspace-symbol", "My", "-w", str(temp_dir)],
+        )
+        assert result.exit_code == 0
+        # Without flag, test symbols should be filtered
+        output = json.loads(result.output)
+        assert len(output["symbols"]) == 1
+        assert "test" not in output["symbols"][0]["location"]["uri"].lower()
+
+
+def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
+    """Test that workspace-symbol command accepts --include-tests flag."""
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "symbols": [
+            {
+                "name": "MyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
+                },
+            },
+            {
+                "name": "TestMyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/tests/test_myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        # Test with --include-tests (should include all symbols)
+        result = runner.invoke(
+            app,
+            ["workspace-symbol", "My", "--include-tests", "-w", str(temp_dir)],
+        )
+        assert result.exit_code == 0
+        # With flag, all symbols should be included
+        output = json.loads(result.output)
+        assert len(output["symbols"]) == 2
+
+
+def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
+    """Test references command with YAML format and --include-tests flag."""
+    import yaml
+
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "locations": [
+            {
+                "uri": "file:///path/to/file.py",
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 15},
+                },
+            },
+            {
+                "uri": "file:///path/to/tests/test_file.py",
+                "range": {
+                    "start": {"line": 10, "character": 4},
+                    "end": {"line": 10, "character": 19},
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        workspace = str(temp_file.parent)
+        result = runner.invoke(
+            app,
+            [
+                "references",
+                str(temp_file),
+                "10",
+                "5",
+                "--format",
+                "yaml",
+                "--include-tests",
+                "-w",
+                workspace,
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Parse YAML output
+        output = yaml.safe_load(result.output)
+        assert output is not None
+        assert "locations" in output
+        assert len(output["locations"]) == 2
+
+
+def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
+    """Test workspace-symbol command with YAML format and --include-tests flag."""
+    import yaml
+
+    from llm_lsp_cli.cli import app
+
+    mock_response = {
+        "symbols": [
+            {
+                "name": "MyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
+                },
+            },
+            {
+                "name": "TestMyClass",
+                "kind": 5,
+                "location": {
+                    "uri": "file:///path/to/tests/test_myclass.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
+                },
+            },
+        ]
+    }
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
+        "llm_lsp_cli.cli._send_request"
+    ) as mock_send:
+        mock_instance = MagicMock()
+        mock_instance.is_running.return_value = True
+        mock_manager.return_value = mock_instance
+        mock_send.return_value = mock_response
+
+        result = runner.invoke(
+            app,
+            [
+                "workspace-symbol",
+                "My",
+                "--format",
+                "yaml",
+                "--include-tests",
+                "-w",
+                str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Parse YAML output
+        output = yaml.safe_load(result.output)
+        assert output is not None
+        assert "symbols" in output
+        assert len(output["symbols"]) == 2

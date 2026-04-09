@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -12,16 +13,52 @@ import typer
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.ipc import UNIXClient
+from llm_lsp_cli.test_filter import _filter_test_locations, _filter_test_symbols
 from llm_lsp_cli.utils import OutputFormat, format_output, get_symbol_kind_name
 from llm_lsp_cli.utils.language_detector import (
     detect_language_from_file,
     detect_language_with_fallback,
 )
 
+
+@dataclass
+class GlobalOptions:
+    """Global options shared across all subcommands."""
+
+    workspace: str | None = None
+    language: str | None = None
+    output_format: OutputFormat = OutputFormat.JSON
+
+
+def global_options_callback(
+    ctx: typer.Context,
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (auto-detected if not specified)"
+    ),
+    output_format: OutputFormat = typer.Option(  # noqa: B008
+        OutputFormat.JSON,
+        "--format",
+        "-o",
+        help="Output format (text, yaml, or json)",
+    ),
+) -> None:
+    """Callback to capture global options into context.
+
+    Subcommands can override individual options locally if needed.
+    """
+    ctx.obj = GlobalOptions(
+        workspace=workspace,
+        language=language,
+        output_format=output_format,
+    )
+
+
 app = typer.Typer(
     name="llm-lsp-cli",
     help="Interact with language servers to provide code intelligence features.",
     add_completion=True,
+    callback=global_options_callback,
 )
 
 
@@ -432,29 +469,44 @@ def status(
 
 @app.command()
 def definition(
+    ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include results from test files (excluded by default)",
     ),
 ) -> None:
-    """Get definition location for symbol at position."""
+    """Get definition location for symbol at position.
+
+    By default, filters out results from test files. Use --include-tests to include them.
+    """
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+
     # Detect language from file if not provided
-    if language is None:
-        language = detect_language_from_file(file)
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
 
-    workspace_path = workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, workspace)
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
 
     # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
     line_index = line - 1
@@ -469,14 +521,20 @@ def definition(
                 "line": line_index,
                 "column": column_index,
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             locations = resp.get("locations", [])
-            _format_locations_text(locations)
+            filtered = _filter_test_locations(locations, include_tests=include_tests)
+            _format_locations_text(filtered)
 
-        _output_result(response, output_format, text_format)
+        # Apply test filtering to the response
+        if not include_tests:
+            locations = response.get("locations", [])
+            response["locations"] = _filter_test_locations(locations)
+
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -484,29 +542,44 @@ def definition(
 
 @app.command()
 def references(
+    ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include results from test files (excluded by default)",
     ),
 ) -> None:
-    """Get references to symbol at position."""
+    """Get references to symbol at position.
+
+    By default, filters out results from test files. Use --include-tests to include them.
+    """
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+
     # Detect language from file if not provided
-    if language is None:
-        language = detect_language_from_file(file)
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
 
-    workspace_path = workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, workspace)
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
 
     # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
     line_index = line - 1
@@ -521,14 +594,20 @@ def references(
                 "line": line_index,
                 "column": column_index,
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             locations = resp.get("locations", [])
-            _format_locations_text(locations)
+            filtered = _filter_test_locations(locations, include_tests=include_tests)
+            _format_locations_text(filtered)
 
-        _output_result(response, output_format, text_format)
+        # Apply test filtering to the response
+        if not include_tests:
+            locations = response.get("locations", [])
+            response["locations"] = _filter_test_locations(locations)
+
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -536,29 +615,36 @@ def references(
 
 @app.command()
 def completion(
+    ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
     ),
 ) -> None:
     """Get completions at position."""
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+
     # Detect language from file if not provided
-    if language is None:
-        language = detect_language_from_file(file)
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
 
-    workspace_path = workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, workspace)
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
 
     # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
     line_index = line - 1
@@ -573,14 +659,14 @@ def completion(
                 "line": line_index,
                 "column": column_index,
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             items = resp.get("items", [])
             _format_completions_text(items)
 
-        _output_result(response, output_format, text_format)
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -588,29 +674,36 @@ def completion(
 
 @app.command()
 def hover(
+    ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
     ),
 ) -> None:
     """Get hover information at position."""
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+
     # Detect language from file if not provided
-    if language is None:
-        language = detect_language_from_file(file)
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
 
-    workspace_path = workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, workspace)
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
 
     # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
     line_index = line - 1
@@ -625,14 +718,14 @@ def hover(
                 "line": line_index,
                 "column": column_index,
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             hover = resp.get("hover")
             _format_hover_text(hover)
 
-        _output_result(response, output_format, text_format)
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -640,27 +733,34 @@ def hover(
 
 @app.command()
 def document_symbol(
+    ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
     ),
 ) -> None:
     """Get document symbols."""
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+
     # Detect language from file if not provided
-    if language is None:
-        language = detect_language_from_file(file)
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
 
-    workspace_path = workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, workspace)
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
 
     try:
         response = _send_request(
@@ -669,14 +769,14 @@ def document_symbol(
                 "workspacePath": workspace_path,
                 "filePath": str(file_path),
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             symbols = resp.get("symbols", [])
             _format_symbols_text(symbols)
 
-        _output_result(response, output_format, text_format)
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
@@ -684,26 +784,41 @@ def document_symbol(
 
 @app.command()
 def workspace_symbol(
+    ctx: typer.Context,
     query: str = typer.Argument(..., help="Search query"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
     language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
+        None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include results from test files (excluded by default)",
     ),
 ) -> None:
-    """Search workspace symbols."""
-    # Detect language from file if not provided
-    if language is None:
-        language = "python"  # Default for workspace-wide searches without a specific file
+    """Search workspace symbols.
 
-    _ensure_daemon_running(language=language, workspace=workspace)
+    By default, filters out symbols from test files. Use --include-tests to include them.
+    """
+    # Resolve options: local override > global default
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
 
-    workspace_path = workspace or str(Path.cwd())
+    # Default to python for workspace-wide searches without a specific file
+    if effective_language is None:
+        effective_language = "python"
+
+    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+
+    workspace_path = effective_workspace or str(Path.cwd())
 
     try:
         response = _send_request(
@@ -712,14 +827,20 @@ def workspace_symbol(
                 "workspacePath": workspace_path,
                 "query": query,
             },
-            language=language,
+            language=effective_language,
         )
 
         def text_format(resp: Any) -> None:
             symbols = resp.get("symbols", [])
-            _format_workspace_symbols_text(symbols)
+            filtered = _filter_test_symbols(symbols, include_tests=include_tests)
+            _format_workspace_symbols_text(filtered)
 
-        _output_result(response, output_format, text_format)
+        # Apply test filtering to the response
+        if not include_tests:
+            symbols = response.get("symbols", [])
+            response["symbols"] = _filter_test_symbols(symbols)
+
+        _output_result(response, effective_format, text_format)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
