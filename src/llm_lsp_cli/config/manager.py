@@ -424,6 +424,7 @@ class ConfigManager:
             # For Python 3.9+ resources API
             try:
                 import llm_lsp_cli.config.capabilities as caps_pkg
+
                 for r in resources.files(caps_pkg).iterdir():
                     if r.is_file() and r.name.endswith(".json"):
                         dest_file = cap_dir / r.name
@@ -440,6 +441,7 @@ class ConfigManager:
                             shutil.copy2(src_file, dest_file)
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).warning(f"Failed to copy capabilities configs: {e}")
 
     @classmethod
@@ -461,6 +463,7 @@ class ConfigManager:
     @classmethod
     def _expand_env(cls, data: dict[str, Any]) -> dict[str, Any]:
         from typing import cast
+
         """Expand environment variables in string values.
 
         Handles $VAR and ${VAR} patterns.
@@ -491,10 +494,7 @@ class ConfigManager:
 
     @classmethod
     def load_initialize_params(
-        cls,
-        server_command: str,
-        workspace_path: str,
-        custom_conf_path: str | None = None
+        cls, server_command: str, workspace_path: str, custom_conf_path: str | None = None
     ) -> dict[str, Any]:
         """Load and process LSP initialization capabilities configuration.
 
@@ -546,7 +546,7 @@ class ConfigManager:
         pid = str(os.getpid())
         content = content.replace('"os.getpid()"', pid)
         # Also handle potential unquoted usages in case someone got creative
-        content = content.replace('os.getpid()', pid)
+        content = content.replace("os.getpid()", pid)
 
         # Parse JSON
         try:

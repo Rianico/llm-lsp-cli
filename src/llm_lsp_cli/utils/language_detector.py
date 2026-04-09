@@ -27,6 +27,7 @@ FILE_EXTENSION_MAP: dict[str, str] = {
 @dataclass
 class LanguageMatch:
     """Represents a language detection match."""
+
     language: str
     confidence: float  # 1.0 = exact match, 0.5 = partial
     matched_files: list[str]
@@ -46,12 +47,12 @@ LANGUAGE_PATTERNS: dict[str, list[str]] = {
 
 # Priority order for disambiguation (higher = more preferred)
 LANGUAGE_PRIORITY: dict[str, int] = {
-    "rust": 10,      # Cargo.toml is very specific
-    "go": 10,        # go.mod is very specific
-    "java": 9,       # pom.xml is specific
-    "csharp": 9,     # .sln is specific
-    "typescript": 8, # tsconfig.json is TypeScript-specific
-    "javascript": 7, # package.json could be JS or TS
+    "rust": 10,  # Cargo.toml is very specific
+    "go": 10,  # go.mod is very specific
+    "java": 9,  # pom.xml is specific
+    "csharp": 9,  # .sln is specific
+    "typescript": 8,  # tsconfig.json is TypeScript-specific
+    "javascript": 7,  # package.json could be JS or TS
     "cpp": 7,
     "python": 6,
 }
@@ -111,20 +112,19 @@ def _detect_language_from_workspace_cached(workspace_path: str) -> str | None:
                 continue
 
         if matched_files:
-            matches.append(LanguageMatch(
-                language=language,
-                confidence=1.0,
-                matched_files=matched_files,
-            ))
+            matches.append(
+                LanguageMatch(
+                    language=language,
+                    confidence=1.0,
+                    matched_files=matched_files,
+                )
+            )
 
     if not matches:
         return None
 
     # Sort by priority and confidence
-    matches.sort(
-        key=lambda m: (m.confidence, LANGUAGE_PRIORITY.get(m.language, 0)),
-        reverse=True
-    )
+    matches.sort(key=lambda m: (m.confidence, LANGUAGE_PRIORITY.get(m.language, 0)), reverse=True)
 
     return matches[0].language
 

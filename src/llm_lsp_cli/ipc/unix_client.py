@@ -91,9 +91,7 @@ class UNIXClient:
 
             self._pending.pop(request_id, None)
 
-    async def _read_response(
-        self, reader: asyncio.StreamReader
-    ) -> dict[str, Any] | None:
+    async def _read_response(self, reader: asyncio.StreamReader) -> dict[str, Any] | None:
         """Read and parse a response from the socket."""
         data = b""
         while True:

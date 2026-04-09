@@ -5,7 +5,7 @@ import logging
 import os
 import signal
 import time
-from typing import Any, cast
+from typing import Any
 
 from daemon import DaemonContext  # type: ignore[import-untyped]
 from daemon.pidfile import PIDLockFile as PidFile  # type: ignore[import-untyped]
@@ -13,6 +13,11 @@ from daemon.pidfile import PIDLockFile as PidFile  # type: ignore[import-untyped
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.ipc import UNIXServer
 from llm_lsp_cli.server import ServerRegistry
+
+# Constants
+_SHUTDOWN_WAIT_ITERATIONS = 50  # 5 seconds max (50 * 0.1s)
+_SHUTDOWN_POLL_INTERVAL = 0.1  # 100ms between process checks
+_DAEMON_UMASK = 0o077  # Restrictive permissions (owner only)
 
 # Configure logging
 logging.basicConfig(
@@ -73,6 +78,31 @@ class DaemonManager:
         except ValueError:
             return None
 
+    def _cleanup_files(self) -> None:
+        """Clean up daemon runtime files (PID and socket)."""
+        if self.pid_file.exists():
+            self.pid_file.unlink()
+        if self.socket_path.exists():
+            self.socket_path.unlink()
+
+    def _wait_for_process_stop(self, pid: int) -> None:
+        """Wait for daemon process to stop, force kill if timeout.
+
+        Args:
+            pid: Process ID to wait for
+        """
+        for _ in range(_SHUTDOWN_WAIT_ITERATIONS):
+            try:
+                os.kill(pid, 0)
+                time.sleep(_SHUTDOWN_POLL_INTERVAL)
+            except OSError:
+                # Process stopped
+                break
+        else:
+            # Force kill if still running after timeout
+            os.kill(pid, signal.SIGKILL)
+            logger.info(f"Sent SIGKILL to daemon (PID: {pid})")
+
     def start(self) -> None:
         """Start the daemon process in background."""
         if self.is_running():
@@ -91,7 +121,7 @@ class DaemonManager:
             pidfile=PidFile(str(self.pid_file)),
             stdout=open(self.daemon_log_file, "a"),
             stderr=open(self.daemon_log_file, "a"),
-            umask=0o077,  # Restrictive permissions
+            umask=_DAEMON_UMASK,
         ):
             logger.info("Daemon starting...")
             asyncio.run(
@@ -108,8 +138,7 @@ class DaemonManager:
         """Stop the daemon process."""
         if not self.is_running():
             logger.warning("Daemon is not running")
-            if self.pid_file.exists():
-                self.pid_file.unlink()
+            self._cleanup_files()
             return
 
         pid = self.get_pid()
@@ -117,34 +146,37 @@ class DaemonManager:
             try:
                 os.kill(pid, signal.SIGTERM)
                 logger.info(f"Sent SIGTERM to daemon (PID: {pid})")
-
-                # Wait for process to stop
-                for _ in range(50):  # 5 seconds max
-                    try:
-                        os.kill(pid, 0)
-                        time.sleep(0.1)
-                    except OSError:
-                        # Process stopped
-                        break
-                else:
-                    # Force kill if still running
-                    os.kill(pid, signal.SIGKILL)
-                    logger.info(f"Sent SIGKILL to daemon (PID: {pid})")
-
+                self._wait_for_process_stop(pid)
             except ProcessLookupError:
                 pass
 
-        # Clean up PID file
-        if self.pid_file.exists():
-            self.pid_file.unlink()
-
-        # Clean up socket file
-        if self.socket_path.exists():
-            self.socket_path.unlink()
+        self._cleanup_files()
 
 
 class RequestHandler:
     """Handles incoming RPC requests."""
+
+    # Method name to registry function mapping for LSP features
+    # Each tuple: (registry_method_name, required_params)
+    # Note: workspacePath defaults to "." if not provided for position-based methods
+    LSP_METHODS: dict[str, tuple[str, tuple[str, ...]]] = {
+        "textDocument/definition": ("request_definition", ("filePath", "line", "column")),
+        "textDocument/references": ("request_references", ("filePath", "line", "column")),
+        "textDocument/completion": ("request_completions", ("filePath", "line", "column")),
+        "textDocument/hover": ("request_hover", ("filePath", "line", "column")),
+        "textDocument/documentSymbol": ("request_document_symbols", ("filePath",)),
+        "workspace/symbol": ("request_workspace_symbols", ()),  # query is optional
+    }
+
+    # Response key for each method
+    RESPONSE_KEYS: dict[str, str] = {
+        "textDocument/definition": "locations",
+        "textDocument/references": "locations",
+        "textDocument/completion": "items",
+        "textDocument/hover": "hover",
+        "textDocument/documentSymbol": "symbols",
+        "workspace/symbol": "symbols",
+    }
 
     def __init__(self, workspace_path: str, language: str, lsp_conf: str | None = None):
         self._shutdown = False
@@ -175,127 +207,73 @@ class RequestHandler:
                 "pid": os.getpid(),
             }
 
-        # LSP feature methods
-        elif method == "textDocument/definition":
-            return {"locations": await self.handle_definition(params)}
-
-        elif method == "textDocument/references":
-            return {"locations": await self.handle_references(params)}
-
-        elif method == "textDocument/completion":
-            return {"items": await self.handle_completion(params)}
-
-        elif method == "textDocument/hover":
-            result = await self.handle_hover(params)
-            return {"hover": result} if result else {}
-
-        elif method == "textDocument/documentSymbol":
-            return {"symbols": await self.handle_document_symbol(params)}
-
-        elif method == "workspace/symbol":
-            return {"symbols": await self.handle_workspace_symbol(params)}
+        # LSP feature methods - dispatch to common handler
+        elif method in self.LSP_METHODS:
+            return await self._handle_lsp_method(method, params)
 
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    async def handle_definition(self, params: dict[str, Any]) -> list[Any]:
-        """Handle textDocument/definition request."""
-        workspace_path = params.get("workspacePath", ".")
-        file_path = params.get("filePath")
-        line = params.get("line", 0)
-        column = params.get("column", 0)
+    async def _handle_lsp_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Handle LSP feature methods using common pattern.
 
-        if not file_path:
+        Args:
+            method: LSP method name
+            params: Request parameters
+
+        Returns:
+            Response dict with appropriate key
+
+        Raises:
+            ValueError: If required parameters are missing
+        """
+        method_config = self.LSP_METHODS[method]
+        registry_method = method_config[0]
+        required_params = method_config[1]
+        response_key = self.RESPONSE_KEYS[method]
+
+        # Validate required parameters (only filePath is truly required for LSP methods)
+        file_path = params.get("filePath")
+        if file_path is None and "filePath" in required_params:
             raise ValueError("Missing 'filePath' parameter")
 
-        locations = await self._registry.request_definition(
-            workspace_path=workspace_path,
-            file_path=file_path,
-            line=line,
-            column=column,
-        )
-        return locations
+        # Get registry method by name
+        registry_func = getattr(self._registry, registry_method)
 
-    async def handle_references(self, params: dict[str, Any]) -> list[Any]:
-        """Handle textDocument/references request."""
-        workspace_path = params.get("workspacePath", ".")
-        file_path = params.get("filePath")
-        line = params.get("line", 0)
-        column = params.get("column", 0)
+        # Build kwargs for registry method based on method type
+        if registry_method == "request_workspace_symbols":
+            # workspace/symbol uses (workspace_path, query) - both optional
+            kwargs = {
+                "workspace_path": params.get("workspacePath", "."),
+                "query": params.get("query", ""),
+            }
+            logger.debug(
+                f"Workspace symbol request: workspace={kwargs['workspace_path']}, "
+                f"query={kwargs['query']}"
+            )
+            result = await registry_func(**kwargs)
+            logger.debug(f"Workspace symbol response: {len(result)} symbols found")
+        elif registry_method == "request_document_symbols":
+            # documentSymbol uses (workspace_path, file_path)
+            kwargs = {
+                "workspace_path": params.get("workspacePath", "."),
+                "file_path": file_path,
+            }
+            result = await registry_func(**kwargs)
+        else:
+            # Standard position-based methods use (workspace_path, file_path, line, column)
+            kwargs = {
+                "workspace_path": params.get("workspacePath", "."),
+                "file_path": file_path,
+                "line": params.get("line", 0),
+                "column": params.get("column", 0),
+            }
+            result = await registry_func(**kwargs)
 
-        if not file_path:
-            raise ValueError("Missing 'filePath' parameter")
-
-        locations = await self._registry.request_references(
-            workspace_path=workspace_path,
-            file_path=file_path,
-            line=line,
-            column=column,
-        )
-        return locations
-
-    async def handle_completion(self, params: dict[str, Any]) -> list[Any]:
-        """Handle textDocument/completion request."""
-        workspace_path = params.get("workspacePath", ".")
-        file_path = params.get("filePath")
-        line = params.get("line", 0)
-        column = params.get("column", 0)
-
-        if not file_path:
-            raise ValueError("Missing 'filePath' parameter")
-
-        items = await self._registry.request_completions(
-            workspace_path=workspace_path,
-            file_path=file_path,
-            line=line,
-            column=column,
-        )
-        return items
-
-    async def handle_hover(self, params: dict[str, Any]) -> dict[str, Any] | None:
-        """Handle textDocument/hover request."""
-        workspace_path = params.get("workspacePath", ".")
-        file_path = params.get("filePath")
-        line = params.get("line", 0)
-        column = params.get("column", 0)
-
-        if not file_path:
-            raise ValueError("Missing 'filePath' parameter")
-
-        hover = await self._registry.request_hover(
-            workspace_path=workspace_path,
-            file_path=file_path,
-            line=line,
-            column=column,
-        )
-        return cast(dict[str, Any] | None, hover)
-
-    async def handle_document_symbol(self, params: dict[str, Any]) -> list[Any]:
-        """Handle textDocument/documentSymbol request."""
-        workspace_path = params.get("workspacePath", ".")
-        file_path = params.get("filePath")
-
-        if not file_path:
-            raise ValueError("Missing 'filePath' parameter")
-
-        symbols = await self._registry.request_document_symbols(
-            workspace_path=workspace_path,
-            file_path=file_path,
-        )
-        return symbols
-
-    async def handle_workspace_symbol(self, params: dict[str, Any]) -> list[Any]:
-        """Handle workspace/symbol request."""
-        workspace_path = params.get("workspacePath", ".")
-        query = params.get("query", "")
-
-        logger.debug(f"Workspace symbol request: workspace={workspace_path}, query={query}")
-        symbols = await self._registry.request_workspace_symbols(
-            workspace_path=workspace_path,
-            query=query,
-        )
-        logger.debug(f"Workspace symbol response: {len(symbols)} symbols found")
-        return symbols
+        # Wrap result with appropriate response key
+        if response_key == "hover":
+            return {response_key: result} if result else {}
+        return {response_key: result}
 
 
 async def run_daemon(

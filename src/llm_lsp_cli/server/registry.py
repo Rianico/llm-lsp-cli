@@ -93,6 +93,7 @@ class ServerRegistry:
     ) -> WorkspaceManager:
         """Get existing workspace or create new one."""
         import logging
+
         logger = logging.getLogger("llm_lsp_cli.server.registry")
 
         workspace_key = str(Path(workspace_path).resolve())

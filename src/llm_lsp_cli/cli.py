@@ -31,6 +31,128 @@ class CLIError(Exception):
     pass
 
 
+def _format_location_range(range_obj: dict[str, Any]) -> str:
+    """Format a location range from LSP response.
+
+    Args:
+        range_obj: LSP range object with start/end positions
+
+    Returns:
+        Formatted range string "start_line:start_char-end_line:end_char"
+    """
+    start = range_obj.get("start", {})
+    end = range_obj.get("end", {})
+    start_line = start.get("line", 0) + 1
+    start_char = start.get("character", 0) + 1
+    end_line = end.get("line", 0) + 1
+    end_char = end.get("character", 0) + 1
+    return f"{start_line}:{start_char}-{end_line}:{end_char}"
+
+
+def _format_locations_text(locations: list[dict[str, Any]]) -> None:
+    """Format and print location list in text format.
+
+    Args:
+        locations: List of LSP location objects
+    """
+    if locations:
+        for loc in locations:
+            uri = loc.get("uri", "")
+            range_obj = loc.get("range", {})
+            range_str = _format_location_range(range_obj)
+            typer.echo(f"{uri}:{range_str}")
+    else:
+        typer.echo("No locations found.")
+
+
+def _format_completions_text(items: list[dict[str, Any]]) -> None:
+    """Format and print completion items in text format.
+
+    Args:
+        items: List of LSP completion items
+    """
+    if items:
+        for item in items:
+            label = item.get("label", "")
+            detail = item.get("detail", "")
+            range_info = ""
+            text_edit = item.get("textEdit", {})
+            if text_edit and isinstance(text_edit, dict):
+                range_obj = text_edit.get("range", {})
+                if range_obj:
+                    range_info = f" [{_format_location_range(range_obj)}]"
+
+            if detail:
+                typer.echo(f"{label} - {detail}{range_info}")
+            else:
+                typer.echo(f"{label}{range_info}")
+    else:
+        typer.echo("No completions found.")
+
+
+def _format_hover_text(hover: dict[str, Any] | None) -> None:
+    """Format and print hover information in text format.
+
+    Args:
+        hover: LSP hover response object
+    """
+    if hover:
+        contents = hover.get("contents", {})
+        value = contents.get("value", "") if isinstance(contents, dict) else str(contents)
+        range_obj = hover.get("range", {})
+        if range_obj:
+            range_str = _format_location_range(range_obj)
+            typer.echo(f"[{range_str}] {value}")
+        else:
+            typer.echo(value)
+    else:
+        typer.echo("No hover information available.")
+
+
+def _format_symbols_text(symbols: list[dict[str, Any]], include_location: bool = True) -> None:
+    """Format and print symbol list in text format.
+
+    Args:
+        symbols: List of LSP symbol objects
+        include_location: Whether to include location info in output
+    """
+    if symbols:
+        for sym in symbols:
+            name = sym.get("name", "")
+            kind = sym.get("kind", 0)
+            kind_name = get_symbol_kind_name(kind)
+            if include_location:
+                range_obj = sym.get("range", {})
+                range_str = _format_location_range(range_obj)
+                typer.echo(f"{name} ({kind_name}) at {range_str}")
+            else:
+                typer.echo(f"{name} ({kind_name})")
+    else:
+        typer.echo("No symbols found.")
+
+
+def _format_workspace_symbols_text(symbols: list[dict[str, Any]]) -> None:
+    """Format and print workspace symbol list in text format.
+
+    Args:
+        symbols: List of LSP workspace symbol objects
+    """
+    if symbols:
+        for sym in symbols:
+            name = sym.get("name", "")
+            kind = sym.get("kind", 0)
+            kind_name = get_symbol_kind_name(kind)
+            location = sym.get("location", {})
+            uri = location.get("uri", "")
+            range_info = ""
+            range_obj = location.get("range", {})
+            if range_obj:
+                range_info = f" [{_format_location_range(range_obj)}]"
+            typer.echo(f"{name} ({kind_name}) in {uri}{range_info}")
+    else:
+        typer.echo("No symbols found.")
+
+
 def _resolve_language(workspace: str | None, language: str | None) -> tuple[str, str]:
     """Resolve workspace path and language, returning (workspace_path, language).
 
@@ -200,8 +322,6 @@ def start(
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
-    port: int = typer.Option(8765, "--port", "-p", help="Port to bind to"),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
 ) -> None:
@@ -354,19 +474,7 @@ def definition(
 
         def text_format(resp: Any) -> None:
             locations = resp.get("locations", [])
-            if locations:
-                for loc in locations:
-                    uri = loc.get("uri", "")
-                    range_obj = loc.get("range", {})
-                    start = range_obj.get("start", {})
-                    end = range_obj.get("end", {})
-                    start_line = start.get("line", 0) + 1
-                    start_char = start.get("character", 0) + 1
-                    end_line = end.get("line", 0) + 1
-                    end_char = end.get("character", 0) + 1
-                    typer.echo(f"{uri}:{start_line}:{start_char}-{end_line}:{end_char}")
-            else:
-                typer.echo("No definition found.")
+            _format_locations_text(locations)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:
@@ -418,19 +526,7 @@ def references(
 
         def text_format(resp: Any) -> None:
             locations = resp.get("locations", [])
-            if locations:
-                for loc in locations:
-                    uri = loc.get("uri", "")
-                    range_obj = loc.get("range", {})
-                    start = range_obj.get("start", {})
-                    end = range_obj.get("end", {})
-                    start_line = start.get("line", 0) + 1
-                    start_char = start.get("character", 0) + 1
-                    end_line = end.get("line", 0) + 1
-                    end_char = end.get("character", 0) + 1
-                    typer.echo(f"{uri}:{start_line}:{start_char}-{end_line}:{end_char}")
-            else:
-                typer.echo("No references found.")
+            _format_locations_text(locations)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:
@@ -482,30 +578,7 @@ def completion(
 
         def text_format(resp: Any) -> None:
             items = resp.get("items", [])
-            if items:
-                for item in items:
-                    label = item.get("label", "")
-                    detail = item.get("detail", "")
-                    # Include range info from textEdit if available
-                    range_info = ""
-                    text_edit = item.get("textEdit", {})
-                    if text_edit and isinstance(text_edit, dict):
-                        range_obj = text_edit.get("range", {})
-                        if range_obj:
-                            start = range_obj.get("start", {})
-                            end = range_obj.get("end", {})
-                            start_line = start.get("line", 0) + 1
-                            start_char = start.get("character", 0) + 1
-                            end_line = end.get("line", 0) + 1
-                            end_char = end.get("character", 0) + 1
-                            range_info = f" [{start_line}:{start_char}-{end_line}:{end_char}]"
-
-                    if detail:
-                        typer.echo(f"{label} - {detail}{range_info}")
-                    else:
-                        typer.echo(f"{label}{range_info}")
-            else:
-                typer.echo("No completions found.")
+            _format_completions_text(items)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:
@@ -557,23 +630,7 @@ def hover(
 
         def text_format(resp: Any) -> None:
             hover = resp.get("hover")
-            if hover:
-                contents = hover.get("contents", {})
-                value = contents.get("value", "") if isinstance(contents, dict) else str(contents)
-                # Include range info if available
-                range_obj = hover.get("range", {})
-                if range_obj:
-                    start = range_obj.get("start", {})
-                    end = range_obj.get("end", {})
-                    start_line = start.get("line", 0) + 1
-                    start_char = start.get("character", 0) + 1
-                    end_line = end.get("line", 0) + 1
-                    end_char = end.get("character", 0) + 1
-                    typer.echo(f"[{start_line}:{start_char}-{end_line}:{end_char}] {value}")
-                else:
-                    typer.echo(value)
-            else:
-                typer.echo("No hover information available.")
+            _format_hover_text(hover)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:
@@ -617,23 +674,7 @@ def document_symbol(
 
         def text_format(resp: Any) -> None:
             symbols = resp.get("symbols", [])
-            if symbols:
-                for sym in symbols:
-                    name = sym.get("name", "")
-                    kind = sym.get("kind", 0)
-                    kind_name = get_symbol_kind_name(kind)
-                    range_obj = sym.get("range", {})
-                    start = range_obj.get("start", {})
-                    end = range_obj.get("end", {})
-                    start_line = start.get("line", 0) + 1
-                    start_char = start.get("character", 0) + 1
-                    end_line = end.get("line", 0) + 1
-                    end_char = end.get("character", 0) + 1
-                    typer.echo(
-                        f"{name} ({kind_name}) at {start_line}:{start_char}-{end_line}:{end_char}"
-                    )
-            else:
-                typer.echo("No symbols found.")
+            _format_symbols_text(symbols)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:
@@ -676,27 +717,7 @@ def workspace_symbol(
 
         def text_format(resp: Any) -> None:
             symbols = resp.get("symbols", [])
-            if symbols:
-                for sym in symbols:
-                    name = sym.get("name", "")
-                    kind = sym.get("kind", 0)
-                    kind_name = get_symbol_kind_name(kind)
-                    location = sym.get("location", {})
-                    uri = location.get("uri", "")
-                    # Include range info from location if available
-                    range_info = ""
-                    range_obj = location.get("range", {})
-                    if range_obj:
-                        start = range_obj.get("start", {})
-                        end = range_obj.get("end", {})
-                        start_line = start.get("line", 0) + 1
-                        start_char = start.get("character", 0) + 1
-                        end_line = end.get("line", 0) + 1
-                        end_char = end.get("character", 0) + 1
-                        range_info = f" [{start_line}:{start_char}-{end_line}:{end_char}]"
-                    typer.echo(f"{name} ({kind_name}) in {uri}{range_info}")
-            else:
-                typer.echo(f"No symbols found for query: {query}")
+            _format_workspace_symbols_text(symbols)
 
         _output_result(response, output_format, text_format)
     except CLIError as e:

@@ -5,23 +5,27 @@ from typing import Any, TypedDict
 
 class Position(TypedDict):
     """Position in a text document."""
+
     line: int
     character: int
 
 
 class Range(TypedDict):
     """Range in a text document."""
+
     start: Position
     end: Position
 
 
 class TextDocumentIdentifier(TypedDict):
     """Identifies a text document."""
+
     uri: str
 
 
 class TextDocumentItem(TypedDict):
     """A text document item."""
+
     uri: str
     languageId: str
     version: int
@@ -30,18 +34,21 @@ class TextDocumentItem(TypedDict):
 
 class VersionedTextDocumentIdentifier(TypedDict):
     """A text document identifier with version."""
+
     uri: str
     version: int
 
 
 class Location(TypedDict):
     """A location in a text document."""
+
     uri: str
     range: Range
 
 
 class LocationLink(TypedDict, total=False):
     """A link between two locations."""
+
     originSelectionRange: Range
     targetUri: str
     targetRange: Range
@@ -50,30 +57,35 @@ class LocationLink(TypedDict, total=False):
 
 class MarkupContent(TypedDict):
     """Markup content for hover, signature help, etc."""
+
     kind: str  # "plaintext" or "markdown"
     value: str
 
 
 class MarkedString(TypedDict, total=False):
     """Marked string for hover."""
+
     language: str
     value: str
 
 
 class Hover(TypedDict):
     """Hover information."""
+
     contents: MarkupContent | MarkedString | list[MarkedString]
     range: Range | None
 
 
 class CompletionContext(TypedDict, total=False):
     """Context for completion request."""
+
     triggerKind: int  # CompletionTriggerKind
     triggerCharacter: str
 
 
 class CompletionItem(TypedDict, total=False):
     """A completion item."""
+
     label: str
     kind: int  # CompletionItemKind
     detail: str
@@ -84,24 +96,28 @@ class CompletionItem(TypedDict, total=False):
 
 class CompletionList(TypedDict):
     """A list of completion items."""
+
     isIncomplete: bool
     items: list[CompletionItem]
 
 
 class TextEdit(TypedDict):
     """A text edit."""
+
     range: Range
     newText: str
 
 
 class SymbolKind(TypedDict, total=False):
     """Symbol kind."""
+
     value: int
     valueSet: list[int]
 
 
 class BaseSymbolInformation(TypedDict):
     """Base symbol information."""
+
     name: str
     kind: int
     tags: list[int] | None
@@ -109,6 +125,7 @@ class BaseSymbolInformation(TypedDict):
 
 class SymbolInformation(BaseSymbolInformation, total=False):
     """Symbol information."""
+
     deprecated: bool
     location: Location
     containerName: str
@@ -116,6 +133,7 @@ class SymbolInformation(BaseSymbolInformation, total=False):
 
 class DocumentSymbol(TypedDict, total=False):
     """Document symbol information."""
+
     name: str
     detail: str
     kind: int
@@ -128,6 +146,7 @@ class DocumentSymbol(TypedDict, total=False):
 
 class UnifiedSymbolInformation(TypedDict, total=False):
     """Unified symbol information (combines both types)."""
+
     name: str
     detail: str
     kind: int
@@ -142,11 +161,13 @@ class UnifiedSymbolInformation(TypedDict, total=False):
 
 class WorkspaceSymbolParams(TypedDict):
     """Parameters for workspace/symbol request."""
+
     query: str
 
 
 class InitializeParams(TypedDict, total=False):
     """Parameters for initialize request."""
+
     processId: int | None
     clientInfo: dict[str, Any]
     locale: str
@@ -160,12 +181,14 @@ class InitializeParams(TypedDict, total=False):
 
 class WorkspaceFolder(TypedDict):
     """A workspace folder."""
+
     uri: str
     name: str
 
 
 class ClientCapabilities(TypedDict, total=False):
     """Client capabilities."""
+
     workspace: dict[str, Any]
     textDocument: "TextDocumentClientCapabilities"
     window: dict[str, Any]
@@ -175,6 +198,7 @@ class ClientCapabilities(TypedDict, total=False):
 
 class TextDocumentClientCapabilities(TypedDict, total=False):
     """Text document client capabilities."""
+
     synchronization: dict[str, Any]
     completion: dict[str, Any]
     hover: dict[str, Any]
@@ -198,6 +222,7 @@ class TextDocumentClientCapabilities(TypedDict, total=False):
 
 class ServerCapabilities(TypedDict, total=False):
     """Server capabilities."""
+
     positionEncoding: str
     textDocumentSync: dict[str, Any] | int
     notebookDocumentSync: dict[str, Any]
@@ -237,12 +262,14 @@ class ServerCapabilities(TypedDict, total=False):
 
 class InitializeResult(TypedDict, total=False):
     """Result of initialize request."""
+
     capabilities: ServerCapabilities
     serverInfo: dict[str, Any]
 
 
 class Diagnostic(TypedDict, total=False):
     """A diagnostic message."""
+
     range: Range
     severity: int
     code: int | str
@@ -256,6 +283,7 @@ class Diagnostic(TypedDict, total=False):
 
 class PublishDiagnosticsParams(TypedDict):
     """Parameters for textDocument/publishDiagnostics notification."""
+
     uri: str
     version: int | None
     diagnostics: list[Diagnostic]

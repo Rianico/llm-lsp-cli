@@ -71,6 +71,7 @@ class StdioTransport:
     def _merge_env(self) -> dict[str, str]:
         """Merge environment variables."""
         import os
+
         env = os.environ.copy()
         if self.env:
             env.update(self.env)
@@ -208,14 +209,16 @@ class StdioTransport:
         if request_id is not None:
             method = data.get("method", "unknown")
             # Send error response inline
-            await self._send_payload({
-                "jsonrpc": LSPConstants.JSONRPC_VERSION,
-                "id": request_id,
-                "error": {
-                    "code": LSPConstants.ERROR_METHOD_NOT_FOUND,
-                    "message": f"Method not implemented: {method}",
-                },
-            })
+            await self._send_payload(
+                {
+                    "jsonrpc": LSPConstants.JSONRPC_VERSION,
+                    "id": request_id,
+                    "error": {
+                        "code": LSPConstants.ERROR_METHOD_NOT_FOUND,
+                        "message": f"Method not implemented: {method}",
+                    },
+                }
+            )
 
     async def _handle_notification(self, data: dict[str, Any]) -> None:
         """Handle a notification from the server."""
@@ -255,12 +258,14 @@ class StdioTransport:
         future = loop.create_future()
         self._pending[request_id] = future
 
-        await self._send_payload({
-            "jsonrpc": LSPConstants.JSONRPC_VERSION,
-            "id": request_id,
-            "method": method,
-            "params": params or {},
-        })
+        await self._send_payload(
+            {
+                "jsonrpc": LSPConstants.JSONRPC_VERSION,
+                "id": request_id,
+                "method": method,
+                "params": params or {},
+            }
+        )
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
@@ -272,11 +277,13 @@ class StdioTransport:
         """Send a notification (no response expected)."""
         assert self._process is not None, "Transport not started"
 
-        await self._send_payload({
-            "jsonrpc": LSPConstants.JSONRPC_VERSION,
-            "method": method,
-            "params": params or {},
-        })
+        await self._send_payload(
+            {
+                "jsonrpc": LSPConstants.JSONRPC_VERSION,
+                "method": method,
+                "params": params or {},
+            }
+        )
 
     async def _send_payload(self, payload: dict[str, Any]) -> None:
         """Send a JSON-RPC payload."""
