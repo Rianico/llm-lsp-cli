@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-from typing import Any
-
 # These imports will fail initially - that's expected in RED phase
 # from llm_lsp_cli.test_filter import (
 #     _is_test_path,

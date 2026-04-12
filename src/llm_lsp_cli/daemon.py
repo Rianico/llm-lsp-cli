@@ -5,6 +5,7 @@ import logging
 import os
 import signal
 import time
+from pathlib import Path
 from typing import Any
 
 from daemon import DaemonContext  # type: ignore[import-untyped]
@@ -25,6 +26,47 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("llm-lsp-cli.daemon")
+
+
+def cleanup_runtime_files(
+    socket_path: Path,
+    pid_file: Path,
+    workspace: str,
+    language: str,
+) -> None:
+    """Clean up daemon runtime files (socket and PID).
+
+    Args:
+        socket_path: Path to the UNIX socket file
+        pid_file: Path to the PID lock file
+        workspace: Workspace name for logging
+        language: Language name for logging
+
+    This function is idempotent - safe to call multiple times.
+    """
+    logger.info(f"[CLEANUP] Cleaning runtime files: workspace={workspace}, language={language}")
+
+    # Remove socket file
+    if socket_path.exists():
+        try:
+            socket_path.unlink()
+            logger.debug(f"[CLEANUP] Removed socket: {socket_path}")
+        except OSError as e:
+            logger.error(f"[CLEANUP] Failed to remove socket: {e}")
+    else:
+        logger.debug("[CLEANUP] Socket already absent")
+
+    # Remove PID file
+    if pid_file.exists():
+        try:
+            pid_file.unlink()
+            logger.debug(f"[CLEANUP] Removed PID file: {pid_file}")
+        except OSError as e:
+            logger.error(f"[CLEANUP] Failed to remove PID file: {e}")
+    else:
+        logger.debug("[CLEANUP] PID file already absent")
+
+    logger.info("[CLEANUP] Cleanup complete")
 
 
 class DaemonManager:
@@ -131,6 +173,7 @@ class DaemonManager:
                     self.language,
                     self.lsp_conf,
                     self.debug,
+                    pid_file=self.pid_file,
                 )
             )
 
@@ -282,8 +325,18 @@ async def run_daemon(
     language: str = "python",
     lsp_conf: str | None = None,
     debug: bool = False,
+    pid_file: Path | None = None,
 ) -> None:
-    """Run the daemon main loop."""
+    """Run the daemon main loop.
+
+    Args:
+        socket_path: Path to UNIX socket
+        workspace_path: Workspace directory path
+        language: Language identifier
+        lsp_conf: Optional LSP configuration
+        debug: Enable debug logging
+        pid_file: Path to PID file for cleanup
+    """
     # Enable debug logging if requested
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)  # Root logger
@@ -306,8 +359,11 @@ async def run_daemon(
         logger.info("Received shutdown signal")
         shutdown_event.set()
 
-    for sig in (signal.SIGTERM, signal.SIGINT):
+    # Register handlers for SIGTERM, SIGINT, and SIGQUIT
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGQUIT):
         loop.add_signal_handler(sig, signal_handler)
+
+    logger.info("Registered signal handlers for SIGTERM, SIGINT, SIGQUIT")
 
     try:
         await server.start()
@@ -315,6 +371,10 @@ async def run_daemon(
 
         # Wait for shutdown signal
         await shutdown_event.wait()
+
+    except asyncio.CancelledError:
+        logger.info("[ASYNC] Daemon task cancelled")
+        raise
 
     except Exception as e:
         logger.exception(f"Daemon error: {e}")
@@ -324,6 +384,30 @@ async def run_daemon(
         logger.info("Shutting down daemon...")
         await server.stop()
         logger.info("Daemon stopped")
+
+        # Clean up runtime files
+        if pid_file is not None:
+            cleanup_runtime_files(
+                socket_path=Path(socket_path),
+                pid_file=pid_file,
+                workspace=Path(workspace_path).name,
+                language=language,
+            )
+        else:
+            # Fallback: construct paths from workspace
+            from llm_lsp_cli.config import ConfigManager
+
+            socket_p = Path(socket_path)
+            pid_p = ConfigManager.build_pid_file_path(
+                workspace_path=workspace_path,
+                language=language,
+            )
+            cleanup_runtime_files(
+                socket_path=socket_p,
+                pid_file=pid_p,
+                workspace=Path(workspace_path).name,
+                language=language,
+            )
 
 
 if __name__ == "__main__":

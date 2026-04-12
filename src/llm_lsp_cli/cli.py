@@ -13,6 +13,7 @@ import typer
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
+from llm_lsp_cli.output.formatter import CompactFormatter
 from llm_lsp_cli.test_filter import _filter_test_locations, _filter_test_symbols
 from llm_lsp_cli.utils import (
     OutputFormat,
@@ -731,6 +732,11 @@ def references(
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Output in legacy verbose format (one location per line, full columns)",
+    ),
 ) -> None:
     """Get references to symbol at position.
 
@@ -743,30 +749,48 @@ def references(
     line_index = context.line - 1 if context.line else 0
     column_index = context.column - 1 if context.column else 0
 
-    def text_format(resp: Any) -> None:
-        locations = resp.get("locations", [])
-        _format_locations_text(locations)
+    try:
+        response = _send_request(
+            "textDocument/references",
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
 
-    def csv_format(resp: Any) -> str:
-        locations = resp.get("locations", [])
-        return format_locations_csv(locations)
+        locations = response.get("locations", [])
+        filtered = _filter_test_locations(locations, include_tests=include_tests)
 
-    _execute_lsp_command(
-        method="textDocument/references",
-        params={
-            "workspacePath": context.workspace_path,
-            "filePath": str(context.file_path),
-            "line": line_index,
-            "column": column_index,
-        },
-        language=context.language,
-        text_formatter=text_format,
-        csv_formatter=csv_format,
-        output_format=context.output_format,
-        filter_tests=True,
-        test_filter_fn=_filter_test_locations,
-        include_tests=include_tests,
-    )
+        if raw:
+            # Legacy verbose format
+            if context.output_format == OutputFormat.TEXT:
+                _format_locations_text(filtered)
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(format_output(filtered, OutputFormat.YAML), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(format_locations_csv(filtered), nl=False)
+            else:  # JSON (default)
+                typer.echo(format_output(filtered, OutputFormat.JSON))
+        else:
+            # Compact format (default)
+            formatter = CompactFormatter(context.workspace_path)
+            records = formatter.transform_locations(filtered)
+
+            if context.output_format == OutputFormat.TEXT:
+                typer.echo(formatter.locations_to_text(records))
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(formatter.locations_to_yaml(records), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(formatter.locations_to_csv(records), nl=False)
+            else:  # JSON (default)
+                typer.echo(formatter.locations_to_json(records))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -881,29 +905,54 @@ def document_symbol(
         "-o",
         help="Output format (overrides global)",
     ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Output in legacy verbose format (one symbol per line, full columns)",
+    ),
 ) -> None:
     """Get document symbols."""
     context = _build_request_context(ctx, workspace, language, output_format, file)
 
-    def text_format(resp: Any) -> None:
-        symbols = resp.get("symbols", [])
-        _format_symbols_text(symbols)
+    try:
+        response = _send_request(
+            "textDocument/documentSymbol",
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+            },
+            language=context.language,
+        )
 
-    def csv_format(resp: Any) -> str:
-        symbols = resp.get("symbols", [])
-        return format_document_symbols_csv(symbols)
+        symbols = response.get("symbols", [])
 
-    _execute_lsp_command(
-        method="textDocument/documentSymbol",
-        params={
-            "workspacePath": context.workspace_path,
-            "filePath": str(context.file_path),
-        },
-        language=context.language,
-        text_formatter=text_format,
-        csv_formatter=csv_format,
-        output_format=context.output_format,
-    )
+        if raw:
+            # Legacy verbose format
+            if context.output_format == OutputFormat.TEXT:
+                _format_symbols_text(symbols)
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(format_output(symbols, OutputFormat.YAML), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(format_document_symbols_csv(symbols), nl=False)
+            else:  # JSON (default)
+                typer.echo(format_output(symbols, OutputFormat.JSON))
+        else:
+            # Compact format (default)
+            formatter = CompactFormatter(context.workspace_path)
+            records = formatter.transform_symbols(symbols)
+
+            if context.output_format == OutputFormat.TEXT:
+                typer.echo(formatter.symbols_to_text(records))
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(formatter.symbols_to_yaml(records), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(formatter.symbols_to_csv(records), nl=False)
+            else:  # JSON (default)
+                typer.echo(formatter.symbols_to_json(records))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -927,6 +976,11 @@ def workspace_symbol(
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Output in legacy verbose format (one symbol per line, full columns)",
+    ),
 ) -> None:
     """Search workspace symbols.
 
@@ -940,29 +994,43 @@ def workspace_symbol(
     workspace_path = effective_workspace or str(Path.cwd())
     language_value = effective_language or "python"
 
-    def text_format(resp: Any) -> None:
-        symbols = resp.get("symbols", [])
+    try:
+        response = _send_request(
+            "workspace/symbol",
+            {"workspacePath": workspace_path, "query": query},
+            language=language_value,
+        )
+
+        symbols = response.get("symbols", [])
         filtered = _filter_test_symbols(symbols, include_tests=include_tests)
-        _format_workspace_symbols_text(filtered)
 
-    def csv_format(resp: Any) -> str:
-        symbols = resp.get("symbols", [])
-        return format_workspace_symbols_csv(symbols)
+        if raw:
+            # Legacy verbose format
+            if effective_format == OutputFormat.TEXT:
+                _format_workspace_symbols_text(filtered)
+            elif effective_format == OutputFormat.YAML:
+                typer.echo(format_output(filtered, OutputFormat.YAML), nl=False)
+            elif effective_format == OutputFormat.CSV:
+                typer.echo(format_workspace_symbols_csv(filtered), nl=False)
+            else:  # JSON (default)
+                typer.echo(format_output(filtered, OutputFormat.JSON))
+        else:
+            # Compact format (default)
+            formatter = CompactFormatter(workspace_path)
+            records = formatter.transform_symbols(filtered)
 
-    _execute_lsp_command(
-        method="workspace/symbol",
-        params={
-            "workspacePath": workspace_path,
-            "query": query,
-        },
-        language=language_value,
-        text_formatter=text_format,
-        csv_formatter=csv_format,
-        output_format=effective_format,
-        filter_tests=True,
-        test_filter_fn=_filter_test_symbols,
-        include_tests=include_tests,
-    )
+            if effective_format == OutputFormat.TEXT:
+                typer.echo(formatter.symbols_to_text(records))
+            elif effective_format == OutputFormat.YAML:
+                typer.echo(formatter.symbols_to_yaml(records), nl=False)
+            elif effective_format == OutputFormat.CSV:
+                typer.echo(formatter.symbols_to_csv(records), nl=False)
+            else:  # JSON (default)
+                typer.echo(formatter.symbols_to_json(records))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 # Configuration Commands

@@ -16,6 +16,40 @@ class LanguageServerConfig(BaseModel):
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 
+class LanguageTestFilterConfig(BaseModel):
+    """Test filter configuration for a single language."""
+
+    model_config = ConfigDict(extra="allow")
+
+    directory_patterns: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns for test directories",
+    )
+    suffix_patterns: list[str] = Field(
+        default_factory=list,
+        description="File suffix patterns",
+    )
+    prefix_patterns: list[str] = Field(
+        default_factory=list,
+        description="File prefix patterns",
+    )
+    include_patterns: list[str] = Field(
+        default_factory=list,
+        description="Negation patterns (explicitly include/exclude)",
+    )
+    enabled: bool = Field(default=True)
+
+
+class TestFilterConfig(BaseModel):
+    """Root test filter configuration with language-segmented groups."""
+
+    model_config = ConfigDict(extra="allow")
+
+    defaults: LanguageTestFilterConfig = Field(default_factory=LanguageTestFilterConfig)
+    languages: dict[str, LanguageTestFilterConfig] = Field(default_factory=dict)
+    fallback: LanguageTestFilterConfig | None = None
+
+
 class ClientConfig(BaseModel):
     """Main client configuration."""
 
@@ -37,6 +71,9 @@ class ClientConfig(BaseModel):
     languages: dict[str, LanguageServerConfig] = Field(
         default_factory=dict, description="Language-specific server configurations"
     )
+
+    # Test filter configuration
+    test_filter: TestFilterConfig = Field(default_factory=TestFilterConfig)
 
     # Global settings
     trace_lsp: bool = Field(default=False, description="Enable LSP communication tracing")

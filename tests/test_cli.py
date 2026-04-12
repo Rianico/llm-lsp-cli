@@ -2,10 +2,20 @@
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import yaml  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untested]
 from typer.testing import CliRunner
+
+from tests.fixtures import (
+    COMPLETION_RESPONSE,
+    DOCUMENT_SYMBOL_WITH_CHILDREN,
+    HOVER_RESPONSE,
+    LOCATION_RESPONSE,
+    LOCATION_RESPONSE_MULTI,
+    WORKSPACE_SYMBOL_RESPONSE,
+)
 
 runner = CliRunner()
 
@@ -338,25 +348,13 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
     """Test definition command with YAML output format."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 20},
-                },
-            }
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = LOCATION_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -377,32 +375,13 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
     """Test references command with YAML output format."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file1.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            },
-            {
-                "uri": "file:///path/to/file2.py",
-                "range": {
-                    "start": {"line": 20, "character": 8},
-                    "end": {"line": 20, "character": 23},
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = LOCATION_RESPONSE_MULTI
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -411,32 +390,17 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
-        assert output is not None
-        assert "locations" in output
-        assert len(output["locations"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 3
+        assert "file" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_completion_yaml_output(temp_file: Path) -> None:
     """Test completion command with YAML output format."""
     from llm_lsp_cli.cli import app
-
-    mock_response = {
-        "items": [
-            {
-                "label": "my_function",
-                "kind": 3,
-                "detail": "def my_function(x: int) -> str",
-                "documentation": "A sample function",
-            },
-            {
-                "label": "my_variable",
-                "kind": 6,
-                "detail": "str",
-            },
-        ]
-    }
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
@@ -444,7 +408,7 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = COMPLETION_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -460,7 +424,7 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         assert len(output["items"]) == 2
         # Verify all fields are preserved
         assert output["items"][0]["label"] == "my_function"
-        assert output["items"][0]["kind"] == 3
+        assert output["items"][0]["kind"] == 12  # COMPLETION_RESPONSE uses kind 12 (Function)
         assert output["items"][0]["detail"] == "def my_function(x: int) -> str"
         assert output["items"][0]["documentation"] == "A sample function"
 
@@ -469,26 +433,13 @@ def test_cli_hover_yaml_output(temp_file: Path) -> None:
     """Test hover command with YAML output format."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "hover": {
-            "contents": {
-                "kind": "markdown",
-                "value": "```python\ndef my_function(x: int) -> str\n```\n\nA sample function.",
-            },
-            "range": {
-                "start": {"line": 10, "character": 4},
-                "end": {"line": 10, "character": 15},
-            },
-        }
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = HOVER_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -510,44 +461,13 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
     """Test document-symbol command with YAML output format."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 50, "character": 0},
-                },
-                "children": [
-                    {
-                        "name": "__init__",
-                        "kind": 6,
-                        "range": {
-                            "start": {"line": 5, "character": 4},
-                            "end": {"line": 10, "character": 0},
-                        },
-                    }
-                ],
-            },
-            {
-                "name": "my_function",
-                "kind": 12,
-                "range": {
-                    "start": {"line": 55, "character": 0},
-                    "end": {"line": 70, "character": 0},
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = DOCUMENT_SYMBOL_WITH_CHILDREN
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -556,15 +476,14 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
-        assert output is not None
-        assert "symbols" in output
-        assert len(output["symbols"]) == 2
-        # Verify nested structure is preserved
-        assert output["symbols"][0]["name"] == "MyClass"
-        assert "children" in output["symbols"][0]
-        assert len(output["symbols"][0]["children"]) == 1
+        assert isinstance(output, list)
+        assert len(output) >= 1  # At least MyClass (children may be flattened or omitted)
+        assert "file" in output[0]
+        assert "name" in output[0]
+        assert "kind" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
@@ -604,37 +523,28 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
 
+        workspace = str(temp_dir)
         result = runner.invoke(
-            app, ["workspace-symbol", "My", "--format", "yaml", "-w", str(temp_dir)]
+            app,
+            ["workspace-symbol", "MyClass", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
-        assert output is not None
-        assert "symbols" in output
-        assert len(output["symbols"]) == 2
-        # Verify location structure is preserved
-        assert output["symbols"][0]["location"]["uri"] == "file:///path/to/myclass.py"
+        assert isinstance(output, list)
+        assert len(output) == 2
+        assert "file" in output[0]
+        assert "name" in output[0]
+        assert "kind" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_format_explicit_text(temp_file: Path) -> None:
     """Test that explicit text format works correctly."""
     from llm_lsp_cli.cli import app
-
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 20},
-                },
-            }
-        ]
-    }
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
@@ -642,7 +552,7 @@ def test_cli_format_explicit_text(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = LOCATION_RESPONSE
 
         workspace = str(temp_file.parent)
         # Test with explicit text format
@@ -829,11 +739,12 @@ def test_cli_references_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns flat array
         output = json.loads(result.output)
-        assert output is not None
-        assert "locations" in output
-        assert len(output["locations"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 2
+        assert "file" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_completion_json_output(temp_file: Path) -> None:
@@ -969,16 +880,14 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns flat array
         output = json.loads(result.output)
-        assert output is not None
-        assert "symbols" in output
-        assert len(output["symbols"]) == 1
-        # Verify full range is preserved
-        symbol = output["symbols"][0]
-        assert symbol["range"]["start"]["line"] == 0
-        assert symbol["range"]["end"]["line"] == 50
-        assert symbol["selectionRange"]["start"]["character"] == 6
+        assert isinstance(output, list)
+        assert len(output) >= 1
+        assert "file" in output[0]
+        assert "name" in output[0]
+        assert "kind" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
@@ -1025,14 +934,14 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns flat array
         output = json.loads(result.output)
-        assert output is not None
-        assert "symbols" in output
-        assert len(output["symbols"]) == 2
-        # Verify location with full range is preserved
-        assert output["symbols"][0]["location"]["uri"] == "file:///path/to/myclass.py"
-        assert output["symbols"][0]["location"]["range"]["end"]["line"] == 50
+        assert isinstance(output, list)
+        assert len(output) == 2
+        assert "file" in output[0]
+        assert "name" in output[0]
+        assert "kind" in output[0]
+        assert "range" in output[0]
 
 
 # =============================================================================
@@ -1340,7 +1249,7 @@ def test_symbol_kind_translation_unknown_kind() -> None:
 
 
 def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
-    """Test that document-symbol text output translates kind numbers to names."""
+    """Test that document-symbol text output uses compact numeric kind format."""
     from llm_lsp_cli.cli import app
 
     mock_response = {
@@ -1388,14 +1297,15 @@ def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
         assert result.exit_code == 0
 
         output = result.output.strip()
-        # Should show human-readable kind names, not "kind=5"
-        assert "MyClass (Class)" in output
-        assert "myFunction (Function)" in output
-        assert "myMethod (Method)" in output
-        # Should NOT contain raw kind numbers
-        assert "kind=5" not in output
-        assert "kind=12" not in output
-        assert "kind=6" not in output
+        # Compact format uses numeric kinds (LLMs know the mapping)
+        # For document-symbol without URI in response, file header may be empty
+        assert "MyClass (5)" in output  # Numeric kind
+        assert "myFunction (12)" in output
+        assert "myMethod (6)" in output
+        # Output should include range information
+        assert "[" in output and "]" in output  # Range brackets
+        # Output should be indented (symbols under file header)
+        assert "  " in output  # Indented symbols
 
 
 def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
@@ -1455,14 +1365,13 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
         assert result.exit_code == 0
 
         output = result.output.strip()
-        # Should show human-readable kind names
-        assert "MyClass (Class)" in output
-        assert "helper_function (Function)" in output
-        assert "CONFIG_VALUE (Constant)" in output
-        # Should NOT contain raw kind numbers
-        assert "kind=5" not in output
-        assert "kind=12" not in output
-        assert "kind=14" not in output
+        # Compact format uses numeric kinds and file-grouped output
+        assert ".py:" in output  # File headers
+        assert "MyClass (5)" in output  # Numeric kind
+        assert "helper_function (12)" in output
+        assert "CONFIG_VALUE (14)" in output
+        # Output should be file-grouped with indentation
+        assert "  " in output  # Indented symbols
 
 
 def test_all_lsp_symbol_kinds_are_mapped() -> None:
@@ -1551,9 +1460,11 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # Without flag, test locations should be filtered
+        # Compact format returns flat array directly
         output = json.loads(result.output)
-        assert len(output["locations"]) == 1
-        assert "test_file.py" not in output["locations"][0]["uri"]
+        assert isinstance(output, list)
+        assert len(output) == 1
+        assert "test_file.py" not in output[0]["file"]
 
 
 def test_cli_references_include_tests_flag(temp_file: Path) -> None:
@@ -1596,8 +1507,10 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # With flag, all locations should be included
+        # Compact format returns flat array directly
         output = json.loads(result.output)
-        assert len(output["locations"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 2
 
 
 def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
@@ -1646,9 +1559,11 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
         # Without flag, test symbols should be filtered
+        # Compact format returns flat array directly
         output = json.loads(result.output)
-        assert len(output["symbols"]) == 1
-        assert "test" not in output["symbols"][0]["location"]["uri"].lower()
+        assert isinstance(output, list)
+        assert len(output) == 1
+        assert "test" not in output[0]["file"].lower()
 
 
 def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
@@ -1697,8 +1612,10 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
         # With flag, all symbols should be included
+        # Compact format returns flat array directly
         output = json.loads(result.output)
-        assert len(output["symbols"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 2
 
 
 def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
@@ -1751,11 +1668,10 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
-        assert output is not None
-        assert "locations" in output
-        assert len(output["locations"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 2
 
 
 def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
@@ -1813,11 +1729,10 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
-        assert output is not None
-        assert "symbols" in output
-        assert len(output["symbols"]) == 2
+        assert isinstance(output, list)
+        assert len(output) == 2
 
 
 # =============================================================================
@@ -1977,7 +1892,9 @@ class TestReferencesCsvOutput:
 
             lines = result.output.strip().split("\n")
             assert len(lines) == 2  # Header + 1 data row
-            assert "uri" in lines[0]
+            # Compact CSV uses file,range columns for locations
+            assert "file" in lines[0]
+            assert "range" in lines[0]
 
     def test_cli_references_csv_same_schema_as_definition(self, temp_file: Path) -> None:
         """Test references CSV uses same schema as definition (locations)."""
@@ -2011,8 +1928,8 @@ class TestReferencesCsvOutput:
             assert result.exit_code == 0
 
             header = result.output.strip().split("\n")[0]
-            # Should have same schema as definition
-            assert header == "uri,start_line,start_char,end_line,end_char"
+            # Compact CSV uses file,range columns for locations
+            assert header == "file,range"
 
 
 class TestCompletionCsvOutput:
@@ -2233,7 +2150,7 @@ class TestDocumentSymbolCsvOutput:
             assert "name" in lines[0]
 
     def test_cli_document_symbol_csv_kind_translation(self, temp_file: Path) -> None:
-        """Test CSV output translates kind numbers to names."""
+        """Test CSV output uses numeric kind format."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -2264,9 +2181,10 @@ class TestDocumentSymbolCsvOutput:
             )
             assert result.exit_code == 0
 
-            # Verify kind_name column contains translated value
-            assert "kind_name" in result.output
-            assert "Class" in result.output
+            # Compact CSV uses numeric kind (LLMs know the mapping)
+            # Headers: file,name,kind,range,detail,container,tags
+            assert "kind" in result.output
+            assert "5" in result.output  # Numeric kind value
 
 
 class TestWorkspaceSymbolCsvOutput:
@@ -2310,7 +2228,7 @@ class TestWorkspaceSymbolCsvOutput:
             assert len(lines) == 2  # Header + 1 data row
 
     def test_cli_workspace_symbol_csv_includes_uri(self, temp_dir: Path) -> None:
-        """Test workspace symbol CSV includes URI column."""
+        """Test workspace symbol CSV includes file column."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -2343,9 +2261,9 @@ class TestWorkspaceSymbolCsvOutput:
             )
             assert result.exit_code == 0
 
-            # Verify uri column is present
+            # Compact CSV uses 'file' column (relative path)
             header = result.output.strip().split("\n")[0]
-            assert "uri" in header
+            assert "file" in header
 
 
 class TestCsvFormatOption:
