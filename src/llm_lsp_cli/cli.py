@@ -12,9 +12,18 @@ from typing import Any
 import typer
 
 from llm_lsp_cli.config import ConfigManager
-from llm_lsp_cli.ipc import UNIXClient
+from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.test_filter import _filter_test_locations, _filter_test_symbols
-from llm_lsp_cli.utils import OutputFormat, format_output, get_symbol_kind_name
+from llm_lsp_cli.utils import (
+    OutputFormat,
+    format_completions_csv,
+    format_document_symbols_csv,
+    format_hover_csv,
+    format_locations_csv,
+    format_output,
+    format_workspace_symbols_csv,
+    get_symbol_kind_name,
+)
 from llm_lsp_cli.utils.language_detector import (
     detect_language_from_file,
     detect_language_with_fallback,
@@ -30,6 +39,45 @@ class GlobalOptions:
     output_format: OutputFormat = OutputFormat.JSON
 
 
+@dataclass
+class RequestContext:
+    """Context for an LSP command request."""
+
+    workspace_path: str
+    language: str
+    output_format: OutputFormat
+    file_path: Path | None = None
+    line: int | None = None
+    column: int | None = None
+    query: str | None = None
+    include_tests: bool = False
+
+
+def _resolve_effective_options(
+    global_opts: GlobalOptions,
+    workspace: str | None = None,
+    language: str | None = None,
+    output_format: OutputFormat | None = None,
+) -> tuple[str | None, str | None, OutputFormat]:
+    """Resolve effective options from global and local overrides.
+
+    Local options override global options. Uses LSP response type for output_format.
+
+    Args:
+        global_opts: Global options from context
+        workspace: Optional local workspace override
+        language: Optional local language override
+        output_format: Optional local format override
+
+    Returns:
+        Tuple of (effective_workspace, effective_language, effective_format)
+    """
+    effective_workspace = workspace if workspace is not None else global_opts.workspace
+    effective_language = language if language is not None else global_opts.language
+    effective_format = output_format if output_format is not None else global_opts.output_format
+    return effective_workspace, effective_language, effective_format
+
+
 def global_options_callback(
     ctx: typer.Context,
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
@@ -40,7 +88,7 @@ def global_options_callback(
         OutputFormat.JSON,
         "--format",
         "-o",
-        help="Output format (text, yaml, or json)",
+        help="Output format (text, yaml, json, or csv)",
     ),
 ) -> None:
     """Callback to capture global options into context.
@@ -60,12 +108,6 @@ app = typer.Typer(
     add_completion=True,
     callback=global_options_callback,
 )
-
-
-class CLIError(Exception):
-    """Custom exception for CLI errors."""
-
-    pass
 
 
 def _format_location_range(range_obj: dict[str, Any]) -> str:
@@ -247,32 +289,112 @@ def _validate_file_in_workspace(
     return file_path
 
 
-def _ensure_daemon_running(
-    language: str | None = None,
-    workspace: str | None = None,
-) -> None:
-    """Ensure daemon is running before executing commands.
+def _build_request_context(
+    ctx: typer.Context,
+    workspace: str | None,
+    language: str | None,
+    output_format: OutputFormat | None,
+    file: str | None = None,
+    line: int | None = None,
+    column: int | None = None,
+    query: str | None = None,
+    include_tests: bool = False,
+) -> RequestContext:
+    """Build a request context from command arguments.
 
     Args:
-        language: Language identifier (auto-detected from workspace if not provided)
-        workspace: Workspace path (defaults to current directory)
-    """
-    from llm_lsp_cli.daemon import DaemonManager
+        ctx: Typer context
+        workspace: Optional workspace override
+        language: Optional language override
+        output_format: Optional format override
+        file: Optional file path
+        line: Optional line number (1-based)
+        column: Optional column number (1-based)
+        query: Optional search query
+        include_tests: Whether to include test files
 
-    workspace_path = workspace or str(Path.cwd())
-    # Use provided language or default to python for daemon check
-    # The actual language-specific socket is resolved in _send_request
-    manager = DaemonManager(
-        workspace_path=workspace_path,
-        language=language or "python",
+    Returns:
+        RequestContext with resolved values
+    """
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace, effective_language, effective_format = _resolve_effective_options(
+        global_opts, workspace, language, output_format
     )
-    if not manager.is_running():
-        typer.echo(
-            f"Error: Daemon is not running for workspace: {workspace_path}\n"
-            f"Start it with: llm-lsp-cli start -l <language>",
-            err=True,
-        )
-        raise typer.Exit(1)
+
+    # Auto-detect language from file if not provided
+    if effective_language is None and file is not None:
+        effective_language = detect_language_from_file(file)
+
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace) if file else None
+
+    return RequestContext(
+        workspace_path=workspace_path,
+        language=effective_language or "python",
+        output_format=effective_format,
+        file_path=file_path,
+        line=line,
+        column=column,
+        query=query,
+        include_tests=include_tests,
+    )
+
+
+def _execute_lsp_command(
+    method: str,
+    params: dict[str, Any],
+    language: str,
+    text_formatter: Callable[[Any], None],
+    csv_formatter: Callable[[Any], str] | None = None,
+    output_format: OutputFormat = OutputFormat.JSON,
+    filter_tests: bool = False,
+    test_filter_fn: Callable[[list[dict[str, Any]], bool], list[dict[str, Any]]] | None = None,
+    include_tests: bool = False,
+) -> None:
+    """Execute an LSP command and output the result.
+
+    Args:
+        method: LSP method name
+        params: Request parameters
+        language: Language identifier
+        text_formatter: Function to format response for text output
+        csv_formatter: Optional function to format response for CSV output
+        output_format: Output format
+        filter_tests: Whether to filter test files from results
+        test_filter_fn: Function to filter test results (takes list and include_tests flag)
+        include_tests: Whether to include test files
+    """
+    try:
+        response = _send_request(method, params, language=language)
+
+        # Apply test filtering if requested
+        if filter_tests and not include_tests and test_filter_fn is not None:
+            if "locations" in response:
+                locations = response.get("locations", [])
+                response["locations"] = test_filter_fn(locations, False)
+            elif "symbols" in response:
+                symbols = response.get("symbols", [])
+                response["symbols"] = test_filter_fn(symbols, False)
+
+        def text_format_with_filter(resp: Any) -> None:
+            if test_filter_fn is not None and filter_tests:
+                # Re-apply filtering in text formatter for --include-tests flag
+                if "locations" in resp:
+                    locations = resp.get("locations", [])
+                    filtered = test_filter_fn(locations, include_tests)
+                    _format_locations_text(filtered)
+                    return
+                elif "symbols" in resp:
+                    symbols = resp.get("symbols", [])
+                    filtered = test_filter_fn(symbols, include_tests)
+                    _format_workspace_symbols_text(filtered)
+                    return
+            text_formatter(resp)
+
+        _output_result(response, output_format, text_format_with_filter, csv_formatter)
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 def _send_request(
@@ -282,11 +404,21 @@ def _send_request(
 ) -> Any:
     """Send a request to the daemon and return the response.
 
+    Auto-starts daemon if not running. Uses DaemonClient for transparent auto-start.
+
     Args:
         method: LSP method name
         params: Request parameters
         language: Language identifier (auto-detected from filePath if not provided)
+
+    Returns:
+        LSP response
+
+    Raises:
+        CLIError: If request fails or daemon cannot be started
     """
+    from llm_lsp_cli.daemon_client import DaemonClient
+
     workspace_path = params.get("workspacePath", str(Path.cwd()))
 
     # Detect language from file if not provided
@@ -294,23 +426,31 @@ def _send_request(
         file_path = params.get("filePath")
         language = detect_language_from_file(file_path) if file_path else "python"
 
-    socket_path = ConfigManager.build_socket_path(
+    # Use DaemonClient for transparent auto-start
+    client = DaemonClient(
         workspace_path=workspace_path,
         language=language,
     )
 
     async def send() -> Any:
-        client = UNIXClient(str(socket_path))
+        from llm_lsp_cli.exceptions import DaemonCrashedError, DaemonStartupError
+
         try:
             response = await client.request(method, params)
             return response
-        except asyncio.TimeoutError:
+        except DaemonStartupError as e:
             raise CLIError(
-                "Request timed out. The LSP server may be busy or unresponsive."
-            ) from None
+                f"Failed to start daemon: {e}\n"
+                f"Check logs at: {ConfigManager.build_log_file_path(workspace_path, language)}"
+            ) from e
+        except DaemonCrashedError as e:
+            raise CLIError(
+                f"Daemon crashed: {e}\n"
+                f"Check logs at: {ConfigManager.build_log_file_path(workspace_path, language)}"
+            ) from e
         except FileNotFoundError:
             raise CLIError(
-                f"Cannot connect to daemon. Socket not found: {socket_path}\n"
+                "Cannot connect to daemon. Socket not found.\n"
                 "Ensure the daemon is running: llm-lsp-cli status"
             ) from None
         except OSError as e:
@@ -327,20 +467,22 @@ def _output_result(
     response: Any,
     output_format: OutputFormat,
     text_formatter: Callable[[Any], None],
+    csv_formatter: Callable[[Any], str] | None = None,
 ) -> None:
     """Output response in the specified format.
 
     Args:
         response: The LSP response dict
-        output_format: The desired output format (text, yaml, or json)
+        output_format: The desired output format (text, yaml, json, or csv)
         text_formatter: Function to format response for text output
+        csv_formatter: Optional function to format response for CSV output
     """
     if output_format == OutputFormat.YAML:
-        # YAML output already ends with newline from yaml.safe_dump()
         typer.echo(format_output(response, output_format), nl=False)
     elif output_format == OutputFormat.JSON:
-        # JSON output needs a trailing newline
         typer.echo(format_output(response, output_format))
+    elif output_format == OutputFormat.CSV and csv_formatter:
+        typer.echo(csv_formatter(response), nl=False)
     else:
         text_formatter(response)
 
@@ -351,6 +493,45 @@ def version() -> None:
     from llm_lsp_cli import __version__
 
     typer.echo(f"llm-lsp-cli version {__version__}")
+
+
+def _get_lsp_server_name(language: str) -> str:
+    """Get the LSP server name for a language.
+
+    Args:
+        language: Language identifier
+
+    Returns:
+        LSP server name (e.g., 'pyright-langserver')
+    """
+    from llm_lsp_cli.config import ConfigManager
+    return ConfigManager._get_lsp_server_name(language)
+
+
+def _create_daemon_manager(
+    workspace_path: str,
+    language: str,
+    lsp_conf: str | None = None,
+    debug: bool = False,
+) -> Any:
+    """Create a DaemonManager instance.
+
+    Args:
+        workspace_path: Path to workspace directory
+        language: Language identifier
+        lsp_conf: Optional custom LSP config path
+        debug: Enable debug logging
+
+    Returns:
+        DaemonManager instance
+    """
+    from llm_lsp_cli.daemon import DaemonManager
+    return DaemonManager(
+        workspace_path=workspace_path,
+        language=language,
+        lsp_conf=lsp_conf,
+        debug=debug,
+    )
 
 
 @app.command()
@@ -375,22 +556,22 @@ def start(
     - C/C++: Makefile, compile_commands.json
     - Python: pyproject.toml, setup.py, requirements.txt
     """
-    from llm_lsp_cli.daemon import DaemonManager
-
     workspace_path, detected_language = _resolve_language(workspace, language)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug)
 
-    if language is None:
-        typer.echo(f"Auto-detected language: {detected_language}")
-
-    manager = DaemonManager(
-        workspace_path=workspace_path, language=detected_language, lsp_conf=lsp_conf, debug=debug
-    )
     if manager.is_running():
-        typer.echo("Daemon is already running.", err=True)
+        typer.echo("Error: Daemon is already running.", err=True)
         raise typer.Exit(1)
 
+    # Log detected language only if auto-detected (not explicit)
+    if language is None:
+        typer.echo(f"[START] Detected language: {detected_language}", err=True)
+
+    typer.echo("[START] Initializing daemon...", err=True)
+    typer.echo(f"[START] Spawning {_get_lsp_server_name(detected_language)}...", err=True)
+
     manager.start()
-    typer.echo(f"Daemon started (workspace: {workspace_path}, language: {detected_language}).")
+    typer.echo(f"[START] Ready (PID: {manager.get_pid()})", err=True)
 
 
 @app.command()
@@ -402,19 +583,16 @@ def stop(
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
 ) -> None:
     """Stop the LSP daemon server."""
-    from llm_lsp_cli.daemon import DaemonManager
-
     workspace_path, detected_language = _resolve_language(workspace, language)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
-    manager = DaemonManager(
-        workspace_path=workspace_path, language=detected_language, lsp_conf=lsp_conf
-    )
     if not manager.is_running():
-        typer.echo("Daemon is not running.")
+        typer.echo("[STOP] Daemon is not running.", err=True)
         raise typer.Exit(0)
 
+    typer.echo("[STOP] Stopping daemon...", err=True)
     manager.stop()
-    typer.echo("Daemon stopped successfully.")
+    typer.echo("[STOP] Daemon stopped", err=True)
 
 
 @app.command()
@@ -426,16 +604,18 @@ def restart(
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
 ) -> None:
     """Restart the LSP daemon server."""
-    from llm_lsp_cli.daemon import DaemonManager
-
     workspace_path, detected_language = _resolve_language(workspace, language)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
-    manager = DaemonManager(
-        workspace_path=workspace_path, language=detected_language, lsp_conf=lsp_conf
-    )
-    manager.stop()
+    typer.echo("[RESTART] Restarting daemon...", err=True)
+
+    if manager.is_running():
+        typer.echo("[RESTART] Stopping existing daemon...", err=True)
+        manager.stop()
+
+    typer.echo(f"[RESTART] Starting {_get_lsp_server_name(detected_language)}...", err=True)
     manager.start()
-    typer.echo(f"Daemon restarted (workspace: {workspace_path}, language: {detected_language}).")
+    typer.echo(f"[RESTART] Daemon restarted (PID: {manager.get_pid()})", err=True)
 
 
 @app.command()
@@ -473,7 +653,9 @@ def definition(
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -493,51 +675,37 @@ def definition(
 
     By default, filters out results from test files. Use --include-tests to include them.
     """
-    # Resolve options: local override > global default
-    global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
+    context = _build_request_context(
+        ctx, workspace, language, output_format, file, line, column, include_tests=include_tests
+    )
 
-    # Detect language from file if not provided
-    if effective_language is None:
-        effective_language = detect_language_from_file(file)
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
 
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    def text_format(resp: Any) -> None:
+        locations = resp.get("locations", [])
+        _format_locations_text(locations)
 
-    workspace_path = effective_workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, effective_workspace)
+    def csv_format(resp: Any) -> str:
+        locations = resp.get("locations", [])
+        return format_locations_csv(locations)
 
-    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
-    line_index = line - 1
-    column_index = column - 1
-
-    try:
-        response = _send_request(
-            "textDocument/definition",
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-                "line": line_index,
-                "column": column_index,
-            },
-            language=effective_language,
-        )
-
-        def text_format(resp: Any) -> None:
-            locations = resp.get("locations", [])
-            filtered = _filter_test_locations(locations, include_tests=include_tests)
-            _format_locations_text(filtered)
-
-        # Apply test filtering to the response
-        if not include_tests:
-            locations = response.get("locations", [])
-            response["locations"] = _filter_test_locations(locations)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="textDocument/definition",
+        params={
+            "workspacePath": context.workspace_path,
+            "filePath": str(context.file_path),
+            "line": line_index,
+            "column": column_index,
+        },
+        language=context.language,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=context.output_format,
+        filter_tests=True,
+        test_filter_fn=_filter_test_locations,
+        include_tests=include_tests,
+    )
 
 
 @app.command()
@@ -546,7 +714,9 @@ def references(
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -566,51 +736,37 @@ def references(
 
     By default, filters out results from test files. Use --include-tests to include them.
     """
-    # Resolve options: local override > global default
-    global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
+    context = _build_request_context(
+        ctx, workspace, language, output_format, file, line, column, include_tests=include_tests
+    )
 
-    # Detect language from file if not provided
-    if effective_language is None:
-        effective_language = detect_language_from_file(file)
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
 
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    def text_format(resp: Any) -> None:
+        locations = resp.get("locations", [])
+        _format_locations_text(locations)
 
-    workspace_path = effective_workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, effective_workspace)
+    def csv_format(resp: Any) -> str:
+        locations = resp.get("locations", [])
+        return format_locations_csv(locations)
 
-    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
-    line_index = line - 1
-    column_index = column - 1
-
-    try:
-        response = _send_request(
-            "textDocument/references",
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-                "line": line_index,
-                "column": column_index,
-            },
-            language=effective_language,
-        )
-
-        def text_format(resp: Any) -> None:
-            locations = resp.get("locations", [])
-            filtered = _filter_test_locations(locations, include_tests=include_tests)
-            _format_locations_text(filtered)
-
-        # Apply test filtering to the response
-        if not include_tests:
-            locations = response.get("locations", [])
-            response["locations"] = _filter_test_locations(locations)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="textDocument/references",
+        params={
+            "workspacePath": context.workspace_path,
+            "filePath": str(context.file_path),
+            "line": line_index,
+            "column": column_index,
+        },
+        language=context.language,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=context.output_format,
+        filter_tests=True,
+        test_filter_fn=_filter_test_locations,
+        include_tests=include_tests,
+    )
 
 
 @app.command()
@@ -619,7 +775,9 @@ def completion(
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -631,45 +789,32 @@ def completion(
     ),
 ) -> None:
     """Get completions at position."""
-    # Resolve options: local override > global default
-    global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
+    context = _build_request_context(ctx, workspace, language, output_format, file, line, column)
 
-    # Detect language from file if not provided
-    if effective_language is None:
-        effective_language = detect_language_from_file(file)
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
 
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    def text_format(resp: Any) -> None:
+        items = resp.get("items", [])
+        _format_completions_text(items)
 
-    workspace_path = effective_workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, effective_workspace)
+    def csv_format(resp: Any) -> str:
+        items = resp.get("items", [])
+        return format_completions_csv(items)
 
-    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
-    line_index = line - 1
-    column_index = column - 1
-
-    try:
-        response = _send_request(
-            "textDocument/completion",
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-                "line": line_index,
-                "column": column_index,
-            },
-            language=effective_language,
-        )
-
-        def text_format(resp: Any) -> None:
-            items = resp.get("items", [])
-            _format_completions_text(items)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="textDocument/completion",
+        params={
+            "workspacePath": context.workspace_path,
+            "filePath": str(context.file_path),
+            "line": line_index,
+            "column": column_index,
+        },
+        language=context.language,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=context.output_format,
+    )
 
 
 @app.command()
@@ -678,7 +823,9 @@ def hover(
     file: str = typer.Argument(..., help="File path"),
     line: int = typer.Argument(..., help="Line number (0-based)"),
     column: int = typer.Argument(..., help="Column number (0-based)"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -690,52 +837,41 @@ def hover(
     ),
 ) -> None:
     """Get hover information at position."""
-    # Resolve options: local override > global default
-    global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
+    context = _build_request_context(ctx, workspace, language, output_format, file, line, column)
 
-    # Detect language from file if not provided
-    if effective_language is None:
-        effective_language = detect_language_from_file(file)
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
 
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    def text_format(resp: Any) -> None:
+        hover_data = resp.get("hover")
+        _format_hover_text(hover_data)
 
-    workspace_path = effective_workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, effective_workspace)
+    def csv_format(resp: Any) -> str:
+        hover_data = resp.get("hover")
+        return format_hover_csv(hover_data)
 
-    # Convert from 1-indexed (user input) to 0-indexed (LSP protocol)
-    line_index = line - 1
-    column_index = column - 1
-
-    try:
-        response = _send_request(
-            "textDocument/hover",
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-                "line": line_index,
-                "column": column_index,
-            },
-            language=effective_language,
-        )
-
-        def text_format(resp: Any) -> None:
-            hover = resp.get("hover")
-            _format_hover_text(hover)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="textDocument/hover",
+        params={
+            "workspacePath": context.workspace_path,
+            "filePath": str(context.file_path),
+            "line": line_index,
+            "column": column_index,
+        },
+        language=context.language,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=context.output_format,
+    )
 
 
 @app.command()
 def document_symbol(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -747,46 +883,36 @@ def document_symbol(
     ),
 ) -> None:
     """Get document symbols."""
-    # Resolve options: local override > global default
-    global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
+    context = _build_request_context(ctx, workspace, language, output_format, file)
 
-    # Detect language from file if not provided
-    if effective_language is None:
-        effective_language = detect_language_from_file(file)
+    def text_format(resp: Any) -> None:
+        symbols = resp.get("symbols", [])
+        _format_symbols_text(symbols)
 
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    def csv_format(resp: Any) -> str:
+        symbols = resp.get("symbols", [])
+        return format_document_symbols_csv(symbols)
 
-    workspace_path = effective_workspace or str(Path.cwd())
-    file_path = _validate_file_in_workspace(file, effective_workspace)
-
-    try:
-        response = _send_request(
-            "textDocument/documentSymbol",
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-            },
-            language=effective_language,
-        )
-
-        def text_format(resp: Any) -> None:
-            symbols = resp.get("symbols", [])
-            _format_symbols_text(symbols)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="textDocument/documentSymbol",
+        params={
+            "workspacePath": context.workspace_path,
+            "filePath": str(context.file_path),
+        },
+        language=context.language,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=context.output_format,
+    )
 
 
 @app.command()
 def workspace_symbol(
     ctx: typer.Context,
     query: str = typer.Argument(..., help="Search query"),
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path (overrides global)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (overrides global)"
     ),
@@ -806,44 +932,37 @@ def workspace_symbol(
 
     By default, filters out symbols from test files. Use --include-tests to include them.
     """
-    # Resolve options: local override > global default
     global_opts: GlobalOptions = ctx.obj
-    effective_workspace = workspace if workspace is not None else global_opts.workspace
-    effective_language = language if language is not None else global_opts.language
-    effective_format = output_format if output_format is not None else global_opts.output_format
-
-    # Default to python for workspace-wide searches without a specific file
-    if effective_language is None:
-        effective_language = "python"
-
-    _ensure_daemon_running(language=effective_language, workspace=effective_workspace)
+    effective_workspace, effective_language, effective_format = _resolve_effective_options(
+        global_opts, workspace, language, output_format
+    )
 
     workspace_path = effective_workspace or str(Path.cwd())
+    language_value = effective_language or "python"
 
-    try:
-        response = _send_request(
-            "workspace/symbol",
-            {
-                "workspacePath": workspace_path,
-                "query": query,
-            },
-            language=effective_language,
-        )
+    def text_format(resp: Any) -> None:
+        symbols = resp.get("symbols", [])
+        filtered = _filter_test_symbols(symbols, include_tests=include_tests)
+        _format_workspace_symbols_text(filtered)
 
-        def text_format(resp: Any) -> None:
-            symbols = resp.get("symbols", [])
-            filtered = _filter_test_symbols(symbols, include_tests=include_tests)
-            _format_workspace_symbols_text(filtered)
+    def csv_format(resp: Any) -> str:
+        symbols = resp.get("symbols", [])
+        return format_workspace_symbols_csv(symbols)
 
-        # Apply test filtering to the response
-        if not include_tests:
-            symbols = response.get("symbols", [])
-            response["symbols"] = _filter_test_symbols(symbols)
-
-        _output_result(response, effective_format, text_format)
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+    _execute_lsp_command(
+        method="workspace/symbol",
+        params={
+            "workspacePath": workspace_path,
+            "query": query,
+        },
+        language=language_value,
+        text_formatter=text_format,
+        csv_formatter=csv_format,
+        output_format=effective_format,
+        filter_tests=True,
+        test_filter_fn=_filter_test_symbols,
+        include_tests=include_tests,
+    )
 
 
 # Configuration Commands

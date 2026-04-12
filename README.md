@@ -65,12 +65,17 @@ llm-lsp-cli status
 
 The language is auto-detected from the file extension. You can also override with `--language` / `-l`.
 
+All LSP feature commands support:
+- `--format`, `-o`: Output format (`text`, `json`, `yaml`) - default is `json`
+- `--include-tests`: Include results from test files (excluded by default for `definition`, `references`, `workspace-symbol`)
+
 ```bash
 # Get definition at position (0-based line/column)
 llm-lsp-cli definition src/main.py 10 5
 
-# Find references
+# Find references (exclude test files by default)
 llm-lsp-cli references src/main.py 10 5
+llm-lsp-cli references src/main.py 10 5 --include-tests  # Include test files
 
 # Get completions
 llm-lsp-cli completion src/main.py 10 5
@@ -83,6 +88,10 @@ llm-lsp-cli document-symbol src/main.py
 
 # Search workspace symbols
 llm-lsp-cli workspace-symbol MyClass
+
+# Output in different formats
+llm-lsp-cli definition src/main.py 10 5 --format text
+llm-lsp-cli references src/main.py 10 5 --format yaml
 ```
 
 ### 5. Stop the Daemon
@@ -120,6 +129,9 @@ llm-lsp-cli stop
 
 **Options:**
 - `--workspace PATH`, `-w PATH`: Specify workspace root (default: current directory)
+- `--language FILE`, `-l FILE`: Override language auto-detection
+- `--format FORMAT`, `-o FORMAT`: Output format (`text`, `json`, `yaml`) - default is `json`
+- `--include-tests`: Include results from test files (`definition`, `references`, `workspace-symbol` only)
 
 ### Configuration
 
@@ -133,6 +145,26 @@ llm-lsp-cli stop
 
 Configuration is stored in `$XDG_CONFIG_HOME/llm-lsp-cli/config.json` (usually `~/.config/llm-lsp-cli/config.json`).
 
+### Configuration Files
+
+| File | Purpose | Location |
+|------|---------|----------|
+| `config.json` | Main configuration | `$XDG_CONFIG_HOME/llm-lsp-cli/config.json` |
+| `capabilities/*.json` | LSP server initialization params | `$XDG_CONFIG_HOME/llm-lsp-cli/capabilities/` |
+
+### Capabilities Files
+
+Per-server LSP capability configurations:
+
+| File | Server |
+|------|--------|
+| `pyright-langserver.json` | Python (pyright) |
+| `typescript-language-server.json` | TypeScript/JavaScript |
+| `rust-analyzer.json` | Rust |
+| `gopls.json` | Go |
+| `jdtls.json` | Java |
+| `default.json` | Fallback configuration |
+
 ### Default Configuration
 
 ```json
@@ -143,7 +175,7 @@ Configuration is stored in `$XDG_CONFIG_HOME/llm-lsp-cli/config.json` (usually `
     "python": {
       "command": "pyright-langserver",
       "args": ["--stdio"],
-      "initialize_params_file": "initialize_params_pyright.json"
+      "initialize_params_file": "pyright-langserver.json"
     },
     "typescript": {
       "command": "typescript-language-server",
@@ -192,9 +224,90 @@ ${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/llm-lsp-cli/{workspace_name}-{workspace_hash
 | File | Path |
 |------|------|
 | Config | `$XDG_CONFIG_HOME/llm-lsp-cli/config.json` |
-| PID | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace}/{server}.pid` |
-| Socket | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace}/{server}.sock` |
-| Logs | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace}/{server}.log` |
+| Capabilities | `$XDG_CONFIG_HOME/llm-lsp-cli/capabilities/*.json` |
+| PID | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace_name}-{workspace_hash}/{server}.pid` |
+| Socket | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace_name}-{workspace_hash}/{server}.sock` |
+| Logs | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace_name}-{workspace_hash}/{server}.log` |
+| Daemon Log | `$XDG_RUNTIME_DIR/llm-lsp-cli/{workspace_name}-{workspace_hash}/daemon.log` |
+
+## Test Filtering
+
+The test filtering system automatically detects and filters test files from LSP results using glob-based pattern matching. By default, the `definition`, `references`, and `workspace-symbol` commands exclude test files to focus on production code.
+
+### Glob Pattern Syntax
+
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| `*` | Matches any characters except `/` | `test_*.py` matches `test_utils.py` |
+| `**` | Matches any number of directory levels | `**/tests/**` matches `src/tests/test.py` |
+| `?` | Matches single character | `test_?.py` matches `test_a.py` |
+
+### Pattern Types
+
+1. **Directory Patterns**: Match full paths containing test directories
+   - Examples: `**/tests/**`, `**/__tests__/**`, `**/spec/**`
+
+2. **Suffix Patterns**: Match file endings
+   - Examples: `_test.go`, `.test.ts`, `.spec.js`, `test_*.py`
+
+3. **Prefix Patterns**: Match file name beginnings
+   - Examples: `test_`, `_test`
+
+4. **Include Patterns**: Negation patterns to exclude files from test classification
+   - Examples: `**/tests/fixtures/**`, `**/tests/conftest.py`
+
+### Default Language Configurations
+
+| Language | Directory Patterns | Suffix Patterns | Include Patterns |
+|----------|-------------------|-----------------|------------------|
+| Python | `**/tests/**`, `**/test/**` | `_test.py`, `.test.py`, `test_*.py` | `**/tests/fixtures/**`, `**/tests/conftest.py` |
+| TypeScript | `**/__tests__/**`, `**/spec/**` | `.test.ts`, `.spec.ts` | - |
+| JavaScript | `**/__tests__/**`, `**/spec/**` | `.test.js`, `.spec.js` | - |
+| Go | - | `_test.go` | - |
+| Rust | `**/tests/**` | - | `**/tests/common/**` |
+| Java | `**/src/test/**` | - | - |
+| C# | `**/Tests/**` | `.test.cs`, `.spec.cs` | - |
+
+### Customizing Test Filter Patterns
+
+Edit `$XDG_CONFIG_HOME/llm-lsp-cli/config.json`:
+
+```json
+{
+    "test_filter": {
+        "defaults": {
+            "enabled": true,
+            "directory_patterns": ["**/tests/**", "**/spec/**"],
+            "suffix_patterns": ["_test.py", ".test.ts"],
+            "prefix_patterns": ["test_"],
+            "include_patterns": []
+        },
+        "languages": {
+            "python": {
+                "enabled": true,
+                "directory_patterns": ["**/tests/**"],
+                "suffix_patterns": ["_test.py", "test_*.py"],
+                "prefix_patterns": [],
+                "include_patterns": ["**/tests/fixtures/**"]
+            }
+        }
+    }
+}
+```
+
+### Using --include-tests Flag
+
+```bash
+# Filter test files (default behavior)
+llm-lsp-cli definition src/main.py 10 5
+llm-lsp-cli references src/main.py 10 5
+llm-lsp-cli workspace-symbol MyClass
+
+# Include test files in results
+llm-lsp-cli definition src/main.py 10 5 --include-tests
+llm-lsp-cli references src/main.py 10 5 --include-tests
+llm-lsp-cli workspace-symbol MyClass --include-tests
+```
 
 ## Language Server Requirements
 
@@ -348,7 +461,7 @@ Install the appropriate language server for your project language. See [Language
 1. Ensure the file exists and is within the workspace
 2. Check that the language server is properly configured
 3. Enable LSP tracing by adding `"trace_lsp": true` to your config
-4. Check LSP server logs in `/tmp/llm-lsp-cli/{workspace}/{server}.log`
+4. Check LSP server logs in `${XDG_RUNTIME_DIR:-/tmp}/llm-lsp-cli/{workspace-hash}/{server}.log`
 
 ### Pyright not finding symbols
 
@@ -382,7 +495,18 @@ llm-lsp-cli config path    # Show config file path
 
 # Other
 llm-lsp-cli version        # Show version
+
+# Global options (can be used with any command)
+llm-lsp-cli --help                     # Show help
+llm-lsp-cli <command> --help           # Show help for specific command
+llm-lsp-cli <command> --workspace PATH # Override workspace path
+llm-lsp-cli <command> --language LANG  # Override language detection
+llm-lsp-cli <command> --format FORMAT  # Output format (text, json, yaml)
 ```
+
+**Start Command Options:**
+- `--debug`, `-d`: Enable debug logging
+- `--lsp-conf`, `-c`: Custom LSP capabilities config file
 
 ## Project Structure
 
@@ -390,22 +514,25 @@ llm-lsp-cli version        # Show version
 llm-lsp-cli/
 ├── pyproject.toml          # Project configuration
 ├── README.md               # This file
+├── CLAUDE.md               # Developer quick reference
 ├── CODEMAPS/               # Architectural documentation
 │   ├── README.md           # Codemaps index
 │   ├── architecture.md     # System architecture overview
 │   ├── lsp-client-architecture.md
 │   ├── capability-system.md
 │   └── multi-language-support.md
-├── plans/
-│   └── implementation-blueprint.md
 ├── src/llm_lsp_cli/
-│   ├── __init__.py
-│   ├── __main__.py         # Entry point
+│   ├── __init__.py         # Package init, version
+│   ├── __main__.py         # python -m entry point
 │   ├── cli.py              # Typer CLI commands
-│   ├── daemon.py           # Daemon implementation
+│   ├── daemon.py           # Daemon process management
+│   ├── test_filter/        # Test file filtering (glob patterns)
+│   │   ├── __init__.py     # Public API, config loading
+│   │   ├── pattern_engine.py  # Glob pattern matching engine
+│   │   └── language_registry.py  # Per-language pattern registry
 │   ├── config/
 │   │   ├── __init__.py
-│   │   ├── manager.py      # Configuration manager
+│   │   ├── manager.py      # Configuration manager, XDG paths
 │   │   ├── schema.py       # Pydantic models
 │   │   ├── defaults.py     # Default configs
 │   │   └── capabilities/   # LSP capabilities JSON files
@@ -420,10 +547,14 @@ llm-lsp-cli/
 │   │   ├── types.py        # LSP types
 │   │   ├── constants.py    # LSP constants
 │   │   └── transport.py    # stdio transport
-│   └── server/
+│   ├── server/
+│   │   ├── __init__.py
+│   │   ├── workspace.py    # Workspace manager
+│   │   └── registry.py     # Server registry
+│   └── utils/
 │       ├── __init__.py
-│       ├── workspace.py    # Workspace manager
-│       └── registry.py     # Server registry
+│       ├── formatter.py    # Output formatting utilities
+│       └── language_detector.py  # Language auto-detection
 └── tests/
     ├── __init__.py
     ├── conftest.py                 # Pytest fixtures
@@ -432,7 +563,9 @@ llm-lsp-cli/
     ├── test_daemon_handlers.py     # Daemon request handler tests
     ├── test_daemon_isolation.py    # Workspace isolation tests
     ├── test_e2e_daemon_lifecycle.py # End-to-end lifecycle tests
+    ├── test_filter.py              # Test file filtering tests
     ├── test_ipc.py                 # IPC protocol tests
+    ├── test_language_detector.py   # Language detection tests
     ├── test_lsp_integration.py     # LSP integration tests
     ├── test_lsp_types.py           # LSP types tests
     └── test_server_registry.py     # Server registry tests
