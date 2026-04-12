@@ -506,6 +506,7 @@ def _get_lsp_server_name(language: str) -> str:
         LSP server name (e.g., 'pyright-langserver')
     """
     from llm_lsp_cli.config import ConfigManager
+
     return ConfigManager._get_lsp_server_name(language)
 
 
@@ -527,6 +528,7 @@ def _create_daemon_manager(
         DaemonManager instance
     """
     from llm_lsp_cli.daemon import DaemonManager
+
     return DaemonManager(
         workspace_path=workspace_path,
         language=language,

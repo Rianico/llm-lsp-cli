@@ -407,7 +407,7 @@ class TestExponentialBackoff:
         expected_backoff_delays = [0.05, 0.1, 0.2, 0.4]
         backoff_delays = actual_delays[:-1]  # All but the last (0.01)
 
-        for expected, actual in zip(expected_backoff_delays, backoff_delays):
+        for expected, actual in zip(expected_backoff_delays, backoff_delays, strict=True):
             assert abs(actual - expected) < 0.001, f"Expected {expected}, got {actual}"
 
         # Verify final 10ms delay after socket appears

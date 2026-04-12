@@ -180,7 +180,7 @@ class DaemonManager:
     def stop(self) -> None:
         """Stop the daemon process."""
         if not self.is_running():
-            logger.warning("Daemon is not running")
+            logger.warning("[SIGNAL] Daemon is not running")
             self._cleanup_files()
             return
 
@@ -188,10 +188,10 @@ class DaemonManager:
         if pid:
             try:
                 os.kill(pid, signal.SIGTERM)
-                logger.info(f"Sent SIGTERM to daemon (PID: {pid})")
+                logger.info(f"[SIGNAL] Sent SIGTERM to daemon (PID: {pid})")
                 self._wait_for_process_stop(pid)
             except ProcessLookupError:
-                pass
+                logger.warning(f"[SIGNAL] Process {pid} not found (already stopped)")
 
         self._cleanup_files()
 

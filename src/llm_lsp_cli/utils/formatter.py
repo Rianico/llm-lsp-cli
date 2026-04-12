@@ -282,8 +282,14 @@ def format_workspace_symbols_csv(symbols: list[dict[str, Any]]) -> str:
         return ""
 
     fieldnames = [
-        "name", "kind", "kind_name", "uri",
-        "start_line", "start_char", "end_line", "end_char",
+        "name",
+        "kind",
+        "kind_name",
+        "uri",
+        "start_line",
+        "start_char",
+        "end_line",
+        "end_char",
     ]
     rows = [_extract_symbol_fields(symbol, include_uri=True) for symbol in symbols]
     return _write_csv_rows(rows, fieldnames)
@@ -319,19 +325,13 @@ def format_hover_csv(hover: dict[str, Any] | None) -> str:
 
     row: dict[str, str] = {
         "content": str(content) if content else "",
-        "range_start_line": (
-            str(start.get("line", "")) if start.get("line") is not None else ""
-        ),
+        "range_start_line": (str(start.get("line", "")) if start.get("line") is not None else ""),
         "range_start_char": (
-            str(start.get("character", ""))
-            if start.get("character") is not None
-            else ""
+            str(start.get("character", "")) if start.get("character") is not None else ""
         ),
         "range_end_line": str(end.get("line", "")) if end.get("line") is not None else "",
         "range_end_char": (
-            str(end.get("character", ""))
-            if end.get("character") is not None
-            else ""
+            str(end.get("character", "")) if end.get("character") is not None else ""
         ),
     }
 

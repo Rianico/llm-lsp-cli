@@ -58,9 +58,7 @@ class CompactFormatter:
         """Return the workspace root path."""
         return self._workspace
 
-    def transform_symbols(
-        self, symbols: list[dict[str, Any]]
-    ) -> list[SymbolRecord]:
+    def transform_symbols(self, symbols: list[dict[str, Any]]) -> list[SymbolRecord]:
         """Transform LSP symbols to SymbolRecord list.
 
         Handles both workspace symbols (with location wrapper) and
@@ -109,9 +107,7 @@ class CompactFormatter:
 
         return records
 
-    def transform_locations(
-        self, locations: list[dict[str, Any]]
-    ) -> list[LocationRecord]:
+    def transform_locations(self, locations: list[dict[str, Any]]) -> list[LocationRecord]:
         """Transform LSP locations to LocationRecord list.
 
         Args:
@@ -304,10 +300,7 @@ class CompactFormatter:
         Returns:
             JSON string
         """
-        result = [
-            {"file": rec.file, "range": rec.range}
-            for rec in records
-        ]
+        result = [{"file": rec.file, "range": rec.range} for rec in records]
         return json.dumps(result, indent=2)
 
     def locations_to_yaml(self, records: list[LocationRecord]) -> str:
@@ -319,10 +312,7 @@ class CompactFormatter:
         Returns:
             YAML string
         """
-        result = [
-            {"file": rec.file, "range": rec.range}
-            for rec in records
-        ]
+        result = [{"file": rec.file, "range": rec.range} for rec in records]
         return yaml.safe_dump(result, default_flow_style=False, sort_keys=False)
 
     def locations_to_csv(self, records: list[LocationRecord]) -> str:
