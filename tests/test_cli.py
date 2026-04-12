@@ -10,11 +10,16 @@ from typer.testing import CliRunner
 
 from tests.fixtures import (
     COMPLETION_RESPONSE,
+    COMPLETION_RESPONSE_WITH_COMMAS,
+    DOCUMENT_SYMBOL_RESPONSE,
     DOCUMENT_SYMBOL_WITH_CHILDREN,
     HOVER_RESPONSE,
+    HOVER_RESPONSE_PLAINTEXT,
     LOCATION_RESPONSE,
     LOCATION_RESPONSE_MULTI,
     WORKSPACE_SYMBOL_RESPONSE,
+    create_location_response_with_test_files,
+    create_workspace_symbol_response_with_test_files,
 )
 
 runner = CliRunner()
@@ -489,33 +494,6 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
 def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
     """Test workspace-symbol command with YAML output format."""
     from llm_lsp_cli.cli import app
-
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "helper_function",
-                "kind": 12,
-                "location": {
-                    "uri": "file:///path/to/utils.py",
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 25, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
@@ -1424,32 +1402,13 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
     """Test that references command filters test files by default."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            },
-            {
-                "uri": "file:///path/to/tests/test_file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 19},
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
 
@@ -1471,32 +1430,13 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
     """Test that references command accepts --include-tests flag."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            },
-            {
-                "uri": "file:///path/to/tests/test_file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 19},
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
 
@@ -1517,40 +1457,13 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
     """Test that workspace-symbol command filters test files by default."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "TestMyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/tests/test_myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 30, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_workspace_symbol_response_with_test_files()
 
         # Test without --include-tests (should filter out test symbols)
         result = runner.invoke(
@@ -1570,40 +1483,13 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
     """Test that workspace-symbol command accepts --include-tests flag."""
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "TestMyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/tests/test_myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 30, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_workspace_symbol_response_with_test_files()
 
         # Test with --include-tests (should include all symbols)
         result = runner.invoke(
@@ -1624,32 +1510,13 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
 
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            },
-            {
-                "uri": "file:///path/to/tests/test_file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 19},
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -1680,40 +1547,13 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
 
     from llm_lsp_cli.cli import app
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "TestMyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/tests/test_myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 30, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
-
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
         "llm_lsp_cli.cli._send_request"
     ) as mock_send:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = mock_response
+        mock_send.return_value = create_workspace_symbol_response_with_test_files()
 
         result = runner.invoke(
             app,
@@ -1747,25 +1587,13 @@ class TestDefinitionCsvOutput:
         """Test definition command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file.py",
-                    "range": {
-                        "start": {"line": 10, "character": 4},
-                        "end": {"line": 10, "character": 20},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1784,32 +1612,13 @@ class TestDefinitionCsvOutput:
         """Test CSV output with multiple definition locations."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file1.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                },
-                {
-                    "uri": "file:///path/to/file2.py",
-                    "range": {
-                        "start": {"line": 20, "character": 5},
-                        "end": {"line": 20, "character": 25},
-                    },
-                },
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE_MULTI
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1818,24 +1627,13 @@ class TestDefinitionCsvOutput:
             )
             assert result.exit_code == 0
 
+            # LOCATION_RESPONSE_MULTI has 3 locations
             lines = result.output.strip().split("\n")
-            assert len(lines) == 3  # Header + 2 data rows
+            assert len(lines) == 4  # Header + 3 data rows
 
     def test_cli_definition_csv_columns_correct(self, temp_file: Path) -> None:
         """Test that CSV has correct columns: uri,start_line,start_char,end_line,end_char."""
         from llm_lsp_cli.cli import app
-
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file.py",
-                    "range": {
-                        "start": {"line": 10, "character": 4},
-                        "end": {"line": 10, "character": 20},
-                    },
-                }
-            ]
-        }
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
@@ -1843,7 +1641,7 @@ class TestDefinitionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1863,25 +1661,13 @@ class TestReferencesCsvOutput:
         """Test references command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file.py",
-                    "range": {
-                        "start": {"line": 5, "character": 0},
-                        "end": {"line": 5, "character": 15},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1900,25 +1686,13 @@ class TestReferencesCsvOutput:
         """Test references CSV uses same schema as definition (locations)."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1939,24 +1713,13 @@ class TestCompletionCsvOutput:
         """Test completion command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "items": [
-                {
-                    "label": "my_function",
-                    "kind": 12,
-                    "detail": "def my_function(x: int) -> str",
-                    "documentation": "A sample function",
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = COMPLETION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1965,19 +1728,14 @@ class TestCompletionCsvOutput:
             )
             assert result.exit_code == 0
 
+            # COMPLETION_RESPONSE has 2 items
             lines = result.output.strip().split("\n")
-            assert len(lines) == 2  # Header + 1 data row
+            assert len(lines) == 3  # Header + 2 data rows
             assert "label" in lines[0]
 
     def test_cli_completion_csv_includes_kind_name(self, temp_file: Path) -> None:
         """Test CSV output translates kind number to human-readable name."""
         from llm_lsp_cli.cli import app
-
-        mock_response = {
-            "items": [
-                {"label": "MyClass", "kind": 5, "detail": "", "documentation": None},
-            ]
-        }
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
@@ -1985,7 +1743,7 @@ class TestCompletionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = COMPLETION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1995,8 +1753,9 @@ class TestCompletionCsvOutput:
             assert result.exit_code == 0
 
             # Verify kind_name column is present with translated value
+            # COMPLETION_RESPONSE has kinds 12 (Function) and 13 (Variable)
             assert "kind_name" in result.output
-            assert "Class" in result.output
+            assert "Function" in result.output
 
     def test_cli_completion_csv_escapes_special_chars(self, temp_file: Path) -> None:
         """Test CSV properly escapes commas/quotes in completion details."""
@@ -2005,24 +1764,13 @@ class TestCompletionCsvOutput:
 
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "items": [
-                {
-                    "label": "func",
-                    "kind": 12,
-                    "detail": "def func(a, b, c):  # has, commas",
-                    "documentation": 'Docs with "quotes"',
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = COMPLETION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2032,11 +1780,12 @@ class TestCompletionCsvOutput:
             assert result.exit_code == 0
 
             # Parse CSV to verify proper escaping
+            # COMPLETION_RESPONSE_WITH_COMMAS has commas in detail/documentation
             reader = csv.DictReader(io.StringIO(result.output))
             rows = list(reader)
             assert len(rows) == 1
             assert rows[0]["detail"] == "def func(a, b, c):  # has, commas"
-            assert rows[0]["documentation"] == 'Docs with "quotes"'
+            assert rows[0]["documentation"] == "Documentation, with, commas"
 
 
 class TestHoverCsvOutput:
@@ -2046,26 +1795,13 @@ class TestHoverCsvOutput:
         """Test hover command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "hover": {
-                "contents": {
-                    "kind": "markdown",
-                    "value": "```python\ndef func() -> str\n```",
-                },
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 15},
-                },
-            }
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = HOVER_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2081,23 +1817,13 @@ class TestHoverCsvOutput:
         """Test hover CSV produces single row (not a list)."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "hover": {
-                "contents": {"kind": "plaintext", "value": "Hover text"},
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 10},
-                },
-            }
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = HOVER_RESPONSE_PLAINTEXT
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2117,26 +1843,13 @@ class TestDocumentSymbolCsvOutput:
         """Test document-symbol command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = DOCUMENT_SYMBOL_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2153,26 +1866,13 @@ class TestDocumentSymbolCsvOutput:
         """Test CSV output uses numeric kind format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                },
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = DOCUMENT_SYMBOL_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2194,29 +1894,13 @@ class TestWorkspaceSymbolCsvOutput:
         """Test workspace-symbol command with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "location": {
-                        "uri": "file:///path/to/myclass.py",
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 50, "character": 0},
-                        },
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
 
             result = runner.invoke(
                 app,
@@ -2224,28 +1908,13 @@ class TestWorkspaceSymbolCsvOutput:
             )
             assert result.exit_code == 0
 
+            # WORKSPACE_SYMBOL_RESPONSE has 2 symbols
             lines = result.output.strip().split("\n")
-            assert len(lines) == 2  # Header + 1 data row
+            assert len(lines) == 3  # Header + 2 data rows
 
     def test_cli_workspace_symbol_csv_includes_uri(self, temp_dir: Path) -> None:
         """Test workspace symbol CSV includes file column."""
         from llm_lsp_cli.cli import app
-
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "location": {
-                        "uri": "file:///path/to/myclass.py",
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 50, "character": 0},
-                        },
-                    },
-                }
-            ]
-        }
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
@@ -2253,7 +1922,7 @@ class TestWorkspaceSymbolCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
 
             result = runner.invoke(
                 app,
@@ -2273,25 +1942,13 @@ class TestCsvFormatOption:
         """Test --format csv is accepted without error."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///test.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2305,25 +1962,13 @@ class TestCsvFormatOption:
         """Test -o csv is accepted."""
         from llm_lsp_cli.cli import app
 
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///test.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(

@@ -21,11 +21,14 @@ from llm_lsp_cli.cli import app
 from tests.fixtures import (
     COMPLETION_RESPONSE,
     COMPLETION_RESPONSE_EMPTY,
+    COMPLETION_RESPONSE_WITH_COMMAS,
     DOCUMENT_SYMBOL_RESPONSE,
     HOVER_RESPONSE,
     HOVER_RESPONSE_EMPTY,
     LOCATION_RESPONSE,
     LOCATION_RESPONSE_EMPTY,
+    LOCATION_RESPONSE_WITH_COMMAS,
+    LOCATION_RESPONSE_WITH_QUOTES,
     WORKSPACE_SYMBOL_RESPONSE,
     create_location_response_with_test_files,
     create_workspace_symbol_response_with_test_files,
@@ -428,25 +431,13 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_uri_with_comma(self, temp_file: Path) -> None:
         """Test CSV escaping when URI contains comma."""
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file,with,commas.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -461,25 +452,13 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_uri_with_quotes(self, temp_file: Path) -> None:
         """Test CSV escaping when URI contains double quotes."""
-        mock_response = {
-            "locations": [
-                {
-                    "uri": 'file:///path/to/file"with"quotes.py',
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = LOCATION_RESPONSE_WITH_QUOTES
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -494,24 +473,13 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_detail_with_comma(self, temp_file: Path) -> None:
         """Test CSV escaping when detail contains comma."""
-        mock_response = {
-            "items": [
-                {
-                    "label": "func",
-                    "kind": 12,
-                    "detail": "def func(a, b, c):  # has, commas",
-                    "documentation": "Docs",
-                }
-            ]
-        }
-
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
             "llm_lsp_cli.cli._send_request"
         ) as mock_send:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = mock_response
+            mock_send.return_value = COMPLETION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(

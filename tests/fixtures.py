@@ -6,15 +6,42 @@ Each constant represents a typical response from an LSP command.
 Usage:
     from tests.fixtures import (
         LOCATION_RESPONSE,
-        SYMBOL_RESPONSE,
+        DOCUMENT_SYMBOL_RESPONSE,
         COMPLETION_RESPONSE,
         HOVER_RESPONSE,
-        DOCUMENT_SYMBOL_RESPONSE,
         WORKSPACE_SYMBOL_RESPONSE,
+        create_location_response_with_test_files,
+        create_workspace_symbol_response_with_test_files,
     )
 """
 
 from typing import Any
+
+__all__ = [
+    # Location-Based
+    "LOCATION_RESPONSE",
+    "LOCATION_RESPONSE_MULTI",
+    "LOCATION_RESPONSE_EMPTY",
+    "LOCATION_RESPONSE_WITH_COMMAS",
+    "LOCATION_RESPONSE_WITH_QUOTES",
+    "create_location_response_with_test_files",
+    # Symbol-Based
+    "SYMBOL_RESPONSE",
+    "DOCUMENT_SYMBOL_RESPONSE",
+    "DOCUMENT_SYMBOL_WITH_CHILDREN",
+    "WORKSPACE_SYMBOL_RESPONSE",
+    "create_workspace_symbol_response_with_test_files",
+    # Completion-Based
+    "COMPLETION_RESPONSE",
+    "COMPLETION_RESPONSE_RICH",
+    "COMPLETION_RESPONSE_EMPTY",
+    "COMPLETION_RESPONSE_MINIMAL",
+    "COMPLETION_RESPONSE_WITH_COMMAS",
+    # Hover-Based
+    "HOVER_RESPONSE",
+    "HOVER_RESPONSE_PLAINTEXT",
+    "HOVER_RESPONSE_EMPTY",
+]
 
 
 # =============================================================================
@@ -61,6 +88,32 @@ LOCATION_RESPONSE_MULTI: dict[str, Any] = {
 }
 
 LOCATION_RESPONSE_EMPTY: dict[str, Any] = {"locations": []}
+
+LOCATION_RESPONSE_WITH_COMMAS: dict[str, Any] = {
+    "locations": [
+        {
+            "uri": "file:///path/to/file,with,commas.py",
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 0, "character": 10},
+            },
+        }
+    ]
+}
+"""Location response with commas in URI for CSV escaping tests."""
+
+LOCATION_RESPONSE_WITH_QUOTES: dict[str, Any] = {
+    "locations": [
+        {
+            "uri": 'file:///path/to/file"with"quotes.py',
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 0, "character": 10},
+            },
+        }
+    ]
+}
+"""Location response with double quotes in URI for CSV escaping tests."""
 
 
 # =============================================================================
@@ -215,7 +268,29 @@ COMPLETION_RESPONSE_RICH: dict[str, Any] = {
     ]
 }
 
-COMPLETION_RESPONSE_EMPTY: dict[str, Any] = {"items": []}
+COMPLETION_RESPONSE_MINIMAL: dict[str, Any] = {
+    "items": [
+        {
+            "label": "minimal_item",
+        }
+    ]
+}
+"""Minimal completion response with only label field.
+
+Used for testing missing optional fields handling.
+"""
+
+COMPLETION_RESPONSE_WITH_COMMAS: dict[str, Any] = {
+    "items": [
+        {
+            "label": "func_with_args",
+            "kind": 12,
+            "detail": "def func(a, b, c):  # has, commas",
+            "documentation": "Documentation, with, commas",
+        }
+    ]
+}
+"""Completion response with commas in detail/documentation for CSV tests."""
 
 
 # =============================================================================
