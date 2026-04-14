@@ -104,8 +104,11 @@ class DaemonClient:
                 language=self.language,
             ) from None
         except asyncio.TimeoutError as e:
+            # Enhanced timeout error with LSP initialization context
             raise DaemonError(
-                f"Request timed out after {self.connection_timeout}s",
+                f"LSP initialization timed out after {self.connection_timeout}s. "
+                f"Workspace: {self.workspace_path}, Language: {self.language}. "
+                f"Check that the LSP server is properly configured and can start.",
                 workspace=self.workspace_path,
                 language=self.language,
             ) from e
@@ -142,8 +145,8 @@ class DaemonClient:
     async def _ensure_daemon_ready(self) -> None:
         """Ensure daemon is running and socket is ready.
 
-        Auto-starts daemon if not running, then waits for socket with
-        exponential backoff.
+        Auto-starts daemon if not running by spawning `llm-lsp-cli start` as a
+        background subprocess, then waits for socket with exponential backoff.
 
         Raises:
             DaemonStartupError: If daemon fails to start
@@ -156,9 +159,9 @@ class DaemonClient:
 
         # Check if daemon is already running
         if not self._manager.is_running():
-            # Auto-start the daemon
+            # Auto-start the daemon by spawning `llm-lsp-cli start` as background process
             try:
-                self._manager.start()
+                await self._spawn_daemon_subprocess()
             except Exception as e:
                 raise DaemonStartupError(
                     f"Failed to start daemon: {e}",
@@ -168,6 +171,41 @@ class DaemonClient:
 
         # Wait for socket with exponential backoff
         await self._wait_for_socket()
+
+    async def _spawn_daemon_subprocess(self) -> None:
+        """Spawn daemon as a background subprocess.
+
+        Spawns `llm-lsp-cli start` as a detached subprocess and returns immediately.
+        """
+        import sys
+
+        # Build command to start daemon
+        cmd = [
+            sys.executable,
+            "-m",
+            "llm_lsp_cli",
+            "start",
+            "--workspace",
+            self.workspace_path,
+            "--language",
+            self.language,
+        ]
+
+        # Spawn as detached subprocess
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.DEVNULL,
+            start_new_session=True,  # Detach from parent session
+        )
+
+        # Give the daemon a moment to start
+        await asyncio.sleep(0.1)
+
+        # Check if process died immediately
+        if process.returncode is not None:
+            raise RuntimeError(f"Daemon process exited immediately with code {process.returncode}")
 
     async def _wait_for_socket(self) -> None:
         """Wait for socket to appear using exponential backoff.
