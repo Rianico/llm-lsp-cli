@@ -43,7 +43,14 @@ class StdioTransport:
         self._log_fh: Any = None
 
     async def start(self) -> None:
-        """Start the LSP server process."""
+        """Start the LSP server process.
+
+        Verifies that the process starts successfully and doesn't exit immediately.
+
+        Raises:
+            RuntimeError: If the LSP server command is not found, permission is denied,
+                or the process exits immediately with an error.
+        """
         cmd = [self.command] + self.args
 
         logger.info(f"Starting LSP server: {' '.join(cmd)}")
@@ -53,16 +60,56 @@ class StdioTransport:
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
             self._log_fh = open(self.log_file, "a")  # noqa: SIM115
 
-        self._process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=self.cwd,
-            env=self._merge_env(),
-        )
+        try:
+            self._process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.cwd,
+                env=self._merge_env(),
+            )
+        except FileNotFoundError as e:
+            logger.error(f"LSP server command not found: {self.command}")
+            raise RuntimeError(
+                f"LSP server command not found: {self.command}. "
+                f"Ensure the server is installed and in PATH."
+            ) from e
+        except PermissionError as e:
+            logger.error(f"Permission denied executing LSP server: {self.command}")
+            raise RuntimeError(
+                f"Permission denied executing LSP server: {self.command}. "
+                f"Check file permissions."
+            ) from e
+
+        # Check if process exited immediately (crash on startup)
+        if self._process.returncode is not None:
+            # Process exited immediately - read stderr for error message
+            stderr_output = b""
+            if self._process.stderr:
+                try:
+                    stderr_output = await asyncio.wait_for(
+                        self._process.stderr.read(),
+                        timeout=2.0,
+                    )
+                except asyncio.TimeoutError:
+                    stderr_output = b"(stderr read timeout)"
+
+            stderr_text = stderr_output.decode("utf-8", errors="replace").strip()
+            logger.error(
+                f"LSP server exited immediately with code {self._process.returncode}. "
+                f"Stderr: {stderr_text}"
+            )
+            raise RuntimeError(
+                f"LSP server exited immediately with code {self._process.returncode}. "
+                f"Error: {stderr_text}"
+            )
 
         self._running = True
+
+        # Small stabilization delay after process start
+        await asyncio.sleep(0.05)  # 50ms stabilization
+
         self._read_task = asyncio.create_task(self._read_loop())
         self._stderr_task = asyncio.create_task(self._stderr_loop())
 

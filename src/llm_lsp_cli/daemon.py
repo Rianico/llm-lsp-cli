@@ -8,8 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from daemon import DaemonContext  # type: ignore[import-untyped]
-from daemon.pidfile import PIDLockFile as PidFile  # type: ignore[import-untyped]
+from daemon import DaemonContext
+from daemon.pidfile import PIDLockFile as PidFile
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.ipc import UNIXServer
@@ -200,17 +200,53 @@ class RequestHandler:
     """Handles incoming RPC requests."""
 
     # Method name to registry function mapping for LSP features
-    # Each tuple: (registry_method_name, required_params)
-    # Note: workspacePath defaults to "." if not provided for position-based methods
-    LSP_METHODS: dict[str, tuple[str, tuple[str, ...]]] = {
-        "textDocument/definition": ("request_definition", ("filePath", "line", "column")),
-        "textDocument/references": ("request_references", ("filePath", "line", "column")),
-        "textDocument/completion": ("request_completions", ("filePath", "line", "column")),
-        "textDocument/hover": ("request_hover", ("filePath", "line", "column")),
-        "textDocument/documentSymbol": ("request_document_symbols", ("filePath",)),
-        "textDocument/diagnostic": ("request_diagnostics", ("filePath",)),
-        "workspace/symbol": ("request_workspace_symbols", ()),  # query is optional
-        "workspace/diagnostic": ("request_workspace_diagnostics", ()),
+    # Each tuple: (registry_method_name, required_params, kwargs_mapping)
+    # kwargs_mapping maps LSP params to registry method kwargs
+    LSP_METHODS: dict[str, tuple[str, tuple[str, ...], dict[str, str]]] = {
+        "textDocument/definition": (
+            "request_definition",
+            ("filePath", "line", "column"),
+            {"workspace_path": "workspacePath", "file_path": "filePath",
+             "line": "line", "column": "column"},
+        ),
+        "textDocument/references": (
+            "request_references",
+            ("filePath", "line", "column"),
+            {"workspace_path": "workspacePath", "file_path": "filePath",
+             "line": "line", "column": "column"},
+        ),
+        "textDocument/completion": (
+            "request_completions",
+            ("filePath", "line", "column"),
+            {"workspace_path": "workspacePath", "file_path": "filePath",
+             "line": "line", "column": "column"},
+        ),
+        "textDocument/hover": (
+            "request_hover",
+            ("filePath", "line", "column"),
+            {"workspace_path": "workspacePath", "file_path": "filePath",
+             "line": "line", "column": "column"},
+        ),
+        "textDocument/documentSymbol": (
+            "request_document_symbols",
+            ("filePath",),
+            {"workspace_path": "workspacePath", "file_path": "filePath"},
+        ),
+        "textDocument/diagnostic": (
+            "request_diagnostics",
+            ("filePath",),
+            {"workspace_path": "workspacePath", "file_path": "filePath"},
+        ),
+        "workspace/symbol": (
+            "request_workspace_symbols",
+            (),
+            {"workspace_path": "workspacePath", "query": "query"},
+        ),
+        "workspace/diagnostic": (
+            "request_workspace_diagnostics",
+            (),
+            {"workspace_path": "workspacePath"},
+        ),
     }
 
     # Response key for each method
@@ -223,6 +259,15 @@ class RequestHandler:
         "textDocument/diagnostic": "diagnostics",
         "workspace/symbol": "symbols",
         "workspace/diagnostic": "diagnostics",
+    }
+
+    # Default values for common params
+    DEFAULTS: dict[str, Any] = {
+        "workspace_path": ".",
+        "file_path": None,
+        "line": 0,
+        "column": 0,
+        "query": "",
     }
 
     def __init__(self, workspace_path: str, language: str, lsp_conf: str | None = None):
@@ -277,9 +322,13 @@ class RequestHandler:
         method_config = self.LSP_METHODS[method]
         registry_method = method_config[0]
         required_params = method_config[1]
+        kwargs_mapping = method_config[2]
         response_key = self.RESPONSE_KEYS[method]
 
-        # Validate required parameters (only filePath is truly required for LSP methods)
+        # Log method entry with parameters
+        logger.debug(f"Handling LSP method: {method} with params: {params}")
+
+        # Validate required parameters
         file_path = params.get("filePath")
         if file_path is None and "filePath" in required_params:
             raise ValueError("Missing 'filePath' parameter")
@@ -287,53 +336,35 @@ class RequestHandler:
         # Get registry method by name
         registry_func = getattr(self._registry, registry_method)
 
-        # Build kwargs for registry method based on method type
-        if registry_method == "request_workspace_symbols":
-            # workspace/symbol uses (workspace_path, query) - both optional
-            kwargs = {
-                "workspace_path": params.get("workspacePath", "."),
-                "query": params.get("query", ""),
-            }
-            logger.debug(
-                f"Workspace symbol request: workspace={kwargs['workspace_path']}, "
-                f"query={kwargs['query']}"
-            )
-            result = await registry_func(**kwargs)
-            logger.debug(f"Workspace symbol response: {len(result)} symbols found")
-        elif registry_method == "request_document_symbols":
-            # documentSymbol uses (workspace_path, file_path)
-            kwargs = {
-                "workspace_path": params.get("workspacePath", "."),
-                "file_path": file_path,
-            }
-            result = await registry_func(**kwargs)
-        elif registry_method == "request_diagnostics":
-            # textDocument/diagnostic uses (workspace_path, file_path)
-            kwargs = {
-                "workspace_path": params.get("workspacePath", "."),
-                "file_path": file_path,
-            }
-            result = await registry_func(**kwargs)
-        elif registry_method == "request_workspace_diagnostics":
-            # workspace/diagnostic uses (workspace_path,)
-            kwargs = {
-                "workspace_path": params.get("workspacePath", "."),
-            }
-            result = await registry_func(**kwargs)
-        else:
-            # Standard position-based methods use (workspace_path, file_path, line, column)
-            kwargs = {
-                "workspace_path": params.get("workspacePath", "."),
-                "file_path": file_path,
-                "line": params.get("line", 0),
-                "column": params.get("column", 0),
-            }
-            result = await registry_func(**kwargs)
+        try:
+            # Build kwargs using the mapping configuration
+            kwargs: dict[str, Any] = {}
+            for kwarg_name, param_name in kwargs_mapping.items():
+                # Map LSP param (camelCase) to registry kwarg (snake_case)
+                value = params.get(param_name)
+                if value is None:
+                    # Use default value if param is optional
+                    value = self.DEFAULTS.get(kwarg_name)
+                kwargs[kwarg_name] = value
 
-        # Wrap result with appropriate response key
-        if response_key == "hover":
-            return {response_key: result} if result else {}
-        return {response_key: result}
+            # Log special cases for better debugging
+            if registry_method == "request_workspace_symbols":
+                logger.debug(
+                    f"Workspace symbol request: workspace={kwargs.get('workspace_path')}, "
+                    f"query={kwargs.get('query')}"
+                )
+
+            result = await registry_func(**kwargs)
+            logger.debug(f"Registry method returned for {method}")
+
+            # Wrap result with appropriate response key
+            if response_key == "hover":
+                return {response_key: result} if result else {}
+            return {response_key: result}
+
+        except Exception as e:
+            logger.exception(f"Error handling LSP method {method}: {e}")
+            raise
 
 
 async def run_daemon(

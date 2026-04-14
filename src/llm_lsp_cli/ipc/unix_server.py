@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,8 @@ from .protocol import (
     build_response,
     parse_message,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class UNIXServer:
@@ -68,7 +71,11 @@ class UNIXServer:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
-        """Handle a client connection."""
+        """Handle a client connection.
+
+        Logs exceptions for debugging instead of silently swallowing them.
+        Re-raises CancelledError to allow proper task cancellation.
+        """
         buffer = b""
         try:
             while True:
@@ -87,12 +94,14 @@ class UNIXServer:
                     await self._process_message(parsed, reader, writer)
 
         except asyncio.CancelledError:
-            pass
+            # Re-raise CancelledError - don't swallow it
+            raise
         except asyncio.IncompleteReadError:
-            pass
+            # Expected during normal client disconnect - log at DEBUG
+            logger.debug("Client disconnected (IncompleteReadError)")
         except Exception:
-            # Log error but don't crash
-            pass
+            # Log exception with traceback for debugging
+            logger.exception("Error handling client connection")
         finally:
             writer.close()
             with contextlib.suppress(Exception):

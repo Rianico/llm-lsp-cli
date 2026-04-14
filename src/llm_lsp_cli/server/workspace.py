@@ -1,9 +1,12 @@
 """Workspace manager for LSP servers."""
 
 import asyncio
+import logging
 from pathlib import Path
 
 from llm_lsp_cli.lsp.client import LSPClient
+
+logger = logging.getLogger(__name__)
 
 
 class WorkspaceManager:
@@ -34,7 +37,14 @@ class WorkspaceManager:
         self._initialized = False
 
     async def ensure_initialized(self) -> LSPClient:
-        """Ensure the LSP client is initialized."""
+        """Ensure the LSP client is initialized.
+
+        Uses asyncio.wait_for() to enforce the timeout on LSP initialization.
+
+        Raises:
+            asyncio.TimeoutError: If LSP initialization exceeds the timeout.
+                The error message includes the server command and workspace path.
+        """
         async with self._lock:
             if not self._initialized:
                 self._client = LSPClient(
@@ -47,7 +57,18 @@ class WorkspaceManager:
                     lsp_conf=self.lsp_conf,
                     log_file=self.log_file,
                 )
-                await self._client.initialize()
+                try:
+                    # Wrap initialization with timeout
+                    await asyncio.wait_for(
+                        self._client.initialize(),
+                        timeout=self.timeout,
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        f"LSP server initialization timed out after {self.timeout}s. "
+                        f"Server: {self.server_command}, Workspace: {self.workspace_path}"
+                    )
+                    raise
                 self._initialized = True
 
             assert self._client is not None
