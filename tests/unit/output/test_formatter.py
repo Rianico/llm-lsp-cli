@@ -60,7 +60,6 @@ class TestCompactFormatterInit:
 
     def test_init_stores_workspace(self, temp_dir: Path) -> None:
         """Verify workspace is stored and resolved."""
-        from pathlib import Path
         formatter = CompactFormatter(str(temp_dir))
         assert formatter._workspace == temp_dir.resolve()
 

@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import yaml
 
-from llm_lsp_cli.output.formatter import CompactFormatter, LocationRecord, SymbolRecord
+from llm_lsp_cli.output.formatter import CompactFormatter
 
 
 class TestWorkspaceSymbolWorkflow:

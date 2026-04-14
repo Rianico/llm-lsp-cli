@@ -14,6 +14,8 @@ import typer
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.output.formatter import CompactFormatter
+from llm_lsp_cli.output.symbol_filter import filter_symbols
+from llm_lsp_cli.output.verbosity import VerbosityLevel
 from llm_lsp_cli.test_filter import (
     _filter_test_diagnostic_items,
     _filter_test_locations,
@@ -235,6 +237,22 @@ def _format_workspace_symbols_text(symbols: list[dict[str, Any]]) -> None:
             typer.echo(f"{name} ({kind_name}) in {uri}{range_info}")
     else:
         typer.echo("No symbols found.")
+
+
+def _apply_verbosity_filter(symbols: list[dict[str, Any]], verbose: int) -> list[dict[str, Any]]:
+    """Apply verbosity-based filtering to symbols.
+
+    Caps verbosity at DEBUG level (2) and filters symbols accordingly.
+
+    Args:
+        symbols: List of symbol dictionaries
+        verbose: Verbosity count from CLI option
+
+    Returns:
+        Filtered list of symbols
+    """
+    verbosity = VerbosityLevel(min(verbose, 2))  # Cap at DEBUG level
+    return filter_symbols(symbols, verbosity)
 
 
 def _resolve_language(workspace: str | None, language: str | None) -> tuple[str, str]:
@@ -911,13 +929,23 @@ def document_symbol(
         "-o",
         help="Output format (overrides global)",
     ),
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
+        "-v",
+        count=True,
+        help="Include variable-level symbols (e.g., -v for verbose, -vv for debug)",
+    ),
     raw: bool = typer.Option(
         False,
         "--raw",
         help="Output in legacy verbose format (one symbol per line, full columns)",
     ),
 ) -> None:
-    """Get document symbols."""
+    """Get document symbols.
+
+    By default, excludes variable-level symbols (variables, fields). Use -v to include them.
+    """
     context = _build_request_context(ctx, workspace, language, output_format, file)
 
     try:
@@ -932,20 +960,23 @@ def document_symbol(
 
         symbols = response.get("symbols", [])
 
+        # Apply symbol filter based on verbosity level
+        filtered_symbols = _apply_verbosity_filter(symbols, verbose)
+
         if raw:
             # Legacy verbose format
             if context.output_format == OutputFormat.TEXT:
-                _format_symbols_text(symbols)
+                _format_symbols_text(filtered_symbols)
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(format_output(symbols, OutputFormat.YAML), nl=False)
+                typer.echo(format_output(filtered_symbols, OutputFormat.YAML), nl=False)
             elif context.output_format == OutputFormat.CSV:
-                typer.echo(format_document_symbols_csv(symbols), nl=False)
+                typer.echo(format_document_symbols_csv(filtered_symbols), nl=False)
             else:  # JSON (default)
-                typer.echo(format_output(symbols, OutputFormat.JSON))
+                typer.echo(format_output(filtered_symbols, OutputFormat.JSON))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
-            records = formatter.transform_symbols(symbols)
+            records = formatter.transform_symbols(filtered_symbols)
 
             if context.output_format == OutputFormat.TEXT:
                 typer.echo(formatter.symbols_to_text(records))
@@ -982,6 +1013,13 @@ def workspace_symbol(
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
+        "-v",
+        count=True,
+        help="Include variable-level symbols (e.g., -v for verbose, -vv for debug)",
+    ),
     raw: bool = typer.Option(
         False,
         "--raw",
@@ -991,6 +1029,7 @@ def workspace_symbol(
     """Search workspace symbols.
 
     By default, filters out symbols from test files. Use --include-tests to include them.
+    By default, excludes variable-level symbols (variables, fields). Use -v to include them.
     """
     global_opts: GlobalOptions = ctx.obj
     effective_workspace, effective_language, effective_format = _resolve_effective_options(
@@ -1009,6 +1048,9 @@ def workspace_symbol(
 
         symbols = response.get("symbols", [])
         filtered = _filter_test_symbols(symbols, include_tests=include_tests)
+
+        # Apply symbol filter based on verbosity level
+        filtered = _apply_verbosity_filter(filtered, verbose)
 
         if raw:
             # Legacy verbose format

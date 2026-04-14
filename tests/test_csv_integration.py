@@ -12,7 +12,6 @@ import csv
 import io
 import time
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
