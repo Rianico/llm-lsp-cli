@@ -208,7 +208,9 @@ class RequestHandler:
         "textDocument/completion": ("request_completions", ("filePath", "line", "column")),
         "textDocument/hover": ("request_hover", ("filePath", "line", "column")),
         "textDocument/documentSymbol": ("request_document_symbols", ("filePath",)),
+        "textDocument/diagnostic": ("request_diagnostics", ("filePath",)),
         "workspace/symbol": ("request_workspace_symbols", ()),  # query is optional
+        "workspace/diagnostic": ("request_workspace_diagnostics", ()),
     }
 
     # Response key for each method
@@ -218,7 +220,9 @@ class RequestHandler:
         "textDocument/completion": "items",
         "textDocument/hover": "hover",
         "textDocument/documentSymbol": "symbols",
+        "textDocument/diagnostic": "diagnostics",
         "workspace/symbol": "symbols",
+        "workspace/diagnostic": "diagnostics",
     }
 
     def __init__(self, workspace_path: str, language: str, lsp_conf: str | None = None):
@@ -301,6 +305,19 @@ class RequestHandler:
             kwargs = {
                 "workspace_path": params.get("workspacePath", "."),
                 "file_path": file_path,
+            }
+            result = await registry_func(**kwargs)
+        elif registry_method == "request_diagnostics":
+            # textDocument/diagnostic uses (workspace_path, file_path)
+            kwargs = {
+                "workspace_path": params.get("workspacePath", "."),
+                "file_path": file_path,
+            }
+            result = await registry_func(**kwargs)
+        elif registry_method == "request_workspace_diagnostics":
+            # workspace/diagnostic uses (workspace_path,)
+            kwargs = {
+                "workspace_path": params.get("workspacePath", "."),
             }
             result = await registry_func(**kwargs)
         else:

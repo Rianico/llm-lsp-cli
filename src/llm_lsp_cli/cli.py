@@ -14,7 +14,11 @@ import typer
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.output.formatter import CompactFormatter
-from llm_lsp_cli.test_filter import _filter_test_locations, _filter_test_symbols
+from llm_lsp_cli.test_filter import (
+    _filter_test_diagnostic_items,
+    _filter_test_locations,
+    _filter_test_symbols,
+)
 from llm_lsp_cli.utils import (
     OutputFormat,
     format_completions_csv,
@@ -1029,6 +1033,147 @@ def workspace_symbol(
                 typer.echo(formatter.symbols_to_csv(records), nl=False)
             else:  # JSON (default)
                 typer.echo(formatter.symbols_to_json(records))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def diagnostics(
+    ctx: typer.Context,
+    file: str = typer.Argument(..., help="File path"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
+        "--format",
+        "-o",
+        help="Output format (overrides global)",
+    ),
+) -> None:
+    """Get diagnostics for a single file.
+
+    Returns LSP diagnostics (errors, warnings, info, hints) for the specified file.
+    """
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace, effective_language, effective_format = _resolve_effective_options(
+        global_opts, workspace, language, output_format
+    )
+
+    # Auto-detect language from file if not provided
+    if effective_language is None:
+        effective_language = detect_language_from_file(file)
+
+    workspace_path = effective_workspace or str(Path.cwd())
+    file_path = _validate_file_in_workspace(file, effective_workspace)
+
+    try:
+        response = _send_request(
+            "textDocument/diagnostic",
+            {
+                "workspacePath": workspace_path,
+                "filePath": str(file_path),
+            },
+            language=effective_language or "python",
+        )
+
+        diagnostics_list = response.get("diagnostics", [])
+        formatter = CompactFormatter(workspace_path)
+        records = formatter.transform_diagnostics(diagnostics_list, file_path=str(file_path))
+
+        if effective_format == OutputFormat.TEXT:
+            typer.echo(formatter.diagnostics_to_text(records))
+        elif effective_format == OutputFormat.YAML:
+            typer.echo(formatter.diagnostics_to_yaml(records), nl=False)
+        elif effective_format == OutputFormat.CSV:
+            typer.echo(formatter.diagnostics_to_csv(records), nl=False)
+        else:  # JSON (default)
+            typer.echo(formatter.diagnostics_to_json(records))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def workspace_diagnostics(
+    ctx: typer.Context,
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
+        "--format",
+        "-o",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include diagnostics from test files (excluded by default)",
+    ),
+) -> None:
+    """Get diagnostics for entire workspace.
+
+    Returns LSP diagnostics (errors, warnings, info, hints) for all files in the workspace.
+    By default, filters out diagnostics from test files. Use --include-tests to include them.
+    """
+    global_opts: GlobalOptions = ctx.obj
+    effective_workspace, effective_language, effective_format = _resolve_effective_options(
+        global_opts, workspace, language, output_format
+    )
+
+    workspace_path = effective_workspace or str(Path.cwd())
+    language_value = effective_language or "python"
+
+    try:
+        response = _send_request(
+            "workspace/diagnostic",
+            {"workspacePath": workspace_path},
+            language=language_value,
+        )
+
+        diagnostics_items = response.get("diagnostics", [])
+
+        # Apply test filtering if requested
+        if not include_tests:
+            diagnostics_items = _filter_test_diagnostic_items(
+                diagnostics_items,
+                include_tests=False,
+                language=language_value,
+            )
+
+        # Flatten workspace diagnostics into a single list with file info
+        all_records = []
+        formatter = CompactFormatter(workspace_path)
+
+        for item in diagnostics_items:
+            uri = item.get("uri", "")
+            file_diagnostics = item.get("diagnostics", [])
+            # Convert URI to file path
+            from urllib.parse import urlparse
+
+            parsed = urlparse(uri)
+            file_path = parsed.path if parsed.scheme == "file" else uri
+            records = formatter.transform_diagnostics(file_diagnostics, file_path=file_path)
+            all_records.extend(records)
+
+        if effective_format == OutputFormat.TEXT:
+            typer.echo(formatter.diagnostics_to_text(all_records))
+        elif effective_format == OutputFormat.YAML:
+            typer.echo(formatter.diagnostics_to_yaml(all_records), nl=False)
+        elif effective_format == OutputFormat.CSV:
+            typer.echo(formatter.diagnostics_to_csv(all_records), nl=False)
+        else:  # JSON (default)
+            typer.echo(formatter.diagnostics_to_json(all_records))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)

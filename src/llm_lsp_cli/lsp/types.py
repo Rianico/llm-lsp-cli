@@ -287,3 +287,32 @@ class PublishDiagnosticsParams(TypedDict):
     uri: str
     version: int | None
     diagnostics: list[Diagnostic]
+
+
+class DocumentDiagnosticParams(TypedDict):
+    """Parameters for textDocument/diagnostic request."""
+
+    textDocument: TextDocumentIdentifier
+    previousResultId: str | None
+
+
+class DocumentDiagnosticReport(TypedDict, total=False):
+    """Diagnostic report for a single document."""
+
+    kind: str  # "full" or "unchanged"
+    resultId: str
+    items: list[Diagnostic]
+
+
+class WorkspaceDiagnosticItem(TypedDict):
+    """A single diagnostic item in workspace report."""
+
+    uri: str
+    version: int | None
+    diagnostics: list[Diagnostic]
+
+
+class WorkspaceDiagnosticReport(TypedDict):
+    """Workspace-wide diagnostic report."""
+
+    items: list[WorkspaceDiagnosticItem]

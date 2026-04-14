@@ -109,7 +109,49 @@ def _is_test_path(uri: str, language: str | None = None) -> bool:
 
 
 # Apply LRU cache to _is_test_path
-_is_test_path = lru_cache(maxsize=4096)(_is_test_path)  # type: ignore[assignment]
+_is_test_path = lru_cache(maxsize=4096)(_is_test_path)
+
+
+def _is_test_uri(uri: str, language: str | None = None) -> bool:
+    """Check if a URI points to a test file or directory.
+
+    Uses pattern matching on the URI path to detect test files.
+    Results are cached via the wrapped _is_test_path function.
+
+    Args:
+        uri: LSP URI string (e.g., 'file:///path/to/file.py')
+        language: Language identifier (auto-detected if None)
+
+    Returns:
+        True if the URI matches test patterns, False otherwise
+    """
+    return _is_test_path(uri, language=language)
+
+
+def _filter_by_uri(
+    items: list[dict[str, Any]],
+    include_tests: bool = False,
+    language: str | None = None,
+    uri_key: str = "uri",
+) -> list[dict[str, Any]]:
+    """Filter out items with test URIs unless include_tests is True.
+
+    Args:
+        items: List of items with URI fields
+        include_tests: If True, return all items without filtering
+        language: Language identifier for pattern selection
+        uri_key: Key name for URI field (default: "uri")
+
+    Returns:
+        Filtered list of items
+    """
+    if include_tests:
+        return items
+
+    return [
+        item for item in items
+        if not _is_test_uri(item.get(uri_key, ""), language=language)
+    ]
 
 
 def _filter_test_locations(
@@ -127,10 +169,7 @@ def _filter_test_locations(
     Returns:
         Filtered list of locations
     """
-    if include_tests:
-        return locations
-
-    return [loc for loc in locations if not _is_test_path(loc.get("uri", ""), language=language)]
+    return _filter_by_uri(locations, include_tests, language, uri_key="uri")
 
 
 def _filter_test_symbols(
@@ -154,8 +193,29 @@ def _filter_test_symbols(
     return [
         sym
         for sym in symbols
-        if not _is_test_path(sym.get("location", {}).get("uri", ""), language=language)
+        if not _is_test_uri(
+            sym.get("location", {}).get("uri", ""),
+            language=language
+        )
     ]
+
+
+def _filter_test_diagnostic_items(
+    items: list[dict[str, Any]],
+    include_tests: bool = False,
+    language: str | None = None,
+) -> list[dict[str, Any]]:
+    """Filter out test file diagnostics from workspace results.
+
+    Args:
+        items: List of WorkspaceDiagnosticItem objects
+        include_tests: If True, include test files
+        language: Language identifier for pattern selection
+
+    Returns:
+        Filtered list of diagnostic items
+    """
+    return _filter_by_uri(items, include_tests, language, uri_key="uri")
 
 
 def reload_config() -> None:
@@ -217,6 +277,7 @@ __all__ = [
     "_is_test_path",
     "_filter_test_locations",
     "_filter_test_symbols",
+    "_filter_test_diagnostic_items",
     "reload_config",
     "get_registry",
     "PatternSet",

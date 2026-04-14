@@ -44,6 +44,9 @@ class LSPClient:
         self._open_files: dict[str, tuple[str, int, asyncio.Event]] = {}
         self._capabilities: lsp.ServerCapabilities | None = None
         self._workspace_indexed = asyncio.Event()
+        # Cache for diagnostics received via publishDiagnostics
+        # uri -> list[Diagnostic]
+        self._diagnostic_cache: dict[str, list[dict[str, Any]]] = {}
 
     async def initialize(self) -> lsp.InitializeResult:
         """Initialize the LSP connection."""
@@ -282,6 +285,116 @@ class LSPClient:
 
         return result or []
 
+    async def request_diagnostics(
+        self,
+        file_path: str,
+    ) -> list[lsp.Diagnostic]:
+        """Request diagnostics for a single document.
+
+        Uses textDocument/diagnostic LSP 3.17 method.
+        Falls back to cached diagnostics from publishDiagnostics
+        if the method is not supported.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            List of Diagnostic objects
+        """
+        uri = await self._ensure_open(file_path)
+
+        params: lsp.DocumentDiagnosticParams = {
+            "textDocument": {"uri": uri},
+            "previousResultId": None,
+        }
+
+        assert self._transport is not None
+        try:
+            result = await self._transport.send_request(
+                LSPConstants.DIAGNOSTIC,
+                params,  # type: ignore[arg-type]
+                timeout=self.timeout,
+            )
+            return self._normalize_document_diagnostics(result)
+        except Exception as e:
+            logger.warning(f"textDocument/diagnostic failed: {e}, using cached")
+            # Fallback to cached diagnostics from notifications
+            return self._diagnostic_cache.get(uri, [])
+
+    def _normalize_document_diagnostics(
+        self,
+        result: Any,
+    ) -> list[lsp.Diagnostic]:
+        """Normalize document diagnostic response."""
+        if result is None:
+            return []
+
+        if isinstance(result, dict):
+            # Handle DocumentDiagnosticReport format
+            if result.get("kind") == "unchanged":
+                # No changes since last request - return cached
+                return self._diagnostic_cache.get(
+                    result.get("uri", ""), []
+                )
+            items = result.get("items", [])
+            return items
+
+        if isinstance(result, list):
+            return result
+
+        return []
+
+    async def request_workspace_diagnostics(
+        self,
+    ) -> list[lsp.WorkspaceDiagnosticItem]:
+        """Request diagnostics for entire workspace.
+
+        Uses workspace/diagnostic LSP 3.17 method.
+        Waits for workspace indexing before requesting.
+
+        Returns:
+            List of WorkspaceDiagnosticItem objects
+        """
+        # Wait for workspace to be indexed
+        try:
+            await asyncio.wait_for(
+                self._workspace_indexed.wait(),
+                timeout=30.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Workspace indexing timed out, "
+                "diagnostics may be incomplete"
+            )
+
+        params: dict[str, Any] = {}
+
+        assert self._transport is not None
+        result = await self._transport.send_request(
+            LSPConstants.WORKSPACE_DIAGNOSTIC,
+            params,
+            timeout=60.0,  # Longer timeout for workspace
+        )
+
+        return self._normalize_workspace_diagnostics(result)
+
+    def _normalize_workspace_diagnostics(
+        self,
+        result: Any,
+    ) -> list[lsp.WorkspaceDiagnosticItem]:
+        """Normalize workspace diagnostic response."""
+        if result is None:
+            return []
+
+        if isinstance(result, dict):
+            items = result.get("items", [])
+            return items
+
+        if isinstance(result, list):
+            return result
+
+        return []
+
     async def _ensure_open(self, file_path: str) -> str:
         """Ensure file is open in LSP server.
 
@@ -344,12 +457,16 @@ class LSPClient:
     def _handle_diagnostics(self, params: dict[str, Any]) -> None:
         """Handle textDocument/publishDiagnostics notification.
 
-        Signals that the LSP server has processed the document and is ready.
+        Caches diagnostics for fallback and signals document readiness.
         """
         uri = params.get("uri", "")
+        diagnostics = params.get("diagnostics", [])
+
+        # Cache diagnostics for fallback
+        self._diagnostic_cache[uri] = diagnostics
+
         if uri in self._open_files:
             _, _, ready_event = self._open_files[uri]
-            # Signal readiness on first diagnostics (only set once)
             if not ready_event.is_set():
                 logger.debug(f"Document ready: {uri}")
                 ready_event.set()

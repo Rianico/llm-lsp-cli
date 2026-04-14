@@ -38,6 +38,31 @@ class LocationRecord:
     range: str
 
 
+@dataclass
+class DiagnosticRecord:
+    """A normalized diagnostic record for compact output."""
+
+    file: str
+    line: int
+    character: int
+    end_line: int
+    end_character: int
+    severity: int
+    severity_name: str
+    code: str | int | None
+    source: str
+    message: str
+    tags: list[int] = field(default_factory=list)
+
+
+SEVERITY_MAP = {
+    1: "Error",
+    2: "Warning",
+    3: "Information",
+    4: "Hint",
+}
+
+
 class CompactFormatter:
     """Formatter for LLM-optimized compact LSP output.
 
@@ -334,5 +359,168 @@ class CompactFormatter:
 
         for rec in records:
             writer.writerow({"file": rec.file, "range": rec.range})
+
+        return output.getvalue()
+
+    def transform_diagnostics(
+        self,
+        diagnostics: list[dict[str, Any]],
+        file_path: str | None = None,
+    ) -> list[DiagnosticRecord]:
+        """Transform LSP diagnostics to DiagnosticRecord list.
+
+        Args:
+            diagnostics: List of LSP Diagnostic objects
+            file_path: Optional known file path (for single-file diagnostics)
+
+        Returns:
+            List of normalized DiagnosticRecord objects
+        """
+        records: list[DiagnosticRecord] = []
+
+        for diag in diagnostics:
+            range_obj = diag.get("range", {})
+            start = range_obj.get("start", {})
+            end = range_obj.get("end", {})
+
+            records.append(
+                DiagnosticRecord(
+                    file=file_path or "",
+                    line=(start.get("line", 0) or 0) + 1,
+                    character=(start.get("character", 0) or 0) + 1,
+                    end_line=(end.get("line", 0) or 0) + 1,
+                    end_character=(end.get("character", 0) or 0) + 1,
+                    severity=diag.get("severity", 1),
+                    severity_name=SEVERITY_MAP.get(diag.get("severity", 1), "Unknown"),
+                    code=diag.get("code"),
+                    source=diag.get("source", ""),
+                    message=diag.get("message", ""),
+                    tags=diag.get("tags", []),
+                )
+            )
+
+        return records
+
+    def diagnostics_to_text(self, records: list[DiagnosticRecord]) -> str:
+        """Format DiagnosticRecord list as compact text.
+
+        Args:
+            records: List of DiagnosticRecord objects
+
+        Returns:
+            Formatted text string
+        """
+        if not records:
+            return "No diagnostics found."
+
+        lines: list[str] = []
+        for rec in records:
+            code_str = f" [{rec.code}]" if rec.code else ""
+            source_str = f" ({rec.source})" if rec.source else ""
+            line = (
+                f"{rec.severity_name}: {rec.message}{code_str}{source_str} "
+                f"at {rec.line}:{rec.character}-{rec.end_line}:{rec.end_character}"
+            )
+            lines.append(line)
+
+        return "\n".join(lines)
+
+    def diagnostics_to_json(self, records: list[DiagnosticRecord]) -> str:
+        """Format DiagnosticRecord list as compact JSON.
+
+        Args:
+            records: List of DiagnosticRecord objects
+
+        Returns:
+            JSON string
+        """
+        result = []
+        for rec in records:
+            obj: dict[str, Any] = {
+                "file": rec.file,
+                "line": rec.line,
+                "character": rec.character,
+                "end_line": rec.end_line,
+                "end_character": rec.end_character,
+                "severity": rec.severity,
+                "severity_name": rec.severity_name,
+                "message": rec.message,
+            }
+            if rec.code is not None:
+                obj["code"] = rec.code
+            if rec.source:
+                obj["source"] = rec.source
+            if rec.tags:
+                obj["tags"] = rec.tags
+            result.append(obj)
+
+        return json.dumps(result, indent=2)
+
+    def diagnostics_to_yaml(self, records: list[DiagnosticRecord]) -> str:
+        """Format DiagnosticRecord list as compact YAML.
+
+        Args:
+            records: List of DiagnosticRecord objects
+
+        Returns:
+            YAML string
+        """
+        result = []
+        for rec in records:
+            obj: dict[str, Any] = {
+                "file": rec.file,
+                "line": rec.line,
+                "character": rec.character,
+                "end_line": rec.end_line,
+                "end_character": rec.end_character,
+                "severity": rec.severity,
+                "severity_name": rec.severity_name,
+                "message": rec.message,
+            }
+            if rec.code is not None:
+                obj["code"] = rec.code
+            if rec.source:
+                obj["source"] = rec.source
+            if rec.tags:
+                obj["tags"] = rec.tags
+            result.append(obj)
+
+        return yaml.safe_dump(result, default_flow_style=False, sort_keys=False)
+
+    def diagnostics_to_csv(self, records: list[DiagnosticRecord]) -> str:
+        """Format DiagnosticRecord list as CSV.
+
+        Args:
+            records: List of DiagnosticRecord objects
+
+        Returns:
+            CSV string with headers
+        """
+        if not records:
+            return ""
+
+        output = io.StringIO()
+        fieldnames = [
+            "file", "line", "character", "end_line", "end_character",
+            "severity", "severity_name", "code", "source", "message", "tags"
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+
+        for rec in records:
+            row = {
+                "file": rec.file,
+                "line": rec.line,
+                "character": rec.character,
+                "end_line": rec.end_line,
+                "end_character": rec.end_character,
+                "severity": str(rec.severity),
+                "severity_name": rec.severity_name,
+                "code": str(rec.code) if rec.code is not None else "",
+                "source": rec.source,
+                "message": rec.message,
+                "tags": "|".join(str(t) for t in rec.tags) if rec.tags else "",
+            }
+            writer.writerow(row)
 
         return output.getvalue()

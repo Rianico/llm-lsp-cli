@@ -54,6 +54,7 @@ class LSPConstants:
 
     # Workspace features
     WORKSPACE_SYMBOL = "workspace/symbol"
+    WORKSPACE_DIAGNOSTIC = "workspace/diagnostic"
     WORKSPACE_EXECUTE_COMMAND = "workspace/executeCommand"
     WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS = "workspace/didChangeWorkspaceFolders"
     WORKSPACE_DID_CREATE_FILES = "workspace/didCreateFiles"

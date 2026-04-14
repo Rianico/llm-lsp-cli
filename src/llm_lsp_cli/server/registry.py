@@ -203,6 +203,25 @@ class ServerRegistry:
         client = await workspace.ensure_initialized()
         return await client.request_workspace_symbols(query)
 
+    async def request_diagnostics(
+        self,
+        workspace_path: str,
+        file_path: str,
+    ) -> list[Any]:
+        """Request diagnostics for a single document."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_diagnostics(file_path)
+
+    async def request_workspace_diagnostics(
+        self,
+        workspace_path: str,
+    ) -> list[Any]:
+        """Request diagnostics for entire workspace."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_workspace_diagnostics()
+
     async def shutdown_all(self) -> None:
         """Shutdown all workspaces."""
         async with self._global_lock:
