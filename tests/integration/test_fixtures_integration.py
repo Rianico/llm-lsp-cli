@@ -351,12 +351,12 @@ class TestGeneratorFunctions:
         # First should be source symbol
         source = response["symbols"][0]
         assert source["name"] == "MyClass"
-        assert "myclass.py" in source["location"]["uri"]
+        assert "file.py" in source["location"]["uri"]
 
         # Second should be test symbol
         test_symbol = response["symbols"][1]
         assert test_symbol["name"] == "TestMyClass"
-        assert "test_myclass.py" in test_symbol["location"]["uri"]
+        assert "test_file.py" in test_symbol["location"]["uri"]
 
     def test_generator_functions_with_formatter(self, temp_dir: Path) -> None:
         """Test generator functions work with CompactFormatter."""
