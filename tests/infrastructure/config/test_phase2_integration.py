@@ -662,23 +662,3 @@ class TestWorkspacePathIsolation:
         # Path should have correct structure
         assert socket_path.suffix == ".sock"
         assert "llm-lsp-cli" in socket_str
-
-    def test_ensure_project_dir_creates_structure(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None
-    ) -> None:
-        """ensure_project_dir() creates the full directory structure."""
-        # Arrange
-        runtime_dir = tmp_path / "runtime"
-        monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_dir))
-
-        workspace = tmp_path / "test_project"
-        workspace.mkdir()
-
-        from llm_lsp_cli.config.manager import ConfigManager
-
-        # Act
-        project_dir = ConfigManager.ensure_project_dir(str(workspace), base_dir=runtime_dir)
-
-        # Assert
-        assert project_dir.exists()
-        assert project_dir.is_dir()

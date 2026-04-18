@@ -39,8 +39,8 @@ class ConfigManager:
         return cls._get_xdg_paths().runtime_dir
 
     @classmethod
-    def get_runtime_base_dir(cls) -> Path:
-        return RuntimePathBuilder.get_runtime_base_dir()
+    def get_runtime_base_dir(cls, workspace_path: str | None = None) -> Path:
+        return RuntimePathBuilder.get_runtime_base_dir(workspace_path)
 
     @classmethod
     def build_socket_path(
@@ -83,17 +83,10 @@ class ConfigManager:
 
     @classmethod
     def ensure_runtime_dir(cls) -> Path:
-        return cls._get_xdg_paths().runtime_dir.parent
-
-    @classmethod
-    def ensure_project_dir(cls, workspace_path: str, base_dir: Path | None = None) -> Path:
-        """Ensure project runtime directory exists."""
-        if base_dir is None:
-            base_dir = cls.get_runtime_base_dir()
-        subdir = RuntimePathBuilder()._build_workspace_subdir(workspace_path)
-        project_dir = base_dir / subdir
-        project_dir.mkdir(parents=True, exist_ok=True)
-        return project_dir
+        """Ensure .llm-lsp-cli directory exists in current directory."""
+        runtime_dir = Path.cwd() / ".llm-lsp-cli"
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        return runtime_dir
 
     @classmethod
     def ensure_config_dir(cls) -> Path:

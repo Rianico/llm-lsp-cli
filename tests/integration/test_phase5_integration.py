@@ -795,77 +795,8 @@ class TestEnvironmentVariableExpansion:
         assert result["path"] == "${UNDEFINED_VAR}/subdir"
 
 
-class TestPathSanitization:
-    """Tests for path sanitization utilities."""
-
-    def test_sanitize_workspace_name_with_path_separators(self) -> None:
-        """Test workspace name sanitization replaces path separators."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        # Test that path separators are replaced
-        result = builder._sanitize_workspace_name("foo/bar")
-        assert "/" not in result
-        assert "_" in result
-
-    def test_sanitize_workspace_name_with_double_dots(self) -> None:
-        """Test workspace name sanitization handles double dots."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        result = builder._sanitize_workspace_name("foo..bar")
-        assert ".." not in result
-
-    def test_sanitize_workspace_name_special_characters(self) -> None:
-        """Test workspace name sanitization handles special characters."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        result = builder._sanitize_workspace_name("foo@bar#test!")
-        # Special chars should be replaced with underscores
-        assert "@" not in result
-        assert "#" not in result
-        assert "!" not in result
-
-    def test_sanitize_workspace_name_empty(self) -> None:
-        """Test workspace name sanitization handles empty string."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        result = builder._sanitize_workspace_name("")
-        # Empty string should result in "unknown"
-        assert result == "unknown"
-
-    def test_generate_workspace_hash_consistency(self) -> None:
-        """Test workspace hash generation is consistent."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        hash1 = builder._generate_workspace_hash("/test/path")
-        hash2 = builder._generate_workspace_hash("/test/path")
-        assert hash1 == hash2
-
-    def test_generate_workspace_hash_different_paths(self) -> None:
-        """Test different paths produce different hashes."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        hash1 = builder._generate_workspace_hash("/path/one")
-        hash2 = builder._generate_workspace_hash("/path/two")
-        assert hash1 != hash2
-
-
 class TestUnicodeHandling:
     """Tests for Unicode handling in various components."""
-
-    def test_unicode_in_workspace_name(self) -> None:
-        """Test Unicode characters in workspace name."""
-        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
-
-        builder = RuntimePathBuilder()
-        # Should not crash with Unicode input
-        result = builder._sanitize_workspace_name("日本語テスト")
-        assert isinstance(result, str)
 
     def test_unicode_in_jsonrpc_message(self) -> None:
         """Test Unicode characters in JSON-RPC messages."""

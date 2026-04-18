@@ -587,18 +587,21 @@ class TestAutoStartEdgeCases:
             workspace_a.mkdir(parents=True, exist_ok=True)
             workspace_b.mkdir(parents=True, exist_ok=True)
 
+            # With flat structure, each workspace has its own .llm-lsp-cli directory
+            # Don't override base_dir - let each workspace use its own
             socket_a = ConfigManager.build_socket_path(
                 workspace_path=str(workspace_a),
                 language="python",
-                base_dir=temp_base_dir,
             )
             socket_b = ConfigManager.build_socket_path(
                 workspace_path=str(workspace_b),
                 language="python",
-                base_dir=temp_base_dir,
             )
 
             assert socket_a != socket_b
+            # Each workspace should have its own .llm-lsp-cli directory
+            assert str(workspace_a) in str(socket_a)
+            assert str(workspace_b) in str(socket_b)
         finally:
             shutil.rmtree(workspace_a, ignore_errors=True)
             shutil.rmtree(workspace_b, ignore_errors=True)

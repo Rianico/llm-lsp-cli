@@ -170,7 +170,6 @@ class DaemonManager:
         # Ensure directories exist
         ConfigManager.ensure_runtime_dir()
         ConfigManager.ensure_state_dir()
-        ConfigManager.ensure_project_dir(self.workspace_path)
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.daemon_log_file.parent.mkdir(parents=True, exist_ok=True)

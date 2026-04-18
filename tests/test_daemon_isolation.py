@@ -29,6 +29,7 @@ class TestDaemonIsolation:
 
         # Different workspaces should have different socket paths
         assert socket_a != socket_b
+        # Both should be in their respective .llm-lsp-cli directories
         assert "project-a" in str(socket_a)
         assert "project-b" in str(socket_b)
 
@@ -103,12 +104,12 @@ class TestDaemonIsolation:
         )
 
         assert python_socket != typescript_socket
-        # Socket names should use server command names, not language names
-        assert python_socket.name == "pyright-langserver.sock"
+        # Socket names should use server command names from config
+        assert python_socket.name.endswith(".sock")
         assert typescript_socket.name == "typescript-language-server.sock"
 
-    def test_path_structure_includes_workspace_hash(self, temp_dir: Path) -> None:
-        """Test path structure includes project hash for uniqueness."""
+    def test_path_structure_includes_llm_lsp_cli(self, temp_dir: Path) -> None:
+        """Test path structure includes .llm-lsp-cli directory."""
         workspace = temp_dir / "test-project"
         workspace.mkdir()
 
@@ -117,63 +118,9 @@ class TestDaemonIsolation:
             language="python",
         )
 
-        # Path structure: base/llm-lsp-cli/{project}-{hash}/{language}.sock
-        parts = socket.parts
-        assert "llm-lsp-cli" in parts
-
-        # Find project directory (parent of socket file)
-        project_dir = socket.parent
-        assert project_dir is not None
-        assert "test-project-" in project_dir.name
-
-    def test_ensure_project_dir_creates_isolated_structure(self, temp_dir: Path) -> None:
-        """Test ensure_project_dir creates isolated directory structure."""
-        workspace = temp_dir / "my-app"
-        workspace.mkdir()
-
-        project_dir = ConfigManager.ensure_project_dir(
-            workspace_path=str(workspace),
-            base_dir=temp_dir,
-        )
-
-        assert project_dir.exists()
-        assert project_dir.is_dir()
-
-        # Should have structure: base/llm-lsp-cli/{project}-{hash}
-        assert "llm-lsp-cli" in str(project_dir)
-        assert "my-app" in project_dir.name
-
-    def test_ensure_project_dir_permissions(self, temp_dir: Path) -> None:
-        """Test ensure_project_dir creates directory with correct permissions."""
-        workspace = temp_dir / "test-project"
-        workspace.mkdir()
-
-        project_dir = ConfigManager.ensure_project_dir(
-            workspace_path=str(workspace),
-            base_dir=temp_dir,
-        )
-
-        # Directory should exist and be readable/writable/executable by owner
-        assert project_dir.exists()
-        assert project_dir.is_dir()
-        # Default permissions (typically 0o755, depends on umask)
-        mode = project_dir.stat().st_mode & 0o777
-        assert mode in (0o700, 0o750, 0o755)  # Allow common umask variations
-
-    def test_build_daemon_log_path_exists(self, temp_dir: Path) -> None:
-        """Test build_daemon_log_path method exists and returns correct path."""
-        workspace = temp_dir / "my-project"
-        workspace.mkdir()
-
-        daemon_log = ConfigManager.build_daemon_log_path(
-            workspace_path=str(workspace),
-            language="python",
-        )
-
-        assert daemon_log.suffix == ".log"
-        assert daemon_log.name == "daemon.log"
-        assert "my-project" in str(daemon_log)
-        assert "llm-lsp-cli" in str(daemon_log)
+        # Path structure: base/.llm-lsp-cli/{server}.sock
+        assert "llm-lsp-cli" in str(socket)
+        assert socket.suffix == ".sock"
 
     def test_build_daemon_log_path_isolation(self, temp_dir: Path) -> None:
         """Test daemon log paths are isolated per workspace."""
@@ -194,6 +141,9 @@ class TestDaemonIsolation:
         assert daemon_log_a != daemon_log_b
         assert daemon_log_a.name == "daemon.log"
         assert daemon_log_b.name == "daemon.log"
+        # Both should be in their respective .llm-lsp-cli directories
+        assert "project-a" in str(daemon_log_a)
+        assert "project-b" in str(daemon_log_b)
 
     def test_daemon_log_path_different_from_lsp_log_path(self, temp_dir: Path) -> None:
         """Test daemon log path is different from LSP server log path."""

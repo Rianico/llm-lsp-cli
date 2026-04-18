@@ -2,7 +2,6 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import patch
 
 from llm_lsp_cli.daemon import DaemonManager
 
@@ -32,29 +31,21 @@ class TestSocketPathLengthValidation:
         with pytest.raises(RuntimeError, match="Socket path too long"):
             manager.start()
 
-    def test_socket_path_acceptable_length(self, tmp_path: Path) -> None:
-        """Test that DaemonManager.start() allows socket path < 100 chars.
+    def test_socket_path_flat_structure_correct(self, tmp_path: Path) -> None:
+        """Test that socket paths use flat directory structure.
 
-        Uses a mocked short temp directory to avoid macOS long temp path issues.
+        Verifies the flat structure: {workspace}/.llm-lsp-cli/{server}.sock
         """
-        # Create a workspace with a short path name
-        short_workspace = tmp_path / "short-ws"
-        short_workspace.mkdir(parents=True, exist_ok=True)
+        # Create a workspace
+        workspace = tmp_path / "test-workspace"
+        workspace.mkdir(parents=True, exist_ok=True)
 
-        # Mock the runtime directory to use a short path
-        with patch('llm_lsp_cli.config.path_builder.XdgPaths.get') as mock_get:
-            mock_paths = type('MockPaths', (), {
-                'runtime_dir': Path('/tmp/test'),
-                'config_dir': tmp_path / 'config',
-                'state_dir': tmp_path / 'state',
-            })()
-            mock_get.return_value = mock_paths
+        manager = DaemonManager(
+            workspace_path=str(workspace),
+            language="python",
+        )
 
-            manager = DaemonManager(
-                workspace_path=str(short_workspace),
-                language="python",
-            )
-
-            # Socket path should be acceptable (< 100 chars)
-            socket_path_str = str(manager.socket_path)
-            assert len(socket_path_str) < 100, f"Socket path ({len(socket_path_str)} chars) should be < 100"
+        # Socket path should use flat structure
+        socket_path_str = str(manager.socket_path)
+        assert socket_path_str.endswith(".llm-lsp-cli/basedpyright-langserver.sock")
+        assert "test-workspace" in socket_path_str
