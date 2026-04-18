@@ -13,6 +13,7 @@ class DaemonError(Exception):
     """Base exception for daemon-related errors.
 
     All daemon exceptions include workspace and language context for actionable error messages.
+    Exceptions also include log_file path for debugging daemon failures.
     """
 
     def __init__(
@@ -20,10 +21,12 @@ class DaemonError(Exception):
         message: str,
         workspace: str | None = None,
         language: str | None = None,
+        log_file: str | None = None,
     ):
         self.message = message
         self.workspace = workspace
         self.language = language
+        self.log_file = log_file
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
@@ -35,7 +38,8 @@ class DaemonError(Exception):
             context_parts.append(f"language='{self.language}'")
 
         context = f" [{', '.join(context_parts)}]" if context_parts else ""
-        return f"{self.message}{context}"
+        log_suffix = f" (log: {self.log_file})" if self.log_file else ""
+        return f"{self.message}{context}{log_suffix}"
 
 
 class DaemonStartupError(DaemonError):
@@ -56,11 +60,12 @@ class DaemonStartupTimeoutError(DaemonError):
         timeout: float,
         workspace: str | None = None,
         language: str | None = None,
+        log_file: str | None = None,
     ):
         self.socket_path = socket_path
         self.timeout = timeout
         message = f"Daemon startup timed out after {timeout}s waiting for socket"
-        super().__init__(message, workspace, language)
+        super().__init__(message, workspace, language, log_file)
 
     def _format_message(self) -> str:
         """Format the timeout error message with socket path."""
@@ -79,10 +84,11 @@ class DaemonCrashedError(DaemonError):
         socket_path: str,
         workspace: str | None = None,
         language: str | None = None,
+        log_file: str | None = None,
     ):
         self.socket_path = socket_path
         message = "Daemon crashed - socket exists but connection failed"
-        super().__init__(message, workspace, language)
+        super().__init__(message, workspace, language, log_file)
 
     def _format_message(self) -> str:
         """Format the crash error message with socket path."""

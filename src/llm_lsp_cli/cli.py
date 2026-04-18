@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -462,14 +461,18 @@ def _send_request(
             response = await client.request(method, params)
             return response
         except DaemonStartupError as e:
+            # Use log_file from exception if available
+            log_path = e.log_file if hasattr(e, 'log_file') and e.log_file else ConfigManager.build_log_file_path(workspace_path, language)
             raise CLIError(
                 f"Failed to start daemon: {e}\n"
-                f"Check logs at: {ConfigManager.build_log_file_path(workspace_path, language)}"
+                f"Check logs at: {log_path}"
             ) from e
         except DaemonCrashedError as e:
+            # Use log_file from exception if available
+            log_path = e.log_file if hasattr(e, 'log_file') and e.log_file else ConfigManager.build_log_file_path(workspace_path, language)
             raise CLIError(
                 f"Daemon crashed: {e}\n"
-                f"Check logs at: {ConfigManager.build_log_file_path(workspace_path, language)}"
+                f"Check logs at: {log_path}"
             ) from e
         except FileNotFoundError:
             raise CLIError(
@@ -529,7 +532,7 @@ def _get_lsp_server_name(language: str) -> str:
     """
     from llm_lsp_cli.config import ConfigManager
 
-    return ConfigManager._get_lsp_server_name(language)
+    return ConfigManager.get_lsp_server_name(language)
 
 
 def _create_daemon_manager(
@@ -559,6 +562,56 @@ def _create_daemon_manager(
     )
 
 
+def _run_daemon_command(
+    command_name: str,
+    workspace: str | None,
+    language: str | None,
+    lsp_conf: str | None,
+    debug: bool = False,
+    check_running: bool | None = None,
+    action_fn: Callable[[Any, str, str], None] | None = None,
+) -> None:
+    """Execute a daemon lifecycle command with consistent logging.
+
+    Args:
+        command_name: Command name for logging (e.g., "START", "STOP", "RESTART")
+        workspace: Workspace path
+        language: Language identifier
+        lsp_conf: Custom LSP config
+        debug: Enable debug logging
+        check_running: None for no check, True to require running, False to require stopped
+        action_fn: Optional function to execute (manager, command_name, detected_language) -> None
+    """
+    workspace_path, detected_language = _resolve_language(workspace, language)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug)
+
+    # Check running state if required
+    is_running = manager.is_running()
+    if check_running is True and not is_running:
+        typer.echo(f"[{command_name}] Daemon is not running.", err=True)
+        raise typer.Exit(0)
+    if check_running is False and is_running:
+        # Error case: require stopped but already running
+        typer.echo(f"Error: Daemon is already running.", err=True)
+        raise typer.Exit(1)
+
+    # Log detected language only if auto-detected (not explicit)
+    if language is None:
+        typer.echo(f"[{command_name}] Detected language: {detected_language}", err=True)
+
+    # Execute action if provided
+    if action_fn:
+        try:
+            action_fn(manager, command_name, detected_language)
+        except Exception as e:
+            # Print failure message and log path
+            # Prefer exception's log_file if available, fallback to manager.log_file
+            log_path = getattr(e, 'log_file', None) or str(manager.log_file)
+            typer.echo(f"[{command_name}] Failed: {e}", err=True)
+            typer.echo(f"[{command_name}] Check logs at: {log_path}", err=True)
+            raise typer.Exit(1) from e
+
+
 @app.command()
 def start(
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
@@ -581,22 +634,22 @@ def start(
     - C/C++: Makefile, compile_commands.json
     - Python: pyproject.toml, setup.py, requirements.txt
     """
-    workspace_path, detected_language = _resolve_language(workspace, language)
-    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug)
 
-    if manager.is_running():
-        typer.echo("Error: Daemon is already running.", err=True)
-        raise typer.Exit(1)
+    def do_start(manager: Any, cmd: str, detected_lang: str) -> None:
+        typer.echo(f"[{cmd}] Initializing daemon...", err=True)
+        typer.echo(f"[{cmd}] Spawning {_get_lsp_server_name(detected_lang)}...", err=True)
+        manager.start()
+        typer.echo(f"[{cmd}] Ready (PID: {manager.get_pid()})", err=True)
 
-    # Log detected language only if auto-detected (not explicit)
-    if language is None:
-        typer.echo(f"[START] Detected language: {detected_language}", err=True)
-
-    typer.echo("[START] Initializing daemon...", err=True)
-    typer.echo(f"[START] Spawning {_get_lsp_server_name(detected_language)}...", err=True)
-
-    manager.start()
-    typer.echo(f"[START] Ready (PID: {manager.get_pid()})", err=True)
+    _run_daemon_command(
+        command_name="START",
+        workspace=workspace,
+        language=language,
+        lsp_conf=lsp_conf,
+        debug=debug,
+        check_running=False,  # Require daemon to be stopped
+        action_fn=do_start,
+    )
 
 
 @app.command()
@@ -608,16 +661,22 @@ def stop(
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
 ) -> None:
     """Stop the LSP daemon server."""
-    workspace_path, detected_language = _resolve_language(workspace, language)
-    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
-    if not manager.is_running():
-        typer.echo("[STOP] Daemon is not running.", err=True)
-        raise typer.Exit(0)
+    def do_stop(manager: Any, cmd: str, _lang: str = "") -> None:
+        _ = _lang  # Unused parameter
+        typer.echo(f"[{cmd}] Stopping daemon...", err=True)
+        manager.stop()
+        typer.echo(f"[{cmd}] Daemon stopped", err=True)
 
-    typer.echo("[STOP] Stopping daemon...", err=True)
-    manager.stop()
-    typer.echo("[STOP] Daemon stopped", err=True)
+    _run_daemon_command(
+        command_name="STOP",
+        workspace=workspace,
+        language=language,
+        lsp_conf=lsp_conf,
+        debug=False,
+        check_running=True,  # Require daemon to be running
+        action_fn=do_stop,
+    )
 
 
 @app.command()
@@ -627,20 +686,30 @@ def restart(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
     ),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
+    debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
 ) -> None:
     """Restart the LSP daemon server."""
-    workspace_path, detected_language = _resolve_language(workspace, language)
-    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
-    typer.echo("[RESTART] Restarting daemon...", err=True)
+    def do_restart(manager: Any, cmd: str, detected_lang: str) -> None:
+        typer.echo(f"[{cmd}] Restarting daemon...", err=True)
 
-    if manager.is_running():
-        typer.echo("[RESTART] Stopping existing daemon...", err=True)
-        manager.stop()
+        if manager.is_running():
+            typer.echo(f"[{cmd}] Stopping existing daemon...", err=True)
+            manager.stop()
 
-    typer.echo(f"[RESTART] Starting {_get_lsp_server_name(detected_language)}...", err=True)
-    manager.start()
-    typer.echo(f"[RESTART] Daemon restarted (PID: {manager.get_pid()})", err=True)
+        typer.echo(f"[{cmd}] Starting {_get_lsp_server_name(detected_lang)}...", err=True)
+        manager.start()
+        typer.echo(f"[{cmd}] Daemon restarted (PID: {manager.get_pid()})", err=True)
+
+    _run_daemon_command(
+        command_name="RESTART",
+        workspace=workspace,
+        language=language,
+        lsp_conf=lsp_conf,
+        debug=debug,
+        check_running=None,  # No running state check
+        action_fn=do_restart,
+    )
 
 
 @app.command()
@@ -652,13 +721,9 @@ def status(
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
 ) -> None:
     """Show the daemon server status."""
-    from llm_lsp_cli.daemon import DaemonManager
-
     workspace_path, detected_language = _resolve_language(workspace, language)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
-    manager = DaemonManager(
-        workspace_path=workspace_path, language=detected_language, lsp_conf=lsp_conf
-    )
     if manager.is_running():
         pid = manager.get_pid()
         typer.echo(f"Daemon is running (PID: {pid})")
@@ -1227,33 +1292,31 @@ def workspace_diagnostics(
 config_app = typer.Typer(name="config", help="Manage configuration.")
 
 
-@config_app.command("show")
-def config_show() -> None:
-    """Show current configuration."""
+@config_app.command("list")
+def config_list(
+    format: str = typer.Option(
+        "json",
+        "--format",
+        "-f",
+        help="Output format: json, yaml, or text",
+    ),
+) -> None:
+    """List supported LSP server capabilities.
+
+    Outputs capabilities for all configured LSP servers (pyright, basedpyright,
+    typescript-language-server, rust-analyzer, gopls, jdtls).
+
+    Auto-detects the current project language and shows capabilities for the
+    configured LSP server based on language.xxx.command in config.yaml.
+    """
+    from llm_lsp_cli.config.capabilities import format_capabilities
+
     try:
-        config = ConfigManager.load()
-        data = config.model_dump(mode="json")
-        typer.echo(json.dumps(data, indent=2))
-    except Exception as e:
-        typer.echo(f"Error loading config: {e}", err=True)
+        output = format_capabilities(format)
+        typer.echo(output)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
-
-
-@config_app.command("init")
-def config_init() -> None:
-    """Initialize configuration with defaults."""
-    created = ConfigManager.init_config()
-    if created:
-        config_path = ConfigManager.CONFIG_FILE
-        typer.echo(f"Configuration initialized at: {config_path}")
-    else:
-        typer.echo("Configuration already exists.")
-
-
-@config_app.command("path")
-def config_path() -> None:
-    """Show configuration file path."""
-    typer.echo(str(ConfigManager.CONFIG_FILE))
 
 
 app.add_typer(config_app, name="config")

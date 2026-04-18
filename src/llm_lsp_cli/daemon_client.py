@@ -38,6 +38,9 @@ class DaemonClient:
     BACKOFF_MULTIPLIER = 2.0
     BACKOFF_MAX = 1.0  # Cap at 1 second
 
+    # Subprocess spawn configuration
+    SUBPROCESS_STARTUP_DELAY = 0.1  # 100ms delay after spawning daemon subprocess
+
     def __init__(
         self,
         workspace_path: str,
@@ -157,6 +160,12 @@ class DaemonClient:
             language=self.language,
         )
 
+        # Build log file path for error context
+        log_file = ConfigManager.build_log_file_path(
+            workspace_path=self.workspace_path,
+            language=self.language,
+        )
+
         # Check if daemon is already running
         if not self._manager.is_running():
             # Auto-start the daemon by spawning `llm-lsp-cli start` as background process
@@ -167,6 +176,7 @@ class DaemonClient:
                     f"Failed to start daemon: {e}",
                     workspace=self.workspace_path,
                     language=self.language,
+                    log_file=str(log_file),
                 ) from e
 
         # Wait for socket with exponential backoff
@@ -177,7 +187,10 @@ class DaemonClient:
 
         Spawns `llm-lsp-cli start` as a detached subprocess and returns immediately.
         """
+        import asyncio
         import sys
+        from pathlib import Path
+        import tempfile
 
         # Build command to start daemon
         cmd = [
@@ -191,21 +204,36 @@ class DaemonClient:
             self.language,
         ]
 
-        # Spawn as detached subprocess
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-            stdin=asyncio.subprocess.DEVNULL,
-            start_new_session=True,  # Detach from parent session
-        )
+        # Capture stderr to a temp file for diagnostics
+        # This preserves immediate crash output (e.g., import errors)
+        stderr_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.log')
+        stderr_path = Path(stderr_file.name)
 
-        # Give the daemon a moment to start
-        await asyncio.sleep(0.1)
+        try:
+            # Spawn as detached subprocess
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=stderr_file.fileno(),
+                stdin=asyncio.subprocess.DEVNULL,
+                start_new_session=True,  # Detach from parent session
+            )
 
-        # Check if process died immediately
-        if process.returncode is not None:
-            raise RuntimeError(f"Daemon process exited immediately with code {process.returncode}")
+            # Give the daemon a moment to start
+            await asyncio.sleep(self.SUBPROCESS_STARTUP_DELAY)
+
+            # Check if process died immediately
+            if process.returncode is not None:
+                # Read stderr for diagnostics
+                stderr_content = stderr_path.read_text() if stderr_path.exists() else ""
+                error_detail = f"Daemon process exited immediately with code {process.returncode}"
+                if stderr_content:
+                    error_detail += f"\nstderr: {stderr_content.strip()}"
+                raise RuntimeError(error_detail)
+        finally:
+            # Clean up temp file
+            if stderr_path.exists():
+                stderr_path.unlink()
 
     async def _wait_for_socket(self) -> None:
         """Wait for socket to appear using exponential backoff.
@@ -216,6 +244,12 @@ class DaemonClient:
         Raises:
             DaemonStartupTimeoutError: If socket doesn't appear within timeout
         """
+        # Build log file path for error context
+        log_file = ConfigManager.build_log_file_path(
+            workspace_path=self.workspace_path,
+            language=self.language,
+        )
+
         elapsed = 0.0
         delay = self.BACKOFF_INITIAL
 
@@ -237,6 +271,7 @@ class DaemonClient:
             timeout=self.startup_timeout,
             workspace=self.workspace_path,
             language=self.language,
+            log_file=str(log_file),
         )
 
     async def close(self) -> None:

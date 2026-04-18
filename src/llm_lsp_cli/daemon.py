@@ -12,7 +12,9 @@ from daemon import DaemonContext
 from daemon.pidfile import PIDLockFile as PidFile
 
 from llm_lsp_cli.config import ConfigManager
+from llm_lsp_cli.domain.services import LspMethodRouter
 from llm_lsp_cli.ipc import UNIXServer
+from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.server import ServerRegistry
 
 # Constants
@@ -84,7 +86,7 @@ class DaemonManager:
         self.lsp_conf = lsp_conf
         self.debug = debug
         # Resolve server name for file naming
-        self._lsp_server_name = ConfigManager._get_lsp_server_name(language)
+        self._lsp_server_name = ConfigManager.get_lsp_server_name(language)
         self.pid_file = ConfigManager.build_pid_file_path(
             workspace_path, language, lsp_server_name=self._lsp_server_name
         )
@@ -121,11 +123,16 @@ class DaemonManager:
             return None
 
     def _cleanup_files(self) -> None:
-        """Clean up daemon runtime files (PID and socket)."""
-        if self.pid_file.exists():
-            self.pid_file.unlink()
-        if self.socket_path.exists():
-            self.socket_path.unlink()
+        """Clean up daemon runtime files (PID and socket).
+
+        Delegates to cleanup_runtime_files for consistent cleanup behavior.
+        """
+        cleanup_runtime_files(
+            socket_path=self.socket_path,
+            pid_file=self.pid_file,
+            workspace=Path(self.workspace_path).name,
+            language=self.language,
+        )
 
     def _wait_for_process_stop(self, pid: int) -> None:
         """Wait for daemon process to stop, force kill if timeout.
@@ -150,6 +157,16 @@ class DaemonManager:
         if self.is_running():
             raise RuntimeError("Daemon is already running")
 
+        # Validate socket path length (UNIX socket limit is 108 characters)
+        # macOS has a lower limit, so we use 100 as a safe maximum
+        socket_path_str = str(self.socket_path)
+        if len(socket_path_str) >= 100:
+            raise RuntimeError(
+                f"Socket path too long ({len(socket_path_str)} chars, max ~100): "
+                f"{socket_path_str}\n"
+                f"Try using a shorter workspace path or set TMPDIR to a shorter path."
+            )
+
         # Ensure directories exist
         ConfigManager.ensure_runtime_dir()
         ConfigManager.ensure_state_dir()
@@ -158,24 +175,31 @@ class DaemonManager:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.daemon_log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Start daemon context
-        with DaemonContext(
-            pidfile=PidFile(str(self.pid_file)),
-            stdout=open(self.daemon_log_file, "a"),
-            stderr=open(self.daemon_log_file, "a"),
-            umask=_DAEMON_UMASK,
-        ):
-            logger.info("Daemon starting...")
-            asyncio.run(
-                run_daemon(
-                    str(self.socket_path),
-                    self.workspace_path,
-                    self.language,
-                    self.lsp_conf,
-                    self.debug,
-                    pid_file=self.pid_file,
+        # Start daemon context with exception wrapper
+        # This ensures exceptions are logged before the daemon process exits
+        try:
+            with DaemonContext(
+                pidfile=PidFile(str(self.pid_file)),
+                stdout=open(self.daemon_log_file, "a"),
+                stderr=open(self.daemon_log_file, "a"),
+                umask=_DAEMON_UMASK,
+            ):
+                logger.info("Daemon starting...")
+                asyncio.run(
+                    run_daemon(
+                        str(self.socket_path),
+                        self.workspace_path,
+                        self.language,
+                        self.lsp_conf,
+                        self.debug,
+                        pid_file=self.pid_file,
+                    )
                 )
-            )
+        except Exception as e:
+            # Log exception to daemon log file before re-raising
+            # This ensures the error is captured even if daemon context swallows it
+            logger.exception(f"Daemon startup failed: {e}")
+            raise
 
     def stop(self) -> None:
         """Stop the daemon process."""
@@ -199,66 +223,16 @@ class DaemonManager:
 class RequestHandler:
     """Handles incoming RPC requests."""
 
-    # Method name to registry function mapping for LSP features
-    # Each tuple: (registry_method_name, required_params, kwargs_mapping)
-    # kwargs_mapping maps LSP params to registry method kwargs
-    LSP_METHODS: dict[str, tuple[str, tuple[str, ...], dict[str, str]]] = {
-        "textDocument/definition": (
-            "request_definition",
-            ("filePath", "line", "column"),
-            {"workspace_path": "workspacePath", "file_path": "filePath",
-             "line": "line", "column": "column"},
-        ),
-        "textDocument/references": (
-            "request_references",
-            ("filePath", "line", "column"),
-            {"workspace_path": "workspacePath", "file_path": "filePath",
-             "line": "line", "column": "column"},
-        ),
-        "textDocument/completion": (
-            "request_completions",
-            ("filePath", "line", "column"),
-            {"workspace_path": "workspacePath", "file_path": "filePath",
-             "line": "line", "column": "column"},
-        ),
-        "textDocument/hover": (
-            "request_hover",
-            ("filePath", "line", "column"),
-            {"workspace_path": "workspacePath", "file_path": "filePath",
-             "line": "line", "column": "column"},
-        ),
-        "textDocument/documentSymbol": (
-            "request_document_symbols",
-            ("filePath",),
-            {"workspace_path": "workspacePath", "file_path": "filePath"},
-        ),
-        "textDocument/diagnostic": (
-            "request_diagnostics",
-            ("filePath",),
-            {"workspace_path": "workspacePath", "file_path": "filePath"},
-        ),
-        "workspace/symbol": (
-            "request_workspace_symbols",
-            (),
-            {"workspace_path": "workspacePath", "query": "query"},
-        ),
-        "workspace/diagnostic": (
-            "request_workspace_diagnostics",
-            (),
-            {"workspace_path": "workspacePath"},
-        ),
-    }
-
     # Response key for each method
     RESPONSE_KEYS: dict[str, str] = {
-        "textDocument/definition": "locations",
-        "textDocument/references": "locations",
-        "textDocument/completion": "items",
-        "textDocument/hover": "hover",
-        "textDocument/documentSymbol": "symbols",
-        "textDocument/diagnostic": "diagnostics",
-        "workspace/symbol": "symbols",
-        "workspace/diagnostic": "diagnostics",
+        LSPConstants.DEFINITION: "locations",
+        LSPConstants.REFERENCES: "locations",
+        LSPConstants.COMPLETION: "items",
+        LSPConstants.HOVER: "hover",
+        LSPConstants.DOCUMENT_SYMBOL: "symbols",
+        LSPConstants.DIAGNOSTIC: "diagnostics",
+        LSPConstants.WORKSPACE_SYMBOL: "symbols",
+        LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
     }
 
     # Default values for common params
@@ -276,6 +250,7 @@ class RequestHandler:
         self._language = language
         self._lsp_conf = lsp_conf
         self._registry = ServerRegistry(lsp_conf=lsp_conf)
+        self._router = LspMethodRouter()
 
     async def handle(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Route request to appropriate handler."""
@@ -300,7 +275,16 @@ class RequestHandler:
             }
 
         # LSP feature methods - dispatch to common handler
-        elif method in self.LSP_METHODS:
+        elif method in {
+            LSPConstants.DEFINITION,
+            LSPConstants.REFERENCES,
+            LSPConstants.COMPLETION,
+            LSPConstants.HOVER,
+            LSPConstants.DOCUMENT_SYMBOL,
+            LSPConstants.DIAGNOSTIC,
+            LSPConstants.WORKSPACE_SYMBOL,
+            LSPConstants.WORKSPACE_DIAGNOSTIC,
+        }:
             return await self._handle_lsp_method(method, params)
 
         else:
@@ -319,36 +303,56 @@ class RequestHandler:
         Raises:
             ValueError: If required parameters are missing
         """
-        method_config = self.LSP_METHODS[method]
-        registry_method = method_config[0]
-        required_params = method_config[1]
-        kwargs_mapping = method_config[2]
-        response_key = self.RESPONSE_KEYS[method]
+        # Get method config from router
+        config = self._router.get_config(method)
+        if config is None:
+            raise ValueError(f"Unknown LSP method: {method}")
+
+        registry_method = config.registry_method
+        response_key = self.RESPONSE_KEYS.get(method, "result")
 
         # Log method entry with parameters
         logger.debug(f"Handling LSP method: {method} with params: {params}")
-
-        # Validate required parameters
-        file_path = params.get("filePath")
-        if file_path is None and "filePath" in required_params:
-            raise ValueError("Missing 'filePath' parameter")
 
         # Get registry method by name
         registry_func = getattr(self._registry, registry_method)
 
         try:
-            # Build kwargs using the mapping configuration
+            # Build kwargs based on RPC-style params mapping
+            # The daemon receives RPC params with camelCase (workspacePath, filePath)
+            # Registry methods expect snake_case (workspace_path, file_path)
             kwargs: dict[str, Any] = {}
-            for kwarg_name, param_name in kwargs_mapping.items():
-                # Map LSP param (camelCase) to registry kwarg (snake_case)
-                value = params.get(param_name)
-                if value is None:
-                    # Use default value if param is optional
-                    value = self.DEFAULTS.get(kwarg_name)
-                kwargs[kwarg_name] = value
 
-            # Log special cases for better debugging
+            # Always include workspace_path for all methods
+            kwargs["workspace_path"] = params.get("workspacePath", self.DEFAULTS["workspace_path"])
+
+            # Include file_path for methods that need it
+            if registry_method in {
+                "request_definition",
+                "request_references",
+                "request_completions",
+                "request_hover",
+                "request_document_symbols",
+                "request_diagnostics",
+            }:
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                kwargs["file_path"] = file_path
+
+            # Include line/column for position-based methods
+            if registry_method in {
+                "request_definition",
+                "request_references",
+                "request_completions",
+                "request_hover",
+            }:
+                kwargs["line"] = params.get("line", self.DEFAULTS["line"])
+                kwargs["column"] = params.get("column", self.DEFAULTS["column"])
+
+            # Include query for workspace symbol
             if registry_method == "request_workspace_symbols":
+                kwargs["query"] = params.get("query", self.DEFAULTS["query"])
                 logger.debug(
                     f"Workspace symbol request: workspace={kwargs.get('workspace_path')}, "
                     f"query={kwargs.get('query')}"
