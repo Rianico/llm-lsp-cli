@@ -9,7 +9,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "python": {
             "command": "pyright-langserver",
             "args": ["--stdio"],
-            "initialize_params_file": "initialize_params_pyright.json",
         },
         "typescript": {"command": "typescript-language-server", "args": ["--stdio"]},
         "javascript": {"command": "typescript-language-server", "args": ["--stdio"]},

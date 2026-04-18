@@ -10,9 +10,6 @@ class LanguageServerConfig(BaseModel):
 
     command: str = Field(..., description="Server executable command")
     args: list[str] = Field(default_factory=list, description="Command line arguments")
-    initialize_params_file: str | None = Field(
-        default=None, description="Path to initialize params JSON file"
-    )
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 

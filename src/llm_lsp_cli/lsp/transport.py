@@ -11,6 +11,9 @@ from typing import Any
 
 from .constants import LSPConstants
 
+# Default timeouts and delays
+_STABILIZATION_DELAY = 0.05
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +40,7 @@ class StdioTransport:
         self._request_id = 0
         self._pending: dict[int, asyncio.Future[Any]] = {}
         self._notification_handlers: dict[str, Callable[..., Any]] = {}
+        self._request_handlers: dict[str, Callable[..., Any]] = {}
         self._read_task: asyncio.Task[Any] | None = None
         self._stderr_task: asyncio.Task[Any] | None = None
         self._running = False
@@ -78,8 +82,7 @@ class StdioTransport:
         except PermissionError as e:
             logger.error(f"Permission denied executing LSP server: {self.command}")
             raise RuntimeError(
-                f"Permission denied executing LSP server: {self.command}. "
-                f"Check file permissions."
+                f"Permission denied executing LSP server: {self.command}. Check file permissions."
             ) from e
 
         # Check if process exited immediately (crash on startup)
@@ -108,7 +111,7 @@ class StdioTransport:
         self._running = True
 
         # Small stabilization delay after process start
-        await asyncio.sleep(0.05)  # 50ms stabilization
+        await asyncio.sleep(_STABILIZATION_DELAY)
 
         self._read_task = asyncio.create_task(self._read_loop())
         self._stderr_task = asyncio.create_task(self._stderr_loop())
@@ -250,19 +253,44 @@ class StdioTransport:
 
     async def _handle_request(self, data: dict[str, Any]) -> None:
         """Handle a request from the server."""
-        # For now, we don't handle server->client requests
-        # Just send a method not found error
         request_id = data.get("id")
-        if request_id is not None:
-            method = data.get("method", "unknown")
-            # Send error response inline
+        if request_id is None:
+            return
+
+        method = data.get("method", "unknown")
+        params = data.get("params", {})
+
+        handler: Callable | None = self._request_handlers.get(method)  # type: ignore
+
+        if handler is None:
+            # No handler registered - send method not found error
+            logger.debug(f"No handler for request: {method}")
+            return
+
+        # Call the registered handler
+        try:
+            if inspect.iscoroutinefunction(handler):
+                result = await handler(params)
+            else:
+                result = handler(params)
+
+            # Send successful response
+            await self._send_payload(
+                {
+                    "jsonrpc": LSPConstants.JSONRPC_VERSION,
+                    "id": request_id,
+                    "result": result,
+                }
+            )
+        except Exception as e:
+            # Send error response
             await self._send_payload(
                 {
                     "jsonrpc": LSPConstants.JSONRPC_VERSION,
                     "id": request_id,
                     "error": {
-                        "code": LSPConstants.ERROR_METHOD_NOT_FOUND,
-                        "message": f"Method not implemented: {method}",
+                        "code": LSPConstants.ERROR_INTERNAL_ERROR,
+                        "message": str(e),
                     },
                 }
             )
@@ -287,6 +315,10 @@ class StdioTransport:
     def on_notification(self, method: str, handler: Callable[..., Any]) -> None:
         """Register a notification handler."""
         self._notification_handlers[method] = handler
+
+    def on_request(self, method: str, handler: Callable[..., Any]) -> None:
+        """Register a server->client request handler."""
+        self._request_handlers[method] = handler
 
     async def send_request(
         self,
@@ -331,6 +363,34 @@ class StdioTransport:
                 "params": params or {},
             }
         )
+
+    async def send_request_fire_and_forget(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> None:
+        """Send a request without waiting for response (fire-and-forget).
+
+        Use this for requests like workspace/diagnostic that never resolve with data
+        and instead send results via $/progress notifications.
+
+        The request is sent with an ID (so it's a valid request), but no Future is
+        created to wait for a response. The server will eventually cancel the request
+        when a new one comes in or when the server shuts down.
+        """
+        assert self._process is not None, "Transport not started"
+
+        self._request_id += 1
+        request_id = self._request_id
+
+        await self._send_payload(
+            {
+                "jsonrpc": LSPConstants.JSONRPC_VERSION,
+                "id": request_id,
+                "method": method,
+                "params": params or {},
+            }
+        )
+        # Note: We don't create a Future here since the server never resolves
+        # this request - it stays pending until cancelled or server shutdown.
 
     async def _send_payload(self, payload: dict[str, Any]) -> None:
         """Send a JSON-RPC payload."""

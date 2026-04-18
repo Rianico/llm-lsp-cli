@@ -2,8 +2,11 @@
 
 import json
 from pathlib import Path
+from typing import Any, Generator
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 import yaml  # type: ignore[import-untested]
 from typer.testing import CliRunner
 
@@ -22,6 +25,149 @@ from tests.fixtures import (
 )
 
 runner = CliRunner()
+
+
+# =============================================================================
+# Fixtures and Test Helpers
+# =============================================================================
+
+
+@pytest.fixture
+def mock_daemon_manager() -> Generator[MagicMock, None, None]:
+    """Fixture that mocks DaemonManager and returns the mock instance.
+
+    Use this when you need to configure the mock behavior in the test.
+    Sets up the mock to appear as "running" by default.
+    """
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+    mock_instance.get_pid.return_value = 12345
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_daemon_running() -> Generator[MagicMock, None, None]:
+    """Fixture that mocks DaemonManager and returns the mock class.
+
+    Use this when you need to verify constructor arguments.
+    The mock is configured to appear as "running" by default.
+    """
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+    mock_instance.get_pid.return_value = 12345
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+        yield mock_manager
+
+
+@pytest.fixture
+def mock_daemon_not_running() -> Generator[MagicMock, None, None]:
+    """Fixture that mocks DaemonManager to appear not running."""
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = False
+    mock_instance.get_pid.return_value = None
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_send_request() -> Generator[MagicMock, None, None]:
+    """Fixture that mocks _send_request and returns the mock."""
+    with patch("llm_lsp_cli.cli._send_request") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_validate_file() -> Generator[MagicMock, None, None]:
+    """Fixture that mocks _validate_file_in_workspace and returns the mock."""
+    with patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock:
+        mock.return_value = Path("/tmp/test.py")
+        yield mock
+
+
+@pytest.fixture
+def mock_daemon_client() -> Generator[AsyncMock, None, None]:
+    """Fixture that mocks DaemonClient for auto-start scenarios."""
+    mock_client = AsyncMock()
+    mock_client.request = AsyncMock(return_value={"locations": []})
+    mock_client.close = AsyncMock()
+
+    with patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_class:
+        mock_class.return_value = mock_client
+        yield mock_client
+
+
+def setup_daemon_mock(is_running: bool = True, pid: int = 12345) -> Generator[MagicMock, None, None]:
+    """Set up a DaemonManager mock with the given state.
+
+    Args:
+        is_running: Whether the daemon should appear running
+        pid: Process ID to return if running
+
+    Yields:
+        The mock DaemonManager instance
+    """
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = is_running
+    mock_instance.get_pid.return_value = pid if is_running else None
+
+    mock_manager = MagicMock()
+    mock_manager.return_value = mock_instance
+
+    with patch("llm_lsp_cli.daemon.DaemonManager", mock_manager):
+        yield mock_instance
+
+
+def setup_daemon_client_mock(response: dict[str, Any]) -> Generator[AsyncMock, None, None]:
+    """Set up a DaemonClient mock that returns the given response.
+
+    Args:
+        response: The response dict to return from request()
+
+    Yields:
+        The mock DaemonClient instance
+    """
+    mock_client = AsyncMock()
+    mock_client.request = AsyncMock(return_value=response)
+    mock_client.close = AsyncMock()
+
+    mock_class = MagicMock()
+    mock_class.return_value = mock_client
+
+    with patch("llm_lsp_cli.daemon_client.DaemonClient", mock_class):
+        yield mock_client
+
+
+def assert_json_output(output: str, expected_keys: list[str]) -> None:
+    """Assert that output is valid JSON with expected keys.
+
+    Args:
+        output: The CLI output string
+        expected_keys: List of keys that should be present
+    """
+    parsed = json.loads(output)
+    assert parsed is not None
+    for key in expected_keys:
+        assert key in parsed
+
+
+def assert_yaml_output(output: str, expected_keys: list[str]) -> None:
+    """Assert that output is valid YAML with expected keys.
+
+    Args:
+        output: The CLI output string
+        expected_keys: List of keys that should be present
+    """
+    parsed = yaml.safe_load(output)
+    assert parsed is not None
+    for key in expected_keys:
+        assert key in parsed
 
 
 def test_cli_help() -> None:
@@ -61,9 +207,11 @@ def test_cli_stop() -> None:
     """Test stop command."""
     from llm_lsp_cli.cli import app
 
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+    mock_instance.get_pid.return_value = 12345
+
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
-        mock_instance = MagicMock()
-        mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(app, ["stop"])
@@ -74,10 +222,11 @@ def test_cli_status() -> None:
     """Test status command."""
     from llm_lsp_cli.cli import app
 
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+    mock_instance.get_pid.return_value = 12345
+
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
-        mock_instance = MagicMock()
-        mock_instance.is_running.return_value = True
-        mock_instance.get_pid.return_value = 12345
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(app, ["status"])
@@ -85,32 +234,32 @@ def test_cli_status() -> None:
         assert "Daemon" in result.output
 
 
-def test_cli_config_show() -> None:
-    """Test config show command."""
+def test_cli_config_list_json() -> None:
+    """Test config list command with JSON format."""
     from llm_lsp_cli.cli import app
 
-    result = runner.invoke(app, ["config", "show"])
+    result = runner.invoke(app, ["config", "list", "--format", "json"])
     assert result.exit_code == 0
-    assert "languages" in result.output
-    assert "socket_path" in result.output
+    assert "pyright" in result.output
+    assert "basedpyright" in result.output
 
 
-def test_cli_config_init() -> None:
-    """Test config init command."""
+def test_cli_config_list_yaml() -> None:
+    """Test config list command with YAML format."""
     from llm_lsp_cli.cli import app
 
-    result = runner.invoke(app, ["config", "init"])
+    result = runner.invoke(app, ["config", "list", "--format", "yaml"])
     assert result.exit_code == 0
-    assert "Configuration" in result.output
+    assert "pyright:" in result.output
 
 
-def test_cli_config_path() -> None:
-    """Test config path command."""
+def test_cli_config_list_text() -> None:
+    """Test config list command with text format."""
     from llm_lsp_cli.cli import app
 
-    result = runner.invoke(app, ["config", "path"])
+    result = runner.invoke(app, ["config", "list", "--format", "text"])
     assert result.exit_code == 0
-    assert "config.json" in result.output
+    assert "pyright:" in result.output
 
 
 def test_cli_definition_daemon_not_running() -> None:
@@ -1986,3 +2135,96 @@ class TestCsvFormatOption:
         # Help text should mention csv as a valid format
         # This test will fail until the help text is updated
         assert "csv" in result.output.lower()
+
+
+# =============================================================================
+# Restart Debug Flag Tests
+# =============================================================================
+
+
+def test_restart_debug_flag_present_in_help() -> None:
+    """Test that the --debug flag appears in restart --help output."""
+    from llm_lsp_cli.cli import app
+
+    result = runner.invoke(app, ["restart", "--help"])
+    assert result.exit_code == 0
+    # Flag should be present
+    assert "--debug" in result.output or "-d" in result.output
+    # Help text should include description
+    assert "debug" in result.output.lower()
+
+
+def test_restart_debug_flag_passed_to_daemon_manager() -> None:
+    """Test that debug=True is passed to DaemonManager when --debug is used."""
+    from llm_lsp_cli.cli import app
+
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+
+        result = runner.invoke(app, ["restart", "--debug"])
+        assert result.exit_code == 0
+
+        # Verify DaemonManager constructor received debug=True
+        call_kwargs = mock_manager.call_args.kwargs
+        assert call_kwargs["debug"] is True
+
+
+def test_restart_without_debug_flag_default_false() -> None:
+    """Test that default behavior (no --debug) passes debug=False."""
+    from llm_lsp_cli.cli import app
+
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+
+        result = runner.invoke(app, ["restart"])
+        assert result.exit_code == 0
+
+        # Verify DaemonManager constructor received debug=False (default)
+        call_kwargs = mock_manager.call_args.kwargs
+        assert call_kwargs["debug"] is False
+
+
+def test_restart_debug_short_flag() -> None:
+    """Test that -d short flag works identically to --debug."""
+    from llm_lsp_cli.cli import app
+
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+
+        result = runner.invoke(app, ["restart", "-d"])
+        assert result.exit_code == 0
+
+        # Verify DaemonManager constructor received debug=True
+        call_kwargs = mock_manager.call_args.kwargs
+        assert call_kwargs["debug"] is True
+
+
+def test_restart_debug_with_other_options() -> None:
+    """Test that --debug works in combination with other flags."""
+    from llm_lsp_cli.cli import app
+
+    mock_instance = MagicMock()
+    mock_instance.is_running.return_value = True
+
+    with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
+        mock_manager.return_value = mock_instance
+
+        result = runner.invoke(
+            app, ["restart", "--debug", "--workspace", "/tmp", "--language", "python"]
+        )
+        assert result.exit_code == 0
+
+        # Verify DaemonManager constructor received debug=True and other options
+        call_kwargs = mock_manager.call_args.kwargs
+        assert call_kwargs["debug"] is True
+        assert call_kwargs["workspace_path"] == "/tmp"
+        assert call_kwargs["language"] == "python"

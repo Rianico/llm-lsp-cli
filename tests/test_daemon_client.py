@@ -43,6 +43,13 @@ def mock_unix_client() -> Generator[MagicMock, None, None]:
         yield mock
 
 
+@pytest.fixture
+def mock_asyncio_create_subprocess() -> Generator[MagicMock, None, None]:
+    """Mock asyncio.create_subprocess_exec for unit tests."""
+    with patch("llm_lsp_cli.daemon_client.asyncio.create_subprocess_exec") as mock:
+        yield mock
+
+
 # =============================================================================
 # Constructor Tests
 # =============================================================================
@@ -113,6 +120,7 @@ class TestDaemonClientAutoStart:
         mock_config_manager: MagicMock,
         mock_daemon_manager: MagicMock,
         mock_unix_client: MagicMock,
+        mock_asyncio_create_subprocess: MagicMock,
     ):
         """request() starts daemon if not running."""
         # Setup mock socket path that exists
@@ -126,6 +134,11 @@ class TestDaemonClientAutoStart:
         mock_manager_instance.is_running.return_value = False
         mock_daemon_manager.return_value = mock_manager_instance
 
+        # Mock subprocess - daemon starts successfully
+        mock_process = AsyncMock()
+        mock_process.returncode = None  # Process is running
+        mock_asyncio_create_subprocess.return_value = mock_process
+
         # Mock UNIXClient
         mock_client_instance = AsyncMock()
         mock_client_instance.request = AsyncMock(return_value={"result": "success"})
@@ -137,8 +150,8 @@ class TestDaemonClientAutoStart:
         # Execute
         result = await client.request("textDocument/definition", {"filePath": "/test.py"})
 
-        # Verify daemon was started
-        mock_daemon_manager.return_value.start.assert_called_once()
+        # Verify daemon subprocess was spawned
+        mock_asyncio_create_subprocess.assert_called_once()
         assert result == {"result": "success"}
 
     @pytest.mark.asyncio
@@ -183,6 +196,7 @@ class TestDaemonClientAutoStart:
         mock_config_manager: MagicMock,
         mock_daemon_manager: MagicMock,
         mock_unix_client: MagicMock,
+        mock_asyncio_create_subprocess: MagicMock,
     ):
         """notify() triggers auto-start if daemon not running."""
         # Setup mock socket path
@@ -196,6 +210,11 @@ class TestDaemonClientAutoStart:
         mock_manager_instance.is_running.return_value = False
         mock_daemon_manager.return_value = mock_manager_instance
 
+        # Mock subprocess - daemon starts successfully
+        mock_process = AsyncMock()
+        mock_process.returncode = None  # Process is running
+        mock_asyncio_create_subprocess.return_value = mock_process
+
         # Mock UNIXClient
         mock_client_instance = AsyncMock()
         mock_client_instance.notify = AsyncMock()
@@ -207,8 +226,8 @@ class TestDaemonClientAutoStart:
         # Execute
         await client.notify("textDocument/didOpen", {"filePath": "/test.py"})
 
-        # Verify daemon was started
-        mock_daemon_manager.return_value.start.assert_called_once()
+        # Verify daemon subprocess was spawned
+        mock_asyncio_create_subprocess.assert_called_once()
 
 
 # =============================================================================
@@ -257,19 +276,22 @@ class TestDaemonClientTimeoutHandling:
         self,
         mock_config_manager: MagicMock,
         mock_daemon_manager: MagicMock,
+        mock_asyncio_create_subprocess: MagicMock,
     ):
-        """DaemonStartupError raised when start() fails."""
+        """DaemonStartupError raised when subprocess spawn fails."""
         # Setup mock socket path
         mock_socket = MagicMock(spec=Path)
         mock_socket.exists.return_value = True
         mock_socket.__str__ = MagicMock(return_value="/tmp/test.sock")
         mock_config_manager.build_socket_path.return_value = mock_socket
 
-        # Setup: start() raises RuntimeError
+        # Setup: is_running() returns False (needs to start)
         mock_manager_instance = MagicMock()
         mock_manager_instance.is_running.return_value = False
-        mock_manager_instance.start.side_effect = RuntimeError("Spawn failed")
         mock_daemon_manager.return_value = mock_manager_instance
+
+        # Mock subprocess to raise an exception
+        mock_asyncio_create_subprocess.side_effect = RuntimeError("Spawn failed")
 
         client = DaemonClient("/workspace", "python")
 

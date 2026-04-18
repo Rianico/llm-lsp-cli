@@ -138,28 +138,27 @@ class TestClientWorkspaceDiagnostics:
             language_id="python",
         )
 
-        # Mock the transport
+        # Set diagnostic manager to None to use push mode fallback
+        # (The new pull mode uses WorkspaceDiagnosticManager with $/progress streaming)
+        client._diagnostic_manager = None
+
+        # Pre-populate cache (simulating publishDiagnostics)
+        test_uri = "file:///tmp/test/file.py"
+        cached_diagnostics = [
+            {
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
+                "severity": 1,
+                "message": "Workspace error",
+                "source": "pyright",
+            }
+        ]
+        client._diagnostic_cache = {test_uri: cached_diagnostics}
+
+        # Mock the transport (not used in push mode fallback, but needed for initialization)
         mock_transport = AsyncMock()
-        mock_response = {
-            "items": [
-                {
-                    "uri": "file:///tmp/test/file.py",
-                    "version": 1,
-                    "diagnostics": [
-                        {
-                            "range": {
-                                "start": {"line": 0, "character": 0},
-                                "end": {"line": 0, "character": 10},
-                            },
-                            "severity": 1,
-                            "message": "Workspace error",
-                            "source": "pyright",
-                        }
-                    ],
-                }
-            ],
-        }
-        mock_transport.send_request = AsyncMock(return_value=mock_response)
         client._transport = mock_transport
 
         # Mark workspace as indexed
@@ -168,8 +167,8 @@ class TestClientWorkspaceDiagnostics:
         # Call request_workspace_diagnostics
         result = await client.request_workspace_diagnostics()
 
-        # Verify the result
+        # Verify the result (push mode returns cached diagnostics)
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0]["uri"] == "file:///tmp/test/file.py"
+        assert result[0]["uri"] == test_uri
         assert len(result[0]["diagnostics"]) == 1

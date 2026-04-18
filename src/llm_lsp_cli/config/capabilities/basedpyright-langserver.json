@@ -1,0 +1,35 @@
+{
+  "_description": "Initialize parameters for basedpyright with workspace diagnostics pull mode",
+  "processId": null,
+  "clientInfo": {
+    "name": "llm-lsp-cli",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "workspace": {
+      "workspaceFolders": false,
+      "configuration": true,
+      "diagnostics": {
+        "refreshSupport": true
+      },
+      "workDoneProgress": true
+    },
+    "window": {
+      "workDoneProgress": true
+    },
+    "textDocument": {
+      "diagnostic": {
+        "dynamicRegistration": true
+      },
+      "publishDiagnostics": {
+        "relatedInformation": true,
+        "versionSupport": true,
+        "codeDescriptionSupport": true,
+        "dataSupport": true
+      }
+    }
+  },
+  "initializationOptions": {
+    "disablePullDiagnostics": false
+  }
+}

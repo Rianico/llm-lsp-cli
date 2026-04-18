@@ -1,12 +1,41 @@
 {
-  "_description": "Initialize params for pyright-langserver",
-  "processId": "os.getpid()",
-  "rootUri": "$rootUri",
-  "capabilities": {},
-  "workspaceFolders": [
-    {
-      "uri": "$uri",
-      "name": "$name"
+  "_description": "Initialize parameters for pyright-langserver with workspace diagnostics support",
+  "processId": null,
+  "clientInfo": {
+    "name": "llm-lsp-cli",
+    "version": "1.0.0"
+  },
+  "capabilities": {
+    "workspace": {
+      "workspaceFolders": false,
+      "configuration": true,
+      "diagnostics": {
+        "refreshSupport": true
+      },
+      "workDoneProgress": true
+    },
+    "window": {
+      "workDoneProgress": true
+    },
+    "textDocument": {
+      "diagnostic": {
+        "dynamicRegistration": true
+      },
+      "publishDiagnostics": {
+        "relatedInformation": true,
+        "versionSupport": true,
+        "codeDescriptionSupport": true,
+        "dataSupport": true
+      },
+      "synchronization": {
+        "dynamicRegistration": true,
+        "willSave": true,
+        "willSaveWaitUntil": true,
+        "didSave": true
+      }
     }
-  ]
+  },
+  "initializationOptions": {
+    "disablePullDiagnostics": false
+  }
 }

@@ -7,6 +7,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+from ..infrastructure.ipc.auth.token_validator import TokenAuthenticator
+from ..infrastructure.ipc.auth.uid_validator import UidValidator
 from .protocol import (
     ERROR_INTERNAL_ERROR,
     ERROR_PARSE_ERROR,
@@ -25,9 +27,13 @@ class UNIXServer:
         self,
         socket_path: str | Path,
         request_handler: Callable[[str, dict[str, Any]], Awaitable[Any]],
+        authenticator: TokenAuthenticator | None = None,
+        uid_validator: UidValidator | None = None,
     ):
         self.socket_path = Path(socket_path)
         self.request_handler = request_handler
+        self.authenticator = authenticator
+        self.uid_validator = uid_validator
         self._server: asyncio.AbstractServer | None = None
         self._clients: set[asyncio.Task[Any]] = set()
 
@@ -75,9 +81,62 @@ class UNIXServer:
 
         Logs exceptions for debugging instead of silently swallowing them.
         Re-raises CancelledError to allow proper task cancellation.
+        Requires authentication token before processing requests.
         """
         buffer = b""
+
         try:
+            # First, read and validate authentication token
+            if self.authenticator is not None:
+                # Read token line (token followed by \r\n\r\n)
+                try:
+                    token_line = await asyncio.wait_for(
+                        reader.readuntil(b"\r\n\r\n"), timeout=5.0
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("Authentication timeout: no token received")
+                    return
+                except asyncio.IncompleteReadError:
+                    logger.warning("Authentication failed: incomplete token")
+                    return
+
+                token_value = token_line.decode("utf-8").strip()
+
+                if not self.authenticator.validate(token_value):
+                    # Log authentication failure
+                    logger.warning(
+                        "Authentication failed: invalid or missing token"
+                    )
+                    # Send error response and close connection
+                    error_response = build_error(
+                        code=ERROR_INTERNAL_ERROR,
+                        message="Unauthorized: invalid or missing token",
+                        request_id=0,
+                    )
+                    writer.write(error_response.to_bytes())
+                    await writer.drain()
+                    return
+
+                logger.debug("Client authenticated successfully")
+
+            # Validate UID if strict mode is enabled
+            if self.uid_validator is not None and self.uid_validator.should_validate():
+                # Get peer UID from socket using UidValidator helper
+                peer_uid = UidValidator.get_peer_uid_from_writer(writer)
+                if peer_uid is not None and not self.uid_validator.validate(peer_uid):
+                    logger.warning(
+                        f"UID validation failed: peer UID {peer_uid} does not match"
+                    )
+                    error_response = build_error(
+                        code=ERROR_INTERNAL_ERROR,
+                        message="Unauthorized: UID mismatch",
+                        request_id=0,
+                    )
+                    writer.write(error_response.to_bytes())
+                    await writer.drain()
+                    return
+
+            # Process messages
             while True:
                 chunk = await reader.read(4096)
                 if not chunk:
@@ -99,6 +158,8 @@ class UNIXServer:
         except asyncio.IncompleteReadError:
             # Expected during normal client disconnect - log at DEBUG
             logger.debug("Client disconnected (IncompleteReadError)")
+        except asyncio.TimeoutError:
+            logger.debug("Client connection timeout")
         except Exception:
             # Log exception with traceback for debugging
             logger.exception("Error handling client connection")

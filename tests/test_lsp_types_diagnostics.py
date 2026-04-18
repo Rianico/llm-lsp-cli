@@ -1,20 +1,11 @@
 """Tests for diagnostic types in LSP types module."""
 
-import pytest
 from llm_lsp_cli.lsp import types as lsp
-
-# Check if diagnostic types are available
-try:
-    _ = lsp.DocumentDiagnosticParams
-    DIAGNOSTIC_TYPES_AVAILABLE = True
-except AttributeError:
-    DIAGNOSTIC_TYPES_AVAILABLE = False
 
 
 class TestDiagnosticTypes:
     """Tests for diagnostic-related types."""
 
-    @pytest.mark.skipif(not DIAGNOSTIC_TYPES_AVAILABLE, reason="Diagnostic types not implemented yet")
     def test_document_diagnostic_params_type(self) -> None:
         """Test that DocumentDiagnosticParams type is defined."""
         # This should not raise an AttributeError
@@ -25,7 +16,6 @@ class TestDiagnosticTypes:
 
         assert params["textDocument"]["uri"] == "file:///test.py"
 
-    @pytest.mark.skipif(not DIAGNOSTIC_TYPES_AVAILABLE, reason="Diagnostic types not implemented yet")
     def test_document_diagnostic_report_type(self) -> None:
         """Test that DocumentDiagnosticReport type is defined."""
         # This should not raise an AttributeError
@@ -47,7 +37,6 @@ class TestDiagnosticTypes:
         assert report["kind"] == "full"
         assert len(report["items"]) == 1
 
-    @pytest.mark.skipif(not DIAGNOSTIC_TYPES_AVAILABLE, reason="Diagnostic types not implemented yet")
     def test_workspace_diagnostic_item_type(self) -> None:
         """Test that WorkspaceDiagnosticItem type is defined."""
         # This should not raise an AttributeError
@@ -69,7 +58,6 @@ class TestDiagnosticTypes:
         assert item["uri"] == "file:///test.py"
         assert len(item["diagnostics"]) == 1
 
-    @pytest.mark.skipif(not DIAGNOSTIC_TYPES_AVAILABLE, reason="Diagnostic types not implemented yet")
     def test_workspace_diagnostic_report_type(self) -> None:
         """Test that WorkspaceDiagnosticReport type is defined."""
         # This should not raise an AttributeError

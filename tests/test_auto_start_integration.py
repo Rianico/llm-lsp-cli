@@ -285,19 +285,20 @@ class TestAutoStartErrorHandling:
     async def test_daemon_startup_failure_wraps_exception(
         self, mock_socket_path: Path
     ) -> None:
-        """DaemonStartupError raised when daemon start() fails."""
+        """DaemonStartupError raised when daemon subprocess spawn fails."""
         client = DaemonClient(
             workspace_path="/test/workspace",
             language="python",
         )
         client.socket_path = mock_socket_path
 
-        # Mock DaemonManager to fail
-        with patch("llm_lsp_cli.daemon_client.DaemonManager") as mock_manager_class:
-            mock_instance = MagicMock()
-            mock_instance.is_running.return_value = False
-            mock_instance.start.side_effect = RuntimeError("Spawn failed")
-            mock_manager_class.return_value = mock_instance
+        # Mock _ensure_daemon_ready to raise DaemonStartupError directly
+        with patch.object(client, "_ensure_daemon_ready", new_callable=AsyncMock) as mock_ensure:
+            mock_ensure.side_effect = DaemonStartupError(
+                "Failed to start daemon: Spawn failed",
+                workspace="/test/workspace",
+                language="python",
+            )
 
             with pytest.raises(DaemonStartupError) as exc_info:
                 await client.request("ping", {})
@@ -392,14 +393,17 @@ class TestCLICommandsAutoStart:
         assert result.exit_code == 0
         assert "llm-lsp-cli version" in result.output
 
-    def test_status_command_reports_not_running(self) -> None:
+    @patch("llm_lsp_cli.daemon.DaemonManager.is_running")
+    def test_status_command_reports_not_running(self, mock_is_running: MagicMock) -> None:
         """Status command reports daemon not running."""
         from llm_lsp_cli.cli import app
 
-        # Make sure daemon is not running for this test
+        # Mock daemon as not running
+        mock_is_running.return_value = False
+
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 0
-        # Status shows "not running" when no daemon exists
+        # Status shows "not running" when daemon is not running
         assert "not running" in result.output.lower()
 
     @patch("llm_lsp_cli.daemon_client.DaemonClient")

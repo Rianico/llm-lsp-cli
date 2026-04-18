@@ -113,7 +113,7 @@ class ServerRegistry:
                 command, args = self._get_server_command(language)
 
                 # Compute LSP server log file path
-                lsp_server_name = ConfigManager._get_lsp_server_name(language)
+                lsp_server_name = ConfigManager.get_lsp_server_name(language)
                 log_file = ConfigManager.build_log_file_path(
                     workspace_path=workspace_path,
                     language=language,

@@ -7,7 +7,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -277,42 +277,55 @@ class TestE2EConfigManagement:
             config_dir.mkdir()
             yield config_dir
 
-    def test_config_init_creates_file(self, temp_config_dir: Path) -> None:
+    @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
+    def test_config_init_creates_file(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
         """Test config init creates configuration file."""
-        config_file = temp_config_dir / "config.json"
+        import yaml
 
-        with patch.object(ConfigManager, 'CONFIG_FILE', config_file):
-            result = ConfigManager.init_config()
-            assert result is True
-            assert config_file.exists()
+        config_file = temp_config_dir / "config.yaml"
 
-            # Verify content has expected structure
-            import json
-            data = json.loads(config_file.read_text())
-            assert "languages" in data
-            assert "python" in data["languages"]
+        mock_paths = MagicMock()
+        mock_paths.config_dir = temp_config_dir
+        mock_get_paths.return_value = mock_paths
 
-    def test_config_load_after_init(self, temp_config_dir: Path) -> None:
+        result = ConfigManager.init_config()
+        assert result is True
+        assert config_file.exists()
+
+        # Verify content has expected structure
+        data = yaml.safe_load(config_file.read_text())
+        assert "languages" in data
+        assert "python" in data["languages"]
+
+    @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
+    def test_config_load_after_init(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
         """Test config loads after initialization."""
-        config_file = temp_config_dir / "config.json"
+        config_file = temp_config_dir / "config.yaml"
 
-        with patch.object(ConfigManager, 'CONFIG_FILE', config_file):
-            # Initialize
-            ConfigManager.init_config()
+        mock_paths = MagicMock()
+        mock_paths.config_dir = temp_config_dir
+        mock_get_paths.return_value = mock_paths
 
-            # Load
-            config = ConfigManager.load()
-            assert config is not None
-            assert "languages" in config.model_dump()
+        # Initialize
+        ConfigManager.init_config()
 
-    def test_config_init_returns_false_if_exists(self, temp_config_dir: Path) -> None:
+        # Load
+        config = ConfigManager.load()
+        assert config is not None
+        assert "languages" in config.model_dump()
+
+    @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
+    def test_config_init_returns_false_if_exists(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
         """Test config init returns False if config exists."""
-        config_file = temp_config_dir / "config.json"
+        config_file = temp_config_dir / "config.yaml"
         config_file.write_text("{}")
 
-        with patch.object(ConfigManager, 'CONFIG_FILE', config_file):
-            result = ConfigManager.init_config()
-            assert result is False
+        mock_paths = MagicMock()
+        mock_paths.config_dir = temp_config_dir
+        mock_get_paths.return_value = mock_paths
+
+        result = ConfigManager.init_config()
+        assert result is False
 
 
 class TestE2EErrorHandling:
