@@ -1,16 +1,17 @@
 """Integration tests for document synchronization in daemon layer.
 
-These tests verify the complete didOpen → request → didClose lifecycle
-for file-specific LSP requests.
+These tests verify the didOpen lifecycle for file-specific LSP requests.
+Per ADR-001, files remain open for the session lifetime - no didClose is sent.
 """
 
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from llm_lsp_cli.daemon import DocumentSyncContext, RequestHandler
+from llm_lsp_cli.lsp.cache import DiagnosticCache
 from llm_lsp_cli.lsp.client import LSPClient
 
 
@@ -23,6 +24,7 @@ class TestDocumentSyncIntegration:
         client = AsyncMock(spec=LSPClient)
         client.open_document = AsyncMock(return_value="file:///test/file.py")
         client.close_document = AsyncMock()
+        client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
         return client
 
     @pytest.fixture
@@ -46,7 +48,7 @@ class Greeter:
         mock_lsp_client: AsyncMock,
         sample_python_file: Path,
     ) -> None:
-        """Test complete didOpen → request → didClose lifecycle."""
+        """Test didOpen lifecycle - file stays open per ADR-001."""
         # Simulate a request within the sync context
         async with DocumentSyncContext(mock_lsp_client, sample_python_file) as uri:
             # Verify file was opened
@@ -56,9 +58,8 @@ class Greeter:
             # Simulate a request (e.g., diagnostics)
             # In real code, this would be: await lsp_client.request_diagnostics(uri)
 
-        # Verify file was closed after exiting context
-        mock_lsp_client.close_document.assert_called_once()
-        assert mock_lsp_client.close_document.call_args[0][0] == "file:///test/file.py"
+        # Verify file was NOT closed after exiting context (ADR-001)
+        mock_lsp_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_document_sync_exception_safety(
@@ -66,11 +67,11 @@ class Greeter:
         mock_lsp_client: AsyncMock,
         sample_python_file: Path,
     ) -> None:
-        """Test that didClose is sent even when request fails."""
+        """Test that didClose is NOT sent even when request fails (ADR-001)."""
         request_failed = False
 
         try:
-            async with DocumentSyncContext(mock_lsp_client, sample_python_file) as uri:
+            async with DocumentSyncContext(mock_lsp_client, sample_python_file):
                 # Simulate a failed request
                 request_failed = True
                 raise ValueError("Simulated request failure")
@@ -80,8 +81,8 @@ class Greeter:
         assert request_failed, "Request should have failed"
         # Verify didOpen was sent
         mock_lsp_client.open_document.assert_called_once()
-        # Verify didClose was still sent despite exception
-        mock_lsp_client.close_document.assert_called_once()
+        # Verify didClose was NOT sent despite exception (ADR-001)
+        mock_lsp_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_request_handler_has_file_locks(self) -> None:

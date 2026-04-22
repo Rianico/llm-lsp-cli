@@ -11,14 +11,21 @@ from llm_lsp_cli.lsp.constants import LSPConstants
 
 
 class TestEndToEndDocumentSync:
-    """End-to-end tests for complete document sync lifecycle."""
+    """End-to-end tests for complete document sync lifecycle.
+
+    Per ADR-001, files remain open for the session lifetime.
+    DocumentSyncContext sends didOpen on enter, but does NOT send didClose on exit.
+    """
 
     @pytest.mark.asyncio
     async def test_end_to_end_diagnostic_with_document_sync(
         self,
         tmp_path: Path,
     ) -> None:
-        """Verify complete didOpen -> diagnostic -> didClose sequence."""
+        """Verify didOpen sent, diagnostic request made, but NO didClose.
+
+        Per ADR-001, files remain open for the session lifetime.
+        """
         test_file = tmp_path / "test.py"
         test_file.write_text("def hello(): pass")
 
@@ -56,19 +63,19 @@ class TestEndToEndDocumentSync:
             "workspacePath": str(tmp_path),
             "filePath": str(test_file),
         }
-        result = await handler._handle_lsp_method(LSPConstants.DIAGNOSTIC, params)
+        _ = await handler._handle_lsp_method(LSPConstants.DIAGNOSTIC, params)
 
-        # Verify sequence: didOpen -> diagnostic -> didClose
-        # This test will fail until P1 is implemented
-        assert len(sent_notifications) >= 2, (
-            f"Expected at least 2 notifications (didOpen, didClose), got {len(sent_notifications)}"
+        # Verify sequence: didOpen -> diagnostic, NO didClose (ADR-001)
+        assert len(sent_notifications) >= 1, (
+            f"Expected at least 1 notification (didOpen), got {len(sent_notifications)}"
         )
         notification_methods = [n[0] for n in sent_notifications]
         assert LSPConstants.TEXT_DOCUMENT_DID_OPEN in notification_methods, (
             f"didOpen not found in {notification_methods}"
         )
-        assert LSPConstants.TEXT_DOCUMENT_DID_CLOSE in notification_methods, (
-            f"didClose not found in {notification_methods}"
+        # didClose should NOT be sent per ADR-001
+        assert LSPConstants.TEXT_DOCUMENT_DID_CLOSE not in notification_methods, (
+            f"didClose should NOT be sent per ADR-001, but found in {notification_methods}"
         )
 
         # Verify diagnostic request was sent
@@ -81,7 +88,10 @@ class TestEndToEndDocumentSync:
         self,
         tmp_path: Path,
     ) -> None:
-        """Verify complete didOpen -> documentSymbol -> didClose sequence."""
+        """Verify didOpen sent, documentSymbol request made, but NO didClose.
+
+        Per ADR-001, files remain open for the session lifetime.
+        """
         test_file = tmp_path / "test.py"
         test_file.write_text("def hello(): pass")
 
@@ -115,13 +125,16 @@ class TestEndToEndDocumentSync:
             "workspacePath": str(tmp_path),
             "filePath": str(test_file),
         }
-        result = await handler._handle_lsp_method(LSPConstants.DOCUMENT_SYMBOL, params)
+        _ = await handler._handle_lsp_method(LSPConstants.DOCUMENT_SYMBOL, params)
 
-        # Verify sequence
-        assert len(sent_notifications) >= 2
+        # Verify sequence: didOpen, NO didClose (ADR-001)
+        assert len(sent_notifications) >= 1
         notification_methods = [n[0] for n in sent_notifications]
         assert LSPConstants.TEXT_DOCUMENT_DID_OPEN in notification_methods
-        assert LSPConstants.TEXT_DOCUMENT_DID_CLOSE in notification_methods
+        # didClose should NOT be sent per ADR-001
+        assert LSPConstants.TEXT_DOCUMENT_DID_CLOSE not in notification_methods, (
+            f"didClose should NOT be sent per ADR-001, but found in {notification_methods}"
+        )
 
         assert any(msg[0] == LSPConstants.DOCUMENT_SYMBOL for msg in sent_requests)
 

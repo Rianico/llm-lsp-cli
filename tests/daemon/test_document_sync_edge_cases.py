@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from llm_lsp_cli.daemon import DocumentSyncContext, RequestHandler
+from llm_lsp_cli.lsp.cache import DiagnosticCache
 
 
 class TestDocumentSyncEdgeCases:
@@ -18,6 +19,7 @@ class TestDocumentSyncEdgeCases:
         client = AsyncMock()
         client.open_document = AsyncMock(return_value="file:///test/file.py")
         client.close_document = AsyncMock()
+        client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
         return client
 
     @pytest.mark.asyncio
@@ -106,12 +108,15 @@ class Émoji:
         mock_lsp_client.open_document.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_close_document_called_with_correct_uri(
+    async def test_close_document_not_called_per_adr001(
         self,
         mock_lsp_client: AsyncMock,
         tmp_path: Path,
     ) -> None:
-        """Test that close_document receives the same URI from open_document."""
+        """Test that close_document is NOT called per ADR-001.
+
+        Per ADR-001, files remain open for the session lifetime.
+        """
         filepath = tmp_path / "test.py"
         filepath.write_text("content")
 
@@ -122,9 +127,8 @@ class Émoji:
         async with DocumentSyncContext(mock_lsp_client, filepath):
             pass
 
-        # Verify close_document was called with the same URI
-        mock_lsp_client.close_document.assert_called_once()
-        assert mock_lsp_client.close_document.call_args[0][0] == expected_uri
+        # Verify close_document was NOT called per ADR-001
+        mock_lsp_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_document_sync_nested_contexts(
@@ -132,7 +136,10 @@ class Émoji:
         mock_lsp_client: AsyncMock,
         tmp_path: Path,
     ) -> None:
-        """Test nested document sync contexts for different files."""
+        """Test nested document sync contexts for different files.
+
+        Per ADR-001, no didClose is sent on context exit.
+        """
         file1 = tmp_path / "file1.py"
         file2 = tmp_path / "file2.py"
         file1.write_text("content1")
@@ -154,10 +161,10 @@ class Émoji:
             assert uri1 == "file:///file1.py"
             async with DocumentSyncContext(mock_lsp_client, file2) as uri2:
                 assert uri2 == "file:///file2.py"
-            # Inner context exited - close_document should have been called once
-            assert mock_lsp_client.close_document.call_count == 1
-        # Outer context exited - close_document should have been called twice
-        assert mock_lsp_client.close_document.call_count == 2
+            # Inner context exited - close_document should NOT be called (ADR-001)
+            assert mock_lsp_client.close_document.call_count == 0
+        # Outer context exited - close_document should still NOT be called (ADR-001)
+        assert mock_lsp_client.close_document.call_count == 0
 
 
 class TestPerFileLockEdgeCases:
@@ -233,24 +240,29 @@ class TestPerFileLockEdgeCases:
             locks.append(lock)
 
         # Verify all locks are unique
-        assert len(set(id(lock) for lock in locks)) == 10
+        assert len({id(lock) for lock in locks}) == 10
         assert len(request_handler._file_locks) == 10
 
 
 class TestDocumentSyncCleanup:
-    """Tests for cleanup and resource management."""
+    """Tests for cleanup and resource management.
+
+    Per ADR-001, files remain open for the session lifetime.
+    No didClose is sent even on exceptions.
+    """
 
     @pytest.mark.asyncio
-    async def test_context_closes_document_on_keyboard_interrupt(
+    async def test_context_does_not_close_on_keyboard_interrupt(
         self,
         tmp_path: Path,
     ) -> None:
-        """Test that document is closed on KeyboardInterrupt."""
+        """Test that document is NOT closed on KeyboardInterrupt per ADR-001."""
         from llm_lsp_cli.daemon import DocumentSyncContext
 
         mock_client = AsyncMock()
         mock_client.open_document = AsyncMock(return_value="file:///test/file.py")
         mock_client.close_document = AsyncMock()
+        mock_client._diagnostic_cache = DiagnosticCache(tmp_path)
 
         test_file = tmp_path / "test.py"
         test_file.write_text("content")
@@ -261,21 +273,22 @@ class TestDocumentSyncCleanup:
         except KeyboardInterrupt:
             pass
 
-        # Verify cleanup happened despite interrupt
+        # Verify open was called, but close was NOT called (ADR-001)
         mock_client.open_document.assert_called_once()
-        mock_client.close_document.assert_called_once()
+        mock_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_context_closes_document_on_base_exception(
+    async def test_context_does_not_close_on_base_exception(
         self,
         tmp_path: Path,
     ) -> None:
-        """Test that document is closed on BaseException."""
+        """Test that document is NOT closed on BaseException per ADR-001."""
         from llm_lsp_cli.daemon import DocumentSyncContext
 
         mock_client = AsyncMock()
         mock_client.open_document = AsyncMock(return_value="file:///test/file.py")
         mock_client.close_document = AsyncMock()
+        mock_client._diagnostic_cache = DiagnosticCache(tmp_path)
 
         test_file = tmp_path / "test.py"
         test_file.write_text("content")
@@ -286,5 +299,5 @@ class TestDocumentSyncCleanup:
         except SystemExit:
             pass
 
-        # Verify cleanup happened
-        mock_client.close_document.assert_called_once()
+        # Verify close was NOT called per ADR-001
+        mock_client.close_document.assert_not_called()

@@ -1164,3 +1164,100 @@ class TestEdgeCases:
         from llm_lsp_cli.lsp.transport import LogCategory, _classify_method
 
         assert _classify_method("$/progress") == LogCategory.SKIP
+
+
+# =============================================================================
+# 10. Test Class: Outgoing Message Masking in _send_payload()
+# =============================================================================
+
+
+class TestOutgoingMessageMasking:
+    """Tests for masking outgoing messages in _send_payload()."""
+
+    @pytest.fixture
+    def mock_daemon_logger(self) -> Any:
+        """Mock the daemon logger for capturing outgoing logs."""
+        with patch("llm_lsp_cli.lsp.transport.logger") as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_send_payload_masks_didopen_text(
+        self, mock_daemon_logger: MagicMock
+    ) -> None:
+        """Outgoing didOpen must show text_len in log, not raw content."""
+        # Arrange
+        transport = StdioTransport(command="cat", trace=True)
+        await transport.start()
+
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": "file:///test.py",
+                    "text": "x" * 500,  # Large text that should be masked
+                }
+            },
+        }
+
+        # Act
+        await transport._send_payload(payload)
+
+        # Assert: log shows masked text
+        log_calls = [str(c) for c in mock_daemon_logger.debug.call_args_list]
+        log_output = " ".join(log_calls)
+        assert "... (text_len: 500)" in log_output
+        assert "x" * 500 not in log_output  # Raw text NOT in log
+
+        # Assert: original payload unchanged (no mutation)
+        assert payload["params"]["textDocument"]["text"] == "x" * 500
+
+        await transport.stop()
+
+    @pytest.mark.asyncio
+    async def test_send_payload_masks_didchange_text(
+        self, mock_daemon_logger: MagicMock
+    ) -> None:
+        """Outgoing didChange must show text_len for contentChanges."""
+        transport = StdioTransport(command="cat", trace=True)
+        await transport.start()
+
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "contentChanges": [{"text": "secret code here"}],
+            },
+        }
+
+        await transport._send_payload(payload)
+
+        log_calls = [str(c) for c in mock_daemon_logger.debug.call_args_list]
+        log_output = " ".join(log_calls)
+        assert "... (text_len: 16)" in log_output
+        assert "secret code here" not in log_output
+        assert payload["params"]["contentChanges"][0]["text"] == "secret code here"
+
+        await transport.stop()
+
+    @pytest.mark.asyncio
+    async def test_send_payload_no_masking_without_trace(
+        self, mock_daemon_logger: MagicMock
+    ) -> None:
+        """trace=False must not log outgoing payload content."""
+        transport = StdioTransport(command="cat", trace=False)
+        await transport.start()
+
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"text": "sensitive"}},
+        }
+
+        await transport._send_payload(payload)
+
+        # Check that no "-->" (outgoing marker) appears in any debug call
+        debug_calls = [str(c) for c in mock_daemon_logger.debug.call_args_list]
+        assert not any("-->" in c for c in debug_calls), f"Unexpected outgoing log: {debug_calls}"
+
+        await transport.stop()

@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from llm_lsp_cli.lsp.client import LSPClient
@@ -179,3 +180,33 @@ class TestClientWorkspaceDiagnostics:
         assert len(result) == 1
         assert result[0]["uri"] == test_uri
         assert len(result[0]["diagnostics"]) == 1
+
+
+class TestNormalizeDocumentDiagnostics:
+    """Tests for _normalize_document_diagnostics return type."""
+
+    def test_normalize_returns_tuple_with_resultid(self) -> None:
+        """_normalize_document_diagnostics must return (diagnostics, result_id)."""
+        client = LSPClient.__new__(LSPClient)  # Bypass __init__
+
+        result: dict[str, Any] = {
+            "kind": "full",
+            "resultId": "server-result-123",
+            "items": [{"uri": "file:///a.py", "diagnostics": []}],
+        }
+
+        diagnostics, result_id = client._normalize_document_diagnostics(result)
+
+        assert len(diagnostics) == 1
+        assert result_id == "server-result-123"
+
+    def test_normalize_returns_none_without_resultid(self) -> None:
+        """Response without resultId must return None for second element."""
+        client = LSPClient.__new__(LSPClient)
+
+        result: dict[str, Any] = {"kind": "full", "items": []}
+
+        diagnostics, result_id = client._normalize_document_diagnostics(result)
+
+        assert diagnostics == []
+        assert result_id is None

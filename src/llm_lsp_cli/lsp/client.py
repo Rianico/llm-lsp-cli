@@ -422,6 +422,7 @@ class LSPClient:
         self,
         file_path: str,
         uri: str | None = None,
+        mtime: float | None = None,
     ) -> list[dict[str, Any]]:
         """Request diagnostics for a single document.
 
@@ -429,9 +430,13 @@ class LSPClient:
         Falls back to cached diagnostics from publishDiagnostics
         if the method is not supported.
 
+        When cached diagnostics are valid (have resultId and mtime unchanged),
+        returns cached diagnostics directly without server request.
+
         Args:
             file_path: Path to the file (used if uri not provided)
             uri: Optional file URI. If provided, skips _ensure_open.
+            mtime: Optional file modification time for staleness check.
 
         Returns:
             List of diagnostic dictionaries.
@@ -439,9 +444,24 @@ class LSPClient:
         if uri is None:
             uri = await self._ensure_open(file_path)
 
+        file_state = await self._diagnostic_cache.get_file_state(uri)
+
+        # Optimization: Skip server request if cache is valid
+        # Cache is valid when:
+        # 1. We have a resultId (previous server response with diagnostics)
+        # 2. mtime indicates file hasn't changed (if mtime provided)
+        if file_state.last_result_id is not None and mtime is not None:
+            is_stale = await self._diagnostic_cache.is_stale(uri, mtime)
+            if not is_stale:
+                logger.debug(
+                    f"Returning cached diagnostics for {uri} "
+                    f"(resultId={file_state.last_result_id}, mtime={mtime})"
+                )
+                return list(file_state.diagnostics)
+
         params: lsp.DocumentDiagnosticParams = {
             "textDocument": {"uri": uri},
-            "previousResultId": None,
+            "previousResultId": file_state.last_result_id,
         }
 
         assert self._transport is not None
@@ -451,7 +471,12 @@ class LSPClient:
                 params,  # type: ignore[arg-type]
                 timeout=self.timeout,
             )
-            return self._normalize_document_diagnostics(result)
+            diagnostics, result_id = self._normalize_document_diagnostics(result)
+            await self._diagnostic_cache.update_diagnostics(uri, diagnostics, result_id)
+            # Update mtime after successful refresh
+            if mtime is not None:
+                await self._diagnostic_cache.set_mtime(uri, mtime)
+            return diagnostics
         except Exception as e:
             logger.warning(f"textDocument/diagnostic failed: {e}, using cached")
             # Fallback to cached diagnostics from notifications
@@ -460,35 +485,44 @@ class LSPClient:
     def _normalize_document_diagnostics(
         self,
         result: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """Normalize document diagnostic response.
 
         Args:
             result: Raw diagnostic response from LSP server.
 
         Returns:
-            List of diagnostic dictionaries.
+            A tuple containing:
+            - List of diagnostic dictionaries (may be empty)
+            - result_id string if present in response, otherwise None
 
         Note:
+            For "unchanged" responses, returns cached diagnostics with None result_id.
+            Returns ([], None) for None or unrecognized result types.
             Returns raw dicts from LSP server, typed as dict[str, Any]
             since LSP servers may return slightly different structures.
         """
         if result is None:
-            return []
+            return ([], None)
 
         if isinstance(result, dict):
             # Handle DocumentDiagnosticReport format
             if result.get("kind") == "unchanged":
                 # No changes since last request - return cached
+                uri = result.get("uri", "")
+                logger.debug(f"Cache hit for diagnostics (unchanged) for {uri}")
                 # Use synchronous fallback since we're in a type conversion helper
-                return self._diagnostic_cache.get_cached(result.get("uri", ""))
+                return (self._diagnostic_cache.get_cached(uri), None)
             items = result.get("items", [])
-            return list(items)
+            result_id = result.get("resultId")
+            logger.debug(f"Fresh diagnostics received: {len(items)} items")
+            return (list(items), result_id)
 
         if isinstance(result, list):
-            return list(result)
+            logger.debug(f"Fresh diagnostics received: {len(result)} items")
+            return (list(result), None)
 
-        return []
+        return ([], None)
 
     async def request_workspace_diagnostics(
         self,
@@ -519,7 +553,7 @@ class LSPClient:
         Returns configuration values for requested sections.
         """
         items = params.get("items", [])
-        results = []
+        results: list[dict[str, str]] = []
 
         for item in items:
             section = item.get("section", "")

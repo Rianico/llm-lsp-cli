@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llm_lsp_cli.daemon import DocumentSyncContext, RequestHandler
+from llm_lsp_cli.daemon import RequestHandler
 from llm_lsp_cli.lsp.constants import LSPConstants
 
 
@@ -83,7 +83,7 @@ class TestDiagnosticMethodDocumentSync:
         }
 
         # Patch DocumentSyncContext to track usage
-        with patch.object(handler, "_handle_lsp_method") as mock_handle:
+        with patch.object(handler, "_handle_lsp_method"):
             # We need to test the actual implementation
             # For now, this test will fail because DocumentSyncContext is not integrated
             pass
@@ -218,14 +218,21 @@ class TestMissingFilePathError:
 
 
 class TestDocumentSyncExceptionSafety:
-    """Tests for document sync exception safety (P1)."""
+    """Tests for document sync exception safety (P1).
+
+    Per ADR-001, files remain open for the session lifetime.
+    No didClose is sent even on exceptions.
+    """
 
     @pytest.mark.asyncio
-    async def test_document_sync_closes_on_registry_exception(
+    async def test_document_sync_does_not_close_on_registry_exception(
         self,
         tmp_path: Path,
     ) -> None:
-        """Verify didClose sent even if registry method raises."""
+        """Verify didClose is NOT sent even if registry method raises.
+
+        Per ADR-001, files remain open for the session lifetime.
+        """
         test_file = tmp_path / "test.py"
         test_file.write_text("content")
 
@@ -250,8 +257,8 @@ class TestDocumentSyncExceptionSafety:
         with pytest.raises(RuntimeError):
             await handler._handle_lsp_method(LSPConstants.DIAGNOSTIC, params)
 
-        # Verify close_document was called despite exception
-        mock_client.close_document.assert_called_once()
+        # Verify close_document was NOT called despite exception (ADR-001)
+        mock_client.close_document.assert_not_called()
 
 
 class TestSendLspRequestHelper:

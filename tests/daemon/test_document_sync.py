@@ -12,9 +12,12 @@ from llm_lsp_cli.daemon import DocumentSyncContext
 @pytest.fixture
 def mock_lsp_client() -> AsyncMock:
     """Mock LSPClient with async open_document and close_document methods."""
+    from llm_lsp_cli.lsp.cache import DiagnosticCache
+
     client = AsyncMock()
     client.open_document = AsyncMock(return_value="file:///test/file.py")
     client.close_document = AsyncMock()
+    client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
     return client
 
 
@@ -27,42 +30,52 @@ def temp_python_file(tmp_path: Path) -> Path:
 
 
 class TestDocumentSyncContext:
-    """Tests for DocumentSyncContext async context manager."""
+    """Tests for DocumentSyncContext async context manager.
+
+    Per ADR-001, files remain open for the session lifetime.
+    DocumentSyncContext sends didOpen on enter, but does NOT send didClose on exit.
+    """
 
     @pytest.mark.asyncio
-    async def test_document_sync_context_opens_and_closes(
+    async def test_document_sync_context_opens_but_does_not_close(
         self,
         mock_lsp_client: AsyncMock,
         temp_python_file: Path,
     ) -> None:
-        """Verify didOpen sent on __aenter__, didClose sent on __aexit__."""
+        """Verify didOpen sent on __aenter__, but NO didClose on __aexit__.
+
+        Per ADR-001, files remain open for the session lifetime.
+        """
         async with DocumentSyncContext(mock_lsp_client, temp_python_file) as uri:
             # Verify open_document was called
             mock_lsp_client.open_document.assert_called_once()
             assert uri == "file:///test/file.py"
 
-        # Verify close_document was called after exiting context
-        mock_lsp_client.close_document.assert_called_once()
+        # Verify close_document was NOT called after exiting context
+        # This is the key ADR-001 compliance: files stay open
+        mock_lsp_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_document_sync_context_closes_on_exception(
+    async def test_document_sync_context_does_not_close_on_exception(
         self,
         mock_lsp_client: AsyncMock,
         temp_python_file: Path,
     ) -> None:
-        """Verify didClose sent even if exception raised in context."""
-        uri_result = None
+        """Verify NO didClose sent even if exception raised in context.
+
+        Per ADR-001, files remain open for the session lifetime regardless of exceptions.
+        """
         try:
             async with DocumentSyncContext(mock_lsp_client, temp_python_file) as uri:
-                uri_result = uri
+                _ = uri  # Intentionally unused, just verifying context works
                 raise ValueError("Simulated error")
         except ValueError:
             pass  # Expected
 
         # Verify open_document was called
         mock_lsp_client.open_document.assert_called_once()
-        # Verify close_document was called despite exception
-        mock_lsp_client.close_document.assert_called_once()
+        # Verify close_document was NOT called despite exception
+        mock_lsp_client.close_document.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_document_sync_context_returns_uri(

@@ -12,6 +12,24 @@ from typing import Any
 
 from .constants import LSPConstants
 
+# =============================================================================
+# TRACE Level Definition
+# =============================================================================
+
+# Custom logging level for transport-layer messages (more verbose than DEBUG)
+#
+# NOTE: TRACE_LEVEL = 5 follows the Python logging convention for custom levels.
+# Python's built-in levels are: CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10.
+# Custom TRACE level is set to 5 (below DEBUG=10) to ensure it is filtered when
+# DEBUG threshold is active, but visible when explicitly enabled.
+#
+# This is separate from LogLevel.TRACE = 4 in the domain layer, which uses a
+# 0-4 scale for ordering purposes in business logic, not Python logging levels.
+TRACE_LEVEL = 5
+
+# Register TRACE level name with Python logging
+logging.addLevelName(TRACE_LEVEL, "TRACE")
+
 # Default timeouts and delays
 _STABILIZATION_DELAY = 0.05
 
@@ -341,7 +359,7 @@ class StdioTransport:
                         buffer = b""
                         continue
 
-                    logger.debug(f"Reading body of {content_length} bytes")
+                    logger.log(TRACE_LEVEL, f"Reading body of {content_length} bytes")
 
                     # Read body
                     try:
@@ -575,7 +593,8 @@ class StdioTransport:
         header = f"Content-Length: {len(body)}\r\n\r\n".encode()
 
         if self.trace:
-            logger.debug(f"--> {payload}")
+            masked_payload = _mask_diagnostics(payload)
+            logger.debug(f"--> {masked_payload}")
 
         self._process.stdin.write(header + body)
         await self._process.stdin.drain()

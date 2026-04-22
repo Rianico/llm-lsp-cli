@@ -9,31 +9,40 @@ It replaces the dual-cache system with a single cache using:
 """
 
 import asyncio
+import contextlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from . import types as lsp
-from urllib.parse import urlparse
 
 
 @dataclass
 class FileState:
     """Tracks the state of a single file in the diagnostic cache.
 
+    Version Model:
+        - mtime: File modification time (ground truth for content changes)
+        - document_version: LSP document version (sent to server)
+        - last_result_id: Server's diagnostic version (from textDocument/diagnostic)
+
+    Cache Invalidation:
+        - Stale iff incoming_mtime > stored_mtime
+
     Attributes:
+        mtime: File modification time in epoch seconds (0.0 = untracked)
         document_version: Version number of the document (starts at 1 for open files)
         last_result_id: Optional result ID from LSP server diagnostic response
         is_open: Whether the file is currently open in the editor
         diagnostics: List of diagnostic dictionaries from the LSP server
-        diagnostics_version: Version at which diagnostics were last received (for stale detection)
         uri: The original file URI (for workspace diagnostic responses)
     """
+    mtime: float = 0.0
     document_version: int = 0
     last_result_id: str | None = None
     is_open: bool = False
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
-    diagnostics_version: int = 0
     uri: str = ""
 
 
@@ -83,10 +92,8 @@ class DiagnosticCache:
             file_path = file_path.resolve()
         else:
             # For non-existent files, try to resolve anyway
-            try:
+            with contextlib.suppress(OSError, ValueError):
                 file_path = file_path.resolve()
-            except (OSError, ValueError):
-                pass
 
         # Try to make relative to workspace root
         try:
@@ -114,7 +121,6 @@ class DiagnosticCache:
             state = self._cache.get(key, FileState())
             # Update diagnostics but preserve document_version and is_open
             state.diagnostics = list(diagnostics)  # Defensive copy
-            state.diagnostics_version = state.document_version  # Track version at update time
             state.uri = uri  # Store original URI for workspace responses
             if result_id is not None:
                 state.last_result_id = result_id
@@ -168,38 +174,40 @@ class DiagnosticCache:
             key = self._uri_to_relative_path(uri)
             return self._cache.get(key, FileState())
 
-    async def on_did_open(self, uri: str) -> None:
+    async def on_did_open(self, uri: str, mtime: float | None = None) -> None:
         """Handle textDocument/didOpen notification.
 
         Initializes or updates file state when a file is opened:
         - Sets is_open to True
         - Increments document_version (starts at 1)
+        - Sets mtime if provided
 
         Args:
             uri: File URI that was opened
+            mtime: Optional file modification time (epoch seconds)
         """
         async with self._lock:
             key = self._uri_to_relative_path(uri)
             state = self._cache.get(key, FileState())
             state.is_open = True
             state.document_version += 1
+            if mtime is not None:
+                state.mtime = mtime
             self._cache[key] = state
 
-    async def on_did_close(self, uri: str) -> None:
-        """Handle textDocument/didClose notification.
+    async def set_mtime(self, uri: str, mtime: float) -> None:
+        """Set the modification time for a file.
 
-        Updates file state when a file is closed:
-        - Sets is_open to False
-        - Resets last_result_id to None
+        Creates FileState if it doesn't exist, updates mtime if it does.
 
         Args:
-            uri: File URI that was closed
+            uri: File URI to update
+            mtime: File modification time (epoch seconds)
         """
         async with self._lock:
             key = self._uri_to_relative_path(uri)
             state = self._cache.get(key, FileState())
-            state.is_open = False
-            state.last_result_id = None
+            state.mtime = mtime
             self._cache[key] = state
 
     async def increment_version(self, uri: str) -> None:
@@ -232,26 +240,31 @@ class DiagnosticCache:
                 state.document_version = version
             self._cache[key] = state
 
-    async def is_stale(self, uri: str) -> bool:
-        """Check if cached diagnostics are stale.
+    async def is_stale(self, uri: str, incoming_mtime: float) -> bool:
+        """Check if cached diagnostics are stale based on mtime comparison.
 
-        Diagnostics are stale if the client version is ahead of the
-        diagnostics version, meaning the file has been edited since
-        the diagnostics were retrieved.
+        Staleness Rules:
+            - Stale iff incoming_mtime > stored_mtime
+            - Not stale if file not cached (returns False for unknown files)
+            - File with mtime == 0.0 is untracked (stale if incoming > 0)
+
+        The "unknown = not stale" semantics indicate "no cached data to invalidate"
+        rather than "file is fresh." Callers should proceed with LSP request.
 
         Args:
             uri: File URI to check
+            incoming_mtime: Current file modification time (epoch seconds)
 
         Returns:
-            True if diagnostics are stale, False if fresh or not cached
+            True if diagnostics are stale, False if fresh or not cached.
         """
         async with self._lock:
             key = self._uri_to_relative_path(uri)
             state = self._cache.get(key)
             if state is None:
                 return False
-            # Stale if document version is ahead of diagnostics version
-            return state.document_version > state.diagnostics_version
+            # Stale if incoming_mtime > stored_mtime
+            return incoming_mtime > state.mtime
 
     async def get_all_workspace_diagnostics(
         self,

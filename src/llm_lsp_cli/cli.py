@@ -549,6 +549,7 @@ def _create_daemon_manager(
     language: str,
     lsp_conf: str | None = None,
     debug: bool = False,
+    trace: bool = False,
 ) -> Any:
     """Create a DaemonManager instance.
 
@@ -557,6 +558,7 @@ def _create_daemon_manager(
         language: Language identifier
         lsp_conf: Optional custom LSP config path
         debug: Enable debug logging
+        trace: Enable trace logging
 
     Returns:
         DaemonManager instance
@@ -568,6 +570,7 @@ def _create_daemon_manager(
         language=language,
         lsp_conf=lsp_conf,
         debug=debug,
+        trace=trace,
     )
 
 
@@ -577,6 +580,7 @@ def _run_daemon_command(
     language: str | None,
     lsp_conf: str | None,
     debug: bool = False,
+    trace: bool = False,
     check_running: bool | None = None,
     action_fn: Callable[[Any, str, str], None] | None = None,
 ) -> None:
@@ -588,11 +592,12 @@ def _run_daemon_command(
         language: Language identifier
         lsp_conf: Custom LSP config
         debug: Enable debug logging
+        trace: Enable trace logging
         check_running: None for no check, True to require running, False to require stopped
         action_fn: Optional function to execute (manager, command_name, detected_language) -> None
     """
     workspace_path, detected_language = _resolve_language(workspace, language)
-    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug)
+    manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug, trace)
 
     # Check running state if required
     is_running = manager.is_running()
@@ -629,6 +634,10 @@ def start(
     ),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
+    trace: bool = typer.Option(
+        False, "--trace", "-t",
+        help="Enable transport-level trace logging (more verbose than --debug)"
+    ),
     diagnostic_log: bool = typer.Option(
         False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
     ),
@@ -660,6 +669,7 @@ def start(
         language=language,
         lsp_conf=lsp_conf,
         debug=debug,
+        trace=trace,
         check_running=False,  # Require daemon to be stopped
         action_fn=do_start,
     )
@@ -700,6 +710,10 @@ def restart(
     ),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
+    trace: bool = typer.Option(
+        False, "--trace", "-t",
+        help="Enable transport-level trace logging (more verbose than --debug)"
+    ),
     diagnostic_log: bool = typer.Option(
         False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
     ),
@@ -723,6 +737,7 @@ def restart(
         language=language,
         lsp_conf=lsp_conf,
         debug=debug,
+        trace=trace,
         check_running=None,  # No running state check
         action_fn=do_restart,
     )

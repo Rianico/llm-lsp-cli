@@ -42,7 +42,6 @@ def _configure_diagnostic_logger(log_path: Path) -> None:
     - Use restrictive file permissions (0o600)
     """
     import os
-    import stat
 
     # Ensure parent directory exists
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +61,22 @@ def _configure_diagnostic_logger(log_path: Path) -> None:
         os.chmod(log_path, 0o600)
     except OSError:
         logger.warning(f"Could not set restrictive permissions on {log_path}")
+
+
+def _configure_logger_levels(trace: bool = False) -> None:
+    """Configure logger levels for debug/trace mode.
+
+    Args:
+        trace: If True, enable TRACE_LEVEL for transport logger.
+    """
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger("llm-lsp-cli").setLevel(logging.DEBUG)
+    logging.getLogger("llm_lsp_cli").setLevel(logging.DEBUG)
+    logging.getLogger("llm_lsp_cli.lsp").setLevel(logging.DEBUG)
+    if trace:
+        from llm_lsp_cli.lsp.transport import TRACE_LEVEL
+
+        logging.getLogger("llm_lsp_cli.lsp.transport").setLevel(TRACE_LEVEL)
 
 
 def cleanup_runtime_files(
@@ -114,11 +129,13 @@ class DaemonManager:
         language: str = "python",
         lsp_conf: str | None = None,
         debug: bool = False,
+        trace: bool = False,
     ):
         self.workspace_path = workspace_path
         self.language = language
         self.lsp_conf = lsp_conf
         self.debug = debug
+        self.trace = trace
         # Resolve server name for file naming
         self._lsp_server_name = ConfigManager.get_lsp_server_name(language)
         self.pid_file = ConfigManager.build_pid_file_path(
@@ -225,6 +242,7 @@ class DaemonManager:
                         self.language,
                         self.lsp_conf,
                         self.debug,
+                        trace=self.trace,
                         pid_file=self.pid_file,
                         diagnostic_log=diagnostic_log,
                         diagnostic_log_path=ConfigManager.build_diagnostic_log_path(
@@ -260,17 +278,17 @@ class DaemonManager:
 class DocumentSyncContext:
     """Async context manager for document synchronization within daemon.
 
-    This context manager handles the complete didOpen → request → didClose
-    lifecycle for a single file. It ensures that:
+    This context manager handles the didOpen phase for a single file.
+    Per ADR-001, files remain open for the session lifetime:
     - didOpen is sent when entering the context
-    - didClose is sent when exiting the context (even on exception)
+    - didClose is NOT sent when exiting (file stays open for session)
     - The file URI is returned for use in subsequent requests
 
     Usage:
         async with DocumentSyncContext(lsp_client, file_path) as uri:
             # Use uri for LSP requests
             result = await lsp_client.request_diagnostics(uri)
-        # didClose automatically sent here
+        # File remains open - no didClose sent
     """
 
     def __init__(self, lsp_client: Any, file_path: Path):
@@ -286,16 +304,44 @@ class DocumentSyncContext:
         self.uri: str = ""
 
     async def __aenter__(self) -> str:
-        """Open document and return URI."""
-        content = self.file_path.read_text(encoding="utf-8")
-        self.uri = await self.lsp_client.open_document(self.file_path, content)
+        """Open document and return URI if not already open.
+
+        Per ADR-001, files remain open for the session lifetime.
+        This method checks the DiagnosticCache to avoid sending redundant
+        didOpen notifications when a file is already open.
+
+        Returns:
+            File URI for subsequent LSP requests
+        """
+        uri = self.file_path.as_uri()
+        cache = self.lsp_client._diagnostic_cache
+        state = await cache.get_file_state(uri)
+
+        if not state.is_open:
+            # File not yet open - send didOpen notification
+            content = self.file_path.read_text(encoding="utf-8")
+            self.uri = await self.lsp_client.open_document(self.file_path, content)
+            # Mark file as open in cache
+            await cache.on_did_open(uri)
+        else:
+            # File already open - skip didOpen, just return URI
+            self.uri = uri
+
         return self.uri
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Close document regardless of exception."""
-        if self.uri:
-            await self.lsp_client.close_document(self.uri)
-        # Exception propagates normally
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        _exc_val: BaseException | None,
+        _exc_tb: object,
+    ) -> None:
+        """Exit context without closing document.
+
+        Per ADR-001, files remain open for the session lifetime.
+        No didClose is sent; the file stays open in the LSP server.
+        """
+        # No action - file stays open per ADR-001
+        pass
 
 
 class RequestHandler:
@@ -411,7 +457,8 @@ class RequestHandler:
         logger.debug(f"Handling LSP method: {method} with params: {params}")
 
         # Check if this method requires document synchronization
-        # Methods that operate on specific files need didOpen -> request -> didClose
+        # Methods that operate on specific files need didOpen -> request
+        # (files stay open per ADR-001)
         requires_doc_sync = registry_method in {
             "request_diagnostics",
             "request_document_symbols",
@@ -481,9 +528,19 @@ class RequestHandler:
             # Extract URI from lsp_params
             uri = lsp_params.get("textDocument", {}).get("uri", "")
 
+            # Get file mtime for cache staleness check
+            # Per ADR-001: mtime is ground truth for cache validation
+            mtime: float | None = None
+            try:
+                mtime = os.stat(file_path).st_mtime
+            except OSError:
+                # File may have been deleted or permission denied
+                # Proceed with mtime=None to force server query
+                logger.debug(f"Could not stat file {file_path}, proceeding without mtime")
+
             # Call client method directly with uri to avoid _ensure_open
             if registry_method == "request_diagnostics":
-                result = await client.request_diagnostics(file_path=file_path, uri=uri)
+                result = await client.request_diagnostics(file_path=file_path, uri=uri, mtime=mtime)
             elif registry_method == "request_document_symbols":
                 result = await client.request_document_symbols(file_path=file_path, uri=uri)
             else:
@@ -583,6 +640,7 @@ async def run_daemon(
     language: str = "python",
     lsp_conf: str | None = None,
     debug: bool = False,
+    trace: bool = False,
     pid_file: Path | None = None,
     diagnostic_log: bool = False,
     diagnostic_log_path: Path | None = None,
@@ -595,17 +653,15 @@ async def run_daemon(
         language: Language identifier
         lsp_conf: Optional LSP configuration
         debug: Enable debug logging
+        trace: Enable trace logging (more verbose than debug)
         pid_file: Path to PID file for cleanup
         diagnostic_log: If True, configure diagnostic logger with FileHandler
         diagnostic_log_path: Path to diagnostics.log file
     """
-    # Enable debug logging if requested
-    if debug:
-        logging.getLogger().setLevel(logging.DEBUG)  # Root logger
-        logging.getLogger("llm-lsp-cli").setLevel(logging.DEBUG)
-        logging.getLogger("llm_lsp_cli").setLevel(logging.DEBUG)
-        logging.getLogger("llm_lsp_cli.lsp").setLevel(logging.DEBUG)
-        logger.debug("Debug logging enabled")
+    # Enable debug/trace logging if requested
+    if debug or trace:
+        _configure_logger_levels(trace=trace)
+        logger.debug(f"{'Trace' if trace else 'Debug'} logging enabled")
 
     # Configure diagnostic logger if enabled
     if diagnostic_log and diagnostic_log_path is not None:

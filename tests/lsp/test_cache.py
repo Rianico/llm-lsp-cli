@@ -355,21 +355,22 @@ class TestDiagnosticCache:
             assert state.document_version == 10
 
         @pytest.mark.asyncio
-        async def test_on_did_close_resets_state(
+        async def test_file_stays_open_after_diagnostics(
             self,
             diagnostic_cache: DiagnosticCache,
             sample_uri: str,
         ) -> None:
-            """on_did_close updates state correctly."""
-            await diagnostic_cache.on_did_open(sample_uri)
+            """Files stay open after diagnostics (no didClose in new design)."""
+            mtime = 100.0
+            await diagnostic_cache.on_did_open(sample_uri, mtime=mtime)
             await diagnostic_cache.update_diagnostics(
                 sample_uri, [{"message": "test"}], result_id="result-1"
             )
-            await diagnostic_cache.on_did_close(sample_uri)
 
             state = await diagnostic_cache.get_file_state(sample_uri)
-            assert state.is_open is False
-            assert state.last_result_id is None
+            assert state.is_open is True
+            assert state.last_result_id == "result-1"
+            assert state.mtime == mtime
 
         @pytest.mark.asyncio
         async def test_version_never_decrements(
@@ -395,7 +396,7 @@ class TestDiagnosticCache:
 # =============================================================================
 
     class TestStaleDetection:
-        """Stale detection tests."""
+        """Stale detection tests using mtime."""
 
         @pytest.mark.asyncio
         async def test_is_stale_fresh(
@@ -404,25 +405,26 @@ class TestDiagnosticCache:
             sample_uri: str,
             sample_diagnostics: list[dict[str, Any]],
         ) -> None:
-            """Cache is fresh when versions match."""
-            await diagnostic_cache.on_did_open(sample_uri)
+            """Cache is fresh when mtime matches."""
+            mtime = 100.0
+            await diagnostic_cache.on_did_open(sample_uri, mtime=mtime)
             await diagnostic_cache.update_diagnostics(sample_uri, sample_diagnostics)
-            is_stale = await diagnostic_cache.is_stale(sample_uri)
+            is_stale = await diagnostic_cache.is_stale(sample_uri, mtime)
             assert is_stale is False
 
         @pytest.mark.asyncio
-        async def test_is_stale_client_ahead(
+        async def test_is_stale_mtime_changed(
             self,
             diagnostic_cache: DiagnosticCache,
             sample_uri: str,
             sample_diagnostics: list[dict[str, Any]],
         ) -> None:
-            """Cache is stale when client version ahead of diagnostics."""
-            await diagnostic_cache.on_did_open(sample_uri)
+            """Cache is stale when incoming mtime > stored mtime."""
+            old_mtime = 100.0
+            new_mtime = 200.0
+            await diagnostic_cache.on_did_open(sample_uri, mtime=old_mtime)
             await diagnostic_cache.update_diagnostics(sample_uri, sample_diagnostics)
-            # Client edits file, incrementing version
-            await diagnostic_cache.increment_version(sample_uri)
-            is_stale = await diagnostic_cache.is_stale(sample_uri)
+            is_stale = await diagnostic_cache.is_stale(sample_uri, new_mtime)
             assert is_stale is True
 
         @pytest.mark.asyncio
@@ -431,30 +433,32 @@ class TestDiagnosticCache:
             diagnostic_cache: DiagnosticCache,
             sample_uri: str,
         ) -> None:
-            """Check stale for missing URI returns False."""
-            is_stale = await diagnostic_cache.is_stale(sample_uri)
+            """Check stale for missing URI returns False (not tracked)."""
+            mtime = 100.0
+            is_stale = await diagnostic_cache.is_stale(sample_uri, mtime)
             assert is_stale is False
 
         @pytest.mark.asyncio
-        async def test_is_stale_after_update(
+        async def test_is_stale_after_mtime_update(
             self,
             diagnostic_cache: DiagnosticCache,
             sample_uri: str,
             sample_diagnostics: list[dict[str, Any]],
         ) -> None:
-            """Verify stale flag behavior after update."""
-            await diagnostic_cache.on_did_open(sample_uri)
+            """After updating mtime, cache is fresh again."""
+            old_mtime = 100.0
+            new_mtime = 200.0
+            await diagnostic_cache.on_did_open(sample_uri, mtime=old_mtime)
             await diagnostic_cache.update_diagnostics(sample_uri, sample_diagnostics)
 
-            # Should be fresh
-            assert await diagnostic_cache.is_stale(sample_uri) is False
+            # Stale with new mtime
+            assert await diagnostic_cache.is_stale(sample_uri, new_mtime) is True
 
-            # Update diagnostics
-            new_diags = [{"message": "updated"}]
-            await diagnostic_cache.update_diagnostics(sample_uri, new_diags)
+            # Update mtime
+            await diagnostic_cache.set_mtime(sample_uri, new_mtime)
 
-            # Should still be fresh
-            assert await diagnostic_cache.is_stale(sample_uri) is False
+            # Should be fresh with new mtime
+            assert await diagnostic_cache.is_stale(sample_uri, new_mtime) is False
 
 
 # =============================================================================
