@@ -1,6 +1,6 @@
 """End-to-End tests for daemon lifecycle and LSP features.
 Run with:
-    uv run pytest tests/test_e2e_daemon_lifecycle.py -v
+    uv run pytest tests/test_e2e_daemon_lifecycle.py
 """
 
 import asyncio

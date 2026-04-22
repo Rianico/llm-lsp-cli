@@ -2,7 +2,7 @@
 
 Tests edge cases, daemon lifecycle, and log file verification.
 Run with:
-    uv run pytest tests/test_logging_integration.py -v
+    uv run pytest tests/test_logging_integration.py
 """
 
 import tempfile

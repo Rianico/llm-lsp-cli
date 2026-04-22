@@ -4,7 +4,7 @@ These tests verify the auto-start behavior of the CLI when invoking LSP commands
 without manually starting the daemon first.
 
 Run with:
-    uv run pytest tests/test_auto_start_integration.py -v
+    uv run pytest tests/test_auto_start_integration.py
 """
 
 import asyncio

@@ -416,13 +416,13 @@ llm-lsp-cli stop
 
 ```bash
 # Run all tests
-pytest tests/ -v
+pytest tests/ 
 
 # Run with coverage
 pytest tests/ --cov=llm_lsp_cli --cov-report=html
 
 # Run specific test file
-pytest tests/test_server_registry.py -v
+pytest tests/test_server_registry.py 
 ```
 
 ## Troubleshooting
@@ -584,7 +584,7 @@ ruff check src/ tests/
 mypy src/ tests/
 
 # Run tests
-pytest tests/ -v
+pytest tests/ 
 
 # Run tests with coverage
 pytest tests/ --cov=llm_lsp_cli --cov-report=term-missing

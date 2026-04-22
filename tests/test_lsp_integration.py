@@ -6,7 +6,7 @@ These tests require pyright-langserver to be installed:
     npm install -g pyright
 
 Run with:
-    uv run pytest tests/test_lsp_integration.py -v
+    uv run pytest tests/test_lsp_integration.py
 
 Note: These tests are currently skipped due to pyright initialization timeout issues.
 """
