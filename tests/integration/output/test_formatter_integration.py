@@ -29,7 +29,10 @@ class TestWorkspaceSymbolWorkflow:
                 "kind": 5,  # Class
                 "location": {
                     "uri": f"file://{temp_dir}/src/models.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
                 },
                 "detail": "class MyClass",
                 "containerName": None,
@@ -40,7 +43,10 @@ class TestWorkspaceSymbolWorkflow:
                 "kind": 12,  # Function
                 "location": {
                     "uri": f"file://{temp_dir}/src/utils.py",
-                    "range": {"start": {"line": 10, "character": 0}, "end": {"line": 30, "character": 0}},
+                    "range": {
+                        "start": {"line": 10, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
                 },
                 "detail": "def my_function(x: int) -> str",
             },
@@ -49,14 +55,19 @@ class TestWorkspaceSymbolWorkflow:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/tests/test_models.py",
-                    "range": {"start": {"line": 5, "character": 0}, "end": {"line": 25, "character": 0}},
+                    "range": {
+                        "start": {"line": 5, "character": 0},
+                        "end": {"line": 25, "character": 0},
+                    },
                 },
                 "detail": "class TestClass",
                 "containerName": None,
             },
         ]
 
-    def test_workflow_text_output(self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_text_output(
+        self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test complete text output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
         output = formatter.symbols_to_text(records)
@@ -71,7 +82,9 @@ class TestWorkspaceSymbolWorkflow:
         assert "my_function (12) [11:1-31:1] -> def my_function(x: int) -> str" in output
         assert "TestClass (5) [6:1-26:1]" in output
 
-    def test_workflow_json_output(self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_json_output(
+        self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test complete JSON output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
         output = formatter.symbols_to_json(records)
@@ -91,7 +104,9 @@ class TestWorkspaceSymbolWorkflow:
         for item in parsed:
             assert "container" not in item  # All were None
 
-    def test_workflow_yaml_output(self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_yaml_output(
+        self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test complete YAML output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
         output = formatter.symbols_to_yaml(records)
@@ -105,7 +120,9 @@ class TestWorkspaceSymbolWorkflow:
         assert func_item is not None
         assert func_item["detail"] == "def my_function(x: int) -> str"
 
-    def test_workflow_csv_output(self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_csv_output(
+        self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test complete CSV output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
         output = formatter.symbols_to_csv(records)
@@ -121,7 +138,9 @@ class TestWorkspaceSymbolWorkflow:
         for line in lines[1:]:
             assert len(line.split(",")) == 7
 
-    def test_workflow_filter_test_symbols(self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_filter_test_symbols(
+        self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test filtering test file symbols."""
         records = formatter.transform_symbols(workspace_symbols_response)
 
@@ -147,20 +166,32 @@ class TestDocumentSymbolWorkflow:
             {
                 "name": "MyClass",
                 "kind": 5,
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
-                "selectionRange": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 9}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 50, "character": 0},
+                },
+                "selectionRange": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 9},
+                },
                 "detail": "class MyClass",
                 "children": [
                     {
                         "name": "__init__",
                         "kind": 6,  # Method
-                        "range": {"start": {"line": 1, "character": 4}, "end": {"line": 10, "character": 0}},
+                        "range": {
+                            "start": {"line": 1, "character": 4},
+                            "end": {"line": 10, "character": 0},
+                        },
                         "detail": "def __init__(self, name: str)",
                     },
                     {
                         "name": "greet",
                         "kind": 6,
-                        "range": {"start": {"line": 11, "character": 4}, "end": {"line": 20, "character": 0}},
+                        "range": {
+                            "start": {"line": 11, "character": 4},
+                            "end": {"line": 20, "character": 0},
+                        },
                         "detail": "def greet(self) -> str",
                     },
                 ],
@@ -168,13 +199,18 @@ class TestDocumentSymbolWorkflow:
             {
                 "name": "helper_function",
                 "kind": 12,
-                "range": {"start": {"line": 52, "character": 0}, "end": {"line": 70, "character": 0}},
+                "range": {
+                    "start": {"line": 52, "character": 0},
+                    "end": {"line": 70, "character": 0},
+                },
                 "detail": "def helper_function(x: int) -> int",
                 "children": [],
             },
         ]
 
-    def test_workflow_flat_symbols(self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_flat_symbols(
+        self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test flat symbol output (ignoring children)."""
         # For compact output, we flatten - just process top-level symbols
         records = formatter.transform_symbols(document_symbols_response)
@@ -183,7 +219,9 @@ class TestDocumentSymbolWorkflow:
         assert records[0].name == "MyClass"
         assert records[1].name == "helper_function"
 
-    def test_workflow_text_output(self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_text_output(
+        self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test document symbol text output."""
         records = formatter.transform_symbols(document_symbols_response)
         output = formatter.symbols_to_text(records)
@@ -191,7 +229,9 @@ class TestDocumentSymbolWorkflow:
         assert "MyClass (5) [1:1-51:1]" in output
         assert "helper_function (12) [53:1-71:1] -> def helper_function(x: int) -> int" in output
 
-    def test_workflow_json_with_nested_children(self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]) -> None:
+    def test_workflow_json_with_nested_children(
+        self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
+    ) -> None:
         """Test JSON output preserves detail field."""
         records = formatter.transform_symbols(document_symbols_response)
         output = formatter.symbols_to_json(records)
@@ -217,19 +257,30 @@ class TestReferencesWorkflow:
         return [
             {
                 "uri": f"file://{temp_dir}/src/main.py",
-                "range": {"start": {"line": 5, "character": 0}, "end": {"line": 5, "character": 20}},
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 20},
+                },
             },
             {
                 "uri": f"file://{temp_dir}/src/utils.py",
-                "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 24}},
+                "range": {
+                    "start": {"line": 10, "character": 4},
+                    "end": {"line": 10, "character": 24},
+                },
             },
             {
                 "uri": f"file://{temp_dir}/src/main.py",
-                "range": {"start": {"line": 25, "character": 8}, "end": {"line": 25, "character": 28}},
+                "range": {
+                    "start": {"line": 25, "character": 8},
+                    "end": {"line": 25, "character": 28},
+                },
             },
         ]
 
-    def test_workflow_text_output(self, formatter: CompactFormatter, references_response: list[dict[str, Any]]) -> None:
+    def test_workflow_text_output(
+        self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
+    ) -> None:
         """Test references text output with file grouping."""
         records = formatter.transform_locations(references_response)
         output = formatter.locations_to_text(records)
@@ -239,10 +290,16 @@ class TestReferencesWorkflow:
         assert "src/utils.py:" in output
 
         # Verify location count in output
-        main_section = output.split("src/main.py:")[1].split("src/utils.py:")[0] if "src/utils.py:" in output else output.split("src/main.py:")[1]
+        main_section = (
+            output.split("src/main.py:")[1].split("src/utils.py:")[0]
+            if "src/utils.py:" in output
+            else output.split("src/main.py:")[1]
+        )
         assert main_section.count("[") == 2  # Two locations in main.py
 
-    def test_workflow_json_output(self, formatter: CompactFormatter, references_response: list[dict[str, Any]]) -> None:
+    def test_workflow_json_output(
+        self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
+    ) -> None:
         """Test references JSON output."""
         records = formatter.transform_locations(references_response)
         output = formatter.locations_to_json(records)
@@ -257,7 +314,9 @@ class TestReferencesWorkflow:
             assert "range" in item
             assert item["file"] in ["src/main.py", "src/utils.py"]
 
-    def test_workflow_yaml_output(self, formatter: CompactFormatter, references_response: list[dict[str, Any]]) -> None:
+    def test_workflow_yaml_output(
+        self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
+    ) -> None:
         """Test references YAML output."""
         records = formatter.transform_locations(references_response)
         output = formatter.locations_to_yaml(records)
@@ -266,7 +325,9 @@ class TestReferencesWorkflow:
         assert isinstance(parsed, list)
         assert len(parsed) == 3
 
-    def test_workflow_csv_output(self, formatter: CompactFormatter, references_response: list[dict[str, Any]]) -> None:
+    def test_workflow_csv_output(
+        self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
+    ) -> None:
         """Test references CSV output."""
         records = formatter.transform_locations(references_response)
         output = formatter.locations_to_csv(records)
@@ -276,13 +337,18 @@ class TestReferencesWorkflow:
         assert len(lines) == 4
         assert lines[0] == "file,range"
 
-    def test_workflow_filter_test_locations(self, formatter: CompactFormatter, references_response: list[dict[str, Any]]) -> None:
+    def test_workflow_filter_test_locations(
+        self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
+    ) -> None:
         """Test filtering test file locations."""
         # Add a test location
         references_response_with_test = references_response + [
             {
                 "uri": f"file://{formatter.workspace}/tests/test_main.py",
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
             },
         ]
 
@@ -335,7 +401,10 @@ class TestEdgeCases:
                 "kind": 5,
                 "location": {
                     "uri": "file:///outside/workspace/lib.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 10, "character": 0},
+                    },
                 },
             },
         ]
@@ -352,7 +421,10 @@ class TestEdgeCases:
                 "kind": 5,
                 "location": {
                     "uri": "untitled:Untitled-1",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 10, "character": 0},
+                    },
                 },
             },
         ]
@@ -386,7 +458,10 @@ class TestEdgeCases:
                 "kind": 12,
                 "location": {
                     "uri": f"file://{formatter.workspace}/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 10, "character": 0},
+                    },
                 },
                 "detail": "\u00e9\u00e8\u00ea",  # Accented characters
             },
@@ -409,7 +484,10 @@ class TestEdgeCases:
                 "kind": 12,
                 "location": {
                     "uri": f"file://{formatter.workspace}/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 10, "character": 0},
+                    },
                 },
                 "detail": "def func(x: list[str], y: dict[str, Any]) -> tuple[int, ...]",
             },
@@ -432,7 +510,10 @@ class TestEdgeCases:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/file_{i // 10}.py",
-                    "range": {"start": {"line": i, "character": 0}, "end": {"line": i + 10, "character": 0}},
+                    "range": {
+                        "start": {"line": i, "character": 0},
+                        "end": {"line": i + 10, "character": 0},
+                    },
                 },
                 "detail": f"def symbol_{i}() -> None",
             }
@@ -471,7 +552,10 @@ class TestTokenEfficiency:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/models.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
                 },
                 "detail": "class MyClass",
                 "containerName": None,
@@ -481,7 +565,10 @@ class TestTokenEfficiency:
                 "kind": 12,
                 "location": {
                     "uri": f"file://{temp_dir}/src/utils.py",
-                    "range": {"start": {"line": 10, "character": 0}, "end": {"line": 30, "character": 0}},
+                    "range": {
+                        "start": {"line": 10, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
                 },
                 "detail": "def my_function(x: int) -> str",
                 "containerName": "MyModule",
@@ -489,7 +576,9 @@ class TestTokenEfficiency:
             },
         ]
 
-    def test_json_omits_null_fields(self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_json_omits_null_fields(
+        self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify JSON omits null/None fields for token savings."""
         records = formatter.transform_symbols(sample_symbols)
         output = formatter.symbols_to_json(records)
@@ -502,7 +591,9 @@ class TestTokenEfficiency:
         assert "container" in parsed[1]
         assert parsed[1]["container"] == "MyModule"
 
-    def test_yaml_omits_null_fields(self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_yaml_omits_null_fields(
+        self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify YAML omits null fields for token savings."""
         records = formatter.transform_symbols(sample_symbols)
         output = formatter.symbols_to_yaml(records)
@@ -511,7 +602,9 @@ class TestTokenEfficiency:
         # First symbol has no container - should be omitted
         assert "container" not in parsed[0]
 
-    def test_compact_range_format(self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_compact_range_format(
+        self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify range uses compact format (saves tokens vs verbose)."""
         records = formatter.transform_symbols(sample_symbols)
 
@@ -519,7 +612,9 @@ class TestTokenEfficiency:
         assert records[0].range == "1:1-51:1"
         assert records[1].range == "11:1-31:1"
 
-    def test_relative_paths(self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_relative_paths(
+        self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify paths are relative (saves tokens vs absolute URIs)."""
         records = formatter.transform_symbols(sample_symbols)
 

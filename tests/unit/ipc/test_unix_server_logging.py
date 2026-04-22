@@ -29,6 +29,7 @@ class TestUNIXServerLogging:
             # Mock reader that raises an exception on read
             async def failing_read(size):
                 raise RuntimeError("Read failed")
+
             mock_reader = AsyncMock()
             mock_reader.read = failing_read
 
@@ -44,6 +45,7 @@ class TestUNIXServerLogging:
     @pytest.mark.asyncio
     async def test_cancelled_error_re_raised(self):
         """asyncio.CancelledError is re-raised, not swallowed."""
+
         async def raising_handler(method, params):
             raise asyncio.CancelledError()
 
@@ -71,8 +73,9 @@ class TestUNIXServerLogging:
     async def test_incomplete_read_error_logged_at_debug(self, caplog: LogCaptureFixture):
         """asyncio.IncompleteReadError is logged at DEBUG level and swallowed."""
         with caplog.at_level(logging.DEBUG):
+
             async def raising_handler(method, params):
-                raise asyncio.IncompleteReadError("partial", 100)
+                raise asyncio.IncompleteReadError(b"partial", 100)
 
             server = UNIXServer(
                 socket_path="/tmp/test.sock",
@@ -100,6 +103,7 @@ class TestUNIXServerLogging:
     async def test_normal_disconnect_no_exception_logged(self, caplog: LogCaptureFixture):
         """Normal client disconnect (EOF) does not log exception."""
         with caplog.at_level(logging.DEBUG):
+
             async def normal_handler(method, params):
                 return {"result": "success"}
 
@@ -122,7 +126,8 @@ class TestUNIXServerLogging:
 
             # Verify no exception was logged
             exception_records = [
-                r for r in caplog.records
+                r
+                for r in caplog.records
                 if r.levelname == "ERROR" and "exception" in r.getMessage().lower()
             ]
             assert len(exception_records) == 0
@@ -131,6 +136,7 @@ class TestUNIXServerLogging:
     async def test_exception_logging_uses_logger_exception(self, caplog: LogCaptureFixture):
         """Verifies logger.exception() is used (includes traceback)."""
         with caplog.at_level(logging.DEBUG):
+
             async def raising_handler(method, params):
                 raise RuntimeError("Server error")
 
@@ -157,6 +163,7 @@ class TestUNIXServerLogging:
     @pytest.mark.asyncio
     async def test_different_exception_types_handled_differently(self, caplog: LogCaptureFixture):
         """Different exception types have different handling strategies."""
+
         # Mock request handler
         async def normal_handler(method, params):
             return {"result": "ok"}

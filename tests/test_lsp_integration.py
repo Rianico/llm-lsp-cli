@@ -237,9 +237,7 @@ class TestLSPClientMultipleWorkspaces:
         if not is_pyright_langserver_installed():
             pytest.skip("pyright-langserver not installed")
 
-        with tempfile.TemporaryDirectory() as tmpdir1, \
-             tempfile.TemporaryDirectory() as tmpdir2:
-
+        with tempfile.TemporaryDirectory() as tmpdir1, tempfile.TemporaryDirectory() as tmpdir2:
             workspace1 = Path(tmpdir1)
             workspace2 = Path(tmpdir2)
 
@@ -378,10 +376,12 @@ class TestDocumentSynchronization:
             # Mock _handle_diagnostics to simulate receiving diagnostics
             async def simulate_diagnostics():  # type: ignore
                 await asyncio.sleep(0.1)  # Small delay
-                client._handle_diagnostics({
-                    "uri": test_file.resolve().as_uri(),  # Use resolved path
-                    "diagnostics": []
-                })
+                client._handle_diagnostics(
+                    {
+                        "uri": test_file.resolve().as_uri(),  # Use resolved path
+                        "diagnostics": [],
+                    }
+                )
 
             # Start task to simulate diagnostics arriving
             asyncio.create_task(simulate_diagnostics())  # type: ignore

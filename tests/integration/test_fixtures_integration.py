@@ -390,7 +390,10 @@ class TestCrossFormatConsistency:
                 "kind": 12,
                 "location": {
                     "uri": f"file://{temp_dir}/src/test.py",
-                    "range": {"start": {"line": 10, "character": 0}, "end": {"line": 20, "character": 0}},
+                    "range": {
+                        "start": {"line": 10, "character": 0},
+                        "end": {"line": 20, "character": 0},
+                    },
                 },
                 "detail": "def test_func()",
             }
@@ -402,35 +405,60 @@ class TestCrossFormatConsistency:
         return [
             {
                 "uri": f"file://{temp_dir}/src/main.py",
-                "range": {"start": {"line": 5, "character": 0}, "end": {"line": 5, "character": 20}},
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 20},
+                },
             }
         ]
 
-    def test_symbols_count_consistent(self, temp_dir: Path, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_symbols_count_consistent(
+        self, temp_dir: Path, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify symbol count is same across all formats."""
         records = CompactFormatter(temp_dir).transform_symbols(sample_symbols)
 
         # All formats should have same record count
-        text_count = len([line for line in CompactFormatter(temp_dir).symbols_to_text(records).split("\n") if line.strip() and not line.endswith(":")])
+        text_count = len(
+            [
+                line
+                for line in CompactFormatter(temp_dir).symbols_to_text(records).split("\n")
+                if line.strip() and not line.endswith(":")
+            ]
+        )
         json_count = len(json.loads(CompactFormatter(temp_dir).symbols_to_json(records)))
         yaml_count = len(yaml.safe_load(CompactFormatter(temp_dir).symbols_to_yaml(records)))
-        csv_count = len(CompactFormatter(temp_dir).symbols_to_csv(records).strip().split("\n")) - 1  # minus header
+        csv_count = (
+            len(CompactFormatter(temp_dir).symbols_to_csv(records).strip().split("\n")) - 1
+        )  # minus header
 
         assert text_count == json_count == yaml_count == csv_count == 1
 
-    def test_locations_count_consistent(self, temp_dir: Path, sample_locations: list[dict[str, Any]]) -> None:
+    def test_locations_count_consistent(
+        self, temp_dir: Path, sample_locations: list[dict[str, Any]]
+    ) -> None:
         """Verify location count is same across all formats."""
         records = CompactFormatter(temp_dir).transform_locations(sample_locations)
 
         # All formats should have same record count
-        text_count = len([line for line in CompactFormatter(temp_dir).locations_to_text(records).split("\n") if line.strip() and not line.endswith(":") and "No locations" not in line])
+        text_count = len(
+            [
+                line
+                for line in CompactFormatter(temp_dir).locations_to_text(records).split("\n")
+                if line.strip() and not line.endswith(":") and "No locations" not in line
+            ]
+        )
         json_count = len(json.loads(CompactFormatter(temp_dir).locations_to_json(records)))
         yaml_count = len(yaml.safe_load(CompactFormatter(temp_dir).locations_to_yaml(records)))
-        csv_count = len(CompactFormatter(temp_dir).locations_to_csv(records).strip().split("\n")) - 1  # minus header
+        csv_count = (
+            len(CompactFormatter(temp_dir).locations_to_csv(records).strip().split("\n")) - 1
+        )  # minus header
 
         assert text_count == json_count == yaml_count == csv_count == 1
 
-    def test_symbols_data_consistent_json_yaml(self, temp_dir: Path, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_symbols_data_consistent_json_yaml(
+        self, temp_dir: Path, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify JSON and YAML produce identical data."""
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_symbols(sample_symbols)
@@ -440,7 +468,9 @@ class TestCrossFormatConsistency:
 
         assert json_data == yaml_data
 
-    def test_locations_data_consistent_json_yaml(self, temp_dir: Path, sample_locations: list[dict[str, Any]]) -> None:
+    def test_locations_data_consistent_json_yaml(
+        self, temp_dir: Path, sample_locations: list[dict[str, Any]]
+    ) -> None:
         """Verify JSON and YAML produce identical data for locations."""
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_locations(sample_locations)
@@ -450,7 +480,9 @@ class TestCrossFormatConsistency:
 
         assert json_data == yaml_data
 
-    def test_symbols_file_consistent(self, temp_dir: Path, sample_symbols: list[dict[str, Any]]) -> None:
+    def test_symbols_file_consistent(
+        self, temp_dir: Path, sample_symbols: list[dict[str, Any]]
+    ) -> None:
         """Verify file path is consistent across formats."""
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_symbols(sample_symbols)

@@ -217,9 +217,21 @@ class TestCsvFormattingSymbols:
     def test_csv_format_document_symbols_kind_translation(self) -> None:
         """Test CSV formatting includes symbol kind name translation."""
         symbols = [
-            {"name": "MyClass", "kind": 5, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
-            {"name": "my_method", "kind": 6, "range": {"start": {"line": 2, "character": 0}, "end": {"line": 3, "character": 0}}},
-            {"name": "my_func", "kind": 12, "range": {"start": {"line": 4, "character": 0}, "end": {"line": 5, "character": 0}}},
+            {
+                "name": "MyClass",
+                "kind": 5,
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+            },
+            {
+                "name": "my_method",
+                "kind": 6,
+                "range": {"start": {"line": 2, "character": 0}, "end": {"line": 3, "character": 0}},
+            },
+            {
+                "name": "my_func",
+                "kind": 12,
+                "range": {"start": {"line": 4, "character": 0}, "end": {"line": 5, "character": 0}},
+            },
         ]
 
         result = format_document_symbols_csv(symbols)
@@ -333,7 +345,10 @@ class TestCsvEdgeCases:
         locations = [
             {
                 "uri": "file:///path/to/file,with,commas.py",
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
             },
         ]
 
@@ -350,7 +365,10 @@ class TestCsvEdgeCases:
         locations = [
             {
                 "uri": 'file:///path/to/file"with"quotes.py',
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
             },
         ]
 
@@ -417,7 +435,7 @@ class TestCsvEdgeCases:
                 "label": "\u03b1\u03b2\u03b3_func",  # Greek letters
                 "kind": 12,
                 "detail": "function with \u4e2d\u6587 chars",  # Chinese
-                "documentation": "Docs with emoji \U0001F600",
+                "documentation": "Docs with emoji \U0001f600",
             },
         ]
 

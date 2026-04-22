@@ -161,7 +161,7 @@ class DaemonClient:
         )
 
         # Build log file path for error context
-        log_file = ConfigManager.build_log_file_path(
+        log_file = ConfigManager.build_daemon_log_path(
             workspace_path=self.workspace_path,
             language=self.language,
         )
@@ -189,8 +189,8 @@ class DaemonClient:
         """
         import asyncio
         import sys
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         # Build command to start daemon
         cmd = [
@@ -245,7 +245,7 @@ class DaemonClient:
             DaemonStartupTimeoutError: If socket doesn't appear within timeout
         """
         # Build log file path for error context
-        log_file = ConfigManager.build_log_file_path(
+        log_file = ConfigManager.build_daemon_log_path(
             workspace_path=self.workspace_path,
             language=self.language,
         )

@@ -58,25 +58,29 @@ class TestProgressHandler:
         handler = ProgressHandler()
 
         # First, start the progress
-        handler.handle_progress({
-            "token": "report-token",
-            "value": {
-                "kind": "begin",
-                "title": "Processing",
-                "message": "Starting",
-                "percentage": 0,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "report-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Processing",
+                    "message": "Starting",
+                    "percentage": 0,
+                },
+            }
+        )
 
         # Then send a report
-        handler.handle_progress({
-            "token": "report-token",
-            "value": {
-                "kind": "report",
-                "message": "Halfway done",
-                "percentage": 50,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "report-token",
+                "value": {
+                    "kind": "report",
+                    "message": "Halfway done",
+                    "percentage": 50,
+                },
+            }
+        )
 
         state = handler.get_state("report-token")
         assert state is not None
@@ -91,24 +95,28 @@ class TestProgressHandler:
         handler = ProgressHandler()
 
         # Start progress
-        handler.handle_progress({
-            "token": "partial-token",
-            "value": {
-                "kind": "begin",
-                "title": "Task",
-                "message": "Initial message",
-                "percentage": 10,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "partial-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Task",
+                    "message": "Initial message",
+                    "percentage": 10,
+                },
+            }
+        )
 
         # Report with only message (no percentage)
-        handler.handle_progress({
-            "token": "partial-token",
-            "value": {
-                "kind": "report",
-                "message": "Updated message",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "partial-token",
+                "value": {
+                    "kind": "report",
+                    "message": "Updated message",
+                },
+            }
+        )
 
         state = handler.get_state("partial-token")
         assert state is not None
@@ -119,13 +127,15 @@ class TestProgressHandler:
         """Test that report for unknown token logs warning."""
         handler = ProgressHandler()
 
-        handler.handle_progress({
-            "token": "unknown-token",
-            "value": {
-                "kind": "report",
-                "message": "This should warn",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "unknown-token",
+                "value": {
+                    "kind": "report",
+                    "message": "This should warn",
+                },
+            }
+        )
 
         assert "unknown token" in caplog.text.lower()
 
@@ -134,22 +144,26 @@ class TestProgressHandler:
         handler = ProgressHandler()
 
         # Start progress
-        handler.handle_progress({
-            "token": "end-token",
-            "value": {
-                "kind": "begin",
-                "title": "Finishing Task",
-                "message": "Working",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "end-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Finishing Task",
+                    "message": "Working",
+                },
+            }
+        )
 
         # End progress
-        handler.handle_progress({
-            "token": "end-token",
-            "value": {
-                "kind": "end",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "end-token",
+                "value": {
+                    "kind": "end",
+                },
+            }
+        )
 
         # State should be removed from active states
         state = handler.get_state("end-token")
@@ -161,24 +175,29 @@ class TestProgressHandler:
 
         # Set log level to INFO to capture info-level logs
         import logging
+
         logger = logging.getLogger("llm_lsp_cli.infrastructure.lsp.progress_handler")
         logger.setLevel(logging.INFO)
 
-        handler.handle_progress({
-            "token": "log-token",
-            "value": {
-                "kind": "begin",
-                "title": "Logged Task",
-                "message": "Running",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "log-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Logged Task",
+                    "message": "Running",
+                },
+            }
+        )
 
-        handler.handle_progress({
-            "token": "log-token",
-            "value": {
-                "kind": "end",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "log-token",
+                "value": {
+                    "kind": "end",
+                },
+            }
+        )
 
         assert "Work completed" in caplog.text
         assert "Logged Task" in caplog.text
@@ -188,10 +207,12 @@ class TestProgressHandler:
         handler = ProgressHandler()
 
         # Should not raise
-        handler.handle_progress({
-            "token": "test",
-            "value": "not a dict",
-        })
+        handler.handle_progress(
+            {
+                "token": "test",
+                "value": "not a dict",
+            }
+        )
 
         assert handler.get_all_states() == {}
 
@@ -200,12 +221,14 @@ class TestProgressHandler:
         handler = ProgressHandler()
 
         # This is a partial result progress, not work done progress
-        handler.handle_progress({
-            "token": "partial",
-            "value": {
-                "items": [{"uri": "file://test.py", "diagnostics": []}],
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "partial",
+                "value": {
+                    "items": [{"uri": "file://test.py", "diagnostics": []}],
+                },
+            }
+        )
 
         # Should not create any state
         assert handler.get_all_states() == {}
@@ -220,15 +243,17 @@ class TestProgressHandler:
 
         handler.register_callback(callback)
 
-        handler.handle_progress({
-            "token": "callback-token",
-            "value": {
-                "kind": "begin",
-                "title": "Callback Test",
-                "message": "Starting",
-                "percentage": 0,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "callback-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Callback Test",
+                    "message": "Starting",
+                    "percentage": 0,
+                },
+            }
+        )
 
         assert len(callback_states) == 1
         assert callback_states[0].title == "Callback Test"
@@ -242,25 +267,29 @@ class TestProgressHandler:
         handler.register_callback(lambda s: callback_states.append(s))
 
         # Begin
-        handler.handle_progress({
-            "token": "report-callback-token",
-            "value": {
-                "kind": "begin",
-                "title": "Report Test",
-                "message": "Start",
-                "percentage": 0,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "report-callback-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Report Test",
+                    "message": "Start",
+                    "percentage": 0,
+                },
+            }
+        )
 
         # Report
-        handler.handle_progress({
-            "token": "report-callback-token",
-            "value": {
-                "kind": "report",
-                "message": "Progress",
-                "percentage": 50,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "report-callback-token",
+                "value": {
+                    "kind": "report",
+                    "message": "Progress",
+                    "percentage": 50,
+                },
+            }
+        )
 
         assert len(callback_states) == 2
         assert callback_states[1].message == "Progress"
@@ -274,21 +303,25 @@ class TestProgressHandler:
         handler.register_callback(lambda s: callback_states.append(s))
 
         # Begin
-        handler.handle_progress({
-            "token": "end-callback-token",
-            "value": {
-                "kind": "begin",
-                "title": "End Test",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "end-callback-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "End Test",
+                },
+            }
+        )
 
         # End
-        handler.handle_progress({
-            "token": "end-callback-token",
-            "value": {
-                "kind": "end",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "end-callback-token",
+                "value": {
+                    "kind": "end",
+                },
+            }
+        )
 
         # Should have begin and end notifications
         assert len(callback_states) == 2
@@ -305,13 +338,15 @@ class TestProgressHandler:
         handler.register_callback(bad_callback)
 
         # Should not raise
-        handler.handle_progress({
-            "token": "error-token",
-            "value": {
-                "kind": "begin",
-                "title": "Error Test",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "error-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Error Test",
+                },
+            }
+        )
 
         assert "Progress callback error" in caplog.text
 
@@ -319,14 +354,18 @@ class TestProgressHandler:
         """Test that get_all_states returns a copy."""
         handler = ProgressHandler()
 
-        handler.handle_progress({
-            "token": "token-1",
-            "value": {"kind": "begin", "title": "Task 1"},
-        })
-        handler.handle_progress({
-            "token": "token-2",
-            "value": {"kind": "begin", "title": "Task 2"},
-        })
+        handler.handle_progress(
+            {
+                "token": "token-1",
+                "value": {"kind": "begin", "title": "Task 1"},
+            }
+        )
+        handler.handle_progress(
+            {
+                "token": "token-2",
+                "value": {"kind": "begin", "title": "Task 2"},
+            }
+        )
 
         states = handler.get_all_states()
         assert len(states) == 2
@@ -335,7 +374,10 @@ class TestProgressHandler:
 
         # Modifying returned dict should not affect internal state
         states["token-3"] = WorkDoneProgressState(token="token-3")
-        assert handler.get_all_states() == {"token-1": handler.get_state("token-1"), "token-2": handler.get_state("token-2")}
+        assert handler.get_all_states() == {
+            "token-1": handler.get_state("token-1"),
+            "token-2": handler.get_state("token-2"),
+        }
 
     def test_full_lifecycle(self) -> None:
         """Test complete begin -> report -> end lifecycle."""
@@ -345,49 +387,57 @@ class TestProgressHandler:
         handler.register_callback(lambda s: events.append(f"{s.percentage}%"))
 
         # Begin
-        handler.handle_progress({
-            "token": "lifecycle-token",
-            "value": {
-                "kind": "begin",
-                "title": "Lifecycle Test",
-                "message": "Starting",
-                "percentage": 0,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "lifecycle-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Lifecycle Test",
+                    "message": "Starting",
+                    "percentage": 0,
+                },
+            }
+        )
         assert len(events) == 1
         assert events[0] == "0%"
 
         # Report 1
-        handler.handle_progress({
-            "token": "lifecycle-token",
-            "value": {
-                "kind": "report",
-                "message": "Working",
-                "percentage": 50,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "lifecycle-token",
+                "value": {
+                    "kind": "report",
+                    "message": "Working",
+                    "percentage": 50,
+                },
+            }
+        )
         assert len(events) == 2
         assert events[1] == "50%"
 
         # Report 2
-        handler.handle_progress({
-            "token": "lifecycle-token",
-            "value": {
-                "kind": "report",
-                "message": "Almost done",
-                "percentage": 90,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "lifecycle-token",
+                "value": {
+                    "kind": "report",
+                    "message": "Almost done",
+                    "percentage": 90,
+                },
+            }
+        )
         assert len(events) == 3
         assert events[2] == "90%"
 
         # End
-        handler.handle_progress({
-            "token": "lifecycle-token",
-            "value": {
-                "kind": "end",
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "lifecycle-token",
+                "value": {
+                    "kind": "end",
+                },
+            }
+        )
         # State should be removed
         assert handler.get_state("lifecycle-token") is None
 
@@ -433,26 +483,30 @@ class TestWorkDoneProgressState:
         # should create new instances on updates (immutability pattern)
         handler = ProgressHandler()
 
-        handler.handle_progress({
-            "token": "immut-token",
-            "value": {
-                "kind": "begin",
-                "title": "Immutability Test",
-                "message": "Start",
-                "percentage": 0,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "immut-token",
+                "value": {
+                    "kind": "begin",
+                    "title": "Immutability Test",
+                    "message": "Start",
+                    "percentage": 0,
+                },
+            }
+        )
 
         state1 = handler.get_state("immut-token")
         assert state1 is not None
 
-        handler.handle_progress({
-            "token": "immut-token",
-            "value": {
-                "kind": "report",
-                "percentage": 50,
-            },
-        })
+        handler.handle_progress(
+            {
+                "token": "immut-token",
+                "value": {
+                    "kind": "report",
+                    "percentage": 50,
+                },
+            }
+        )
 
         state2 = handler.get_state("immut-token")
         assert state2 is not None

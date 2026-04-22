@@ -9,16 +9,12 @@ import pytest
 class TestConfigLoader:
     """Test ConfigLoader functionality."""
 
-    def test_config_loader_loads_valid_json(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_loads_valid_json(self, tmp_path: Path) -> None:
         """ConfigLoader loads valid JSON configuration."""
         # Arrange
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright-langserver", "args": ["--stdio"]}
-            },
+            "languages": {"python": {"command": "pyright-langserver", "args": ["--stdio"]}},
             "trace_lsp": False,
             "timeout_seconds": 30,
         }
@@ -34,9 +30,7 @@ class TestConfigLoader:
         assert loaded["trace_lsp"] is False
         assert loaded["timeout_seconds"] == 30
 
-    def test_config_loader_validates_schema(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_validates_schema(self, tmp_path: Path) -> None:
         """ConfigLoader validates configuration schema."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -59,9 +53,7 @@ class TestConfigLoader:
         monkeypatch.setenv("TEST_SOCKET_PATH", "/tmp/test-socket")
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright-langserver", "args": ["--stdio"]}
-            },
+            "languages": {"python": {"command": "pyright-langserver", "args": ["--stdio"]}},
             "socket_path": "$TEST_SOCKET_PATH",
             "timeout_seconds": 30,
         }
@@ -75,9 +67,7 @@ class TestConfigLoader:
         # Assert
         assert loaded["socket_path"] == "/tmp/test-socket"
 
-    def test_config_loader_handles_missing_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_handles_missing_file(self, tmp_path: Path) -> None:
         """ConfigLoader raises error for missing file."""
         # Arrange
         config_file = tmp_path / "nonexistent.json"
@@ -89,9 +79,7 @@ class TestConfigLoader:
         with pytest.raises(ConfigFileNotFoundError):
             ConfigLoader.load(config_file)
 
-    def test_config_loader_handles_invalid_json(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_handles_invalid_json(self, tmp_path: Path) -> None:
         """ConfigLoader raises error for invalid JSON."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -104,16 +92,12 @@ class TestConfigLoader:
         with pytest.raises(ConfigParseError):
             ConfigLoader.load(config_file)
 
-    def test_config_loader_saves_config(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_saves_config(self, tmp_path: Path) -> None:
         """ConfigLoader saves configuration to file."""
         # Arrange
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright-langserver", "args": ["--stdio"]}
-            },
+            "languages": {"python": {"command": "pyright-langserver", "args": ["--stdio"]}},
             "trace_lsp": True,
             "timeout_seconds": 60,
         }
@@ -129,16 +113,12 @@ class TestConfigLoader:
         assert loaded["trace_lsp"] is True
         assert loaded["timeout_seconds"] == 60
 
-    def test_config_loader_creates_parent_directories(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_creates_parent_directories(self, tmp_path: Path) -> None:
         """ConfigLoader creates parent directories when saving."""
         # Arrange
         config_file = tmp_path / "nested" / "dir" / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright-langserver", "args": ["--stdio"]}
-            },
+            "languages": {"python": {"command": "pyright-langserver", "args": ["--stdio"]}},
             "timeout_seconds": 30,
         }
 
@@ -151,18 +131,12 @@ class TestConfigLoader:
         assert config_file.exists()
         assert config_file.parent.exists()
 
-    def test_config_loader_load_with_defaults(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_load_with_defaults(self, tmp_path: Path) -> None:
         """ConfigLoader.load() can provide defaults for missing keys."""
         # Arrange
         config_file = tmp_path / "config.json"
         # Minimal config
-        config_data = {
-            "languages": {
-                "python": {"command": "pyright-langserver"}
-            }
-        }
+        config_data = {"languages": {"python": {"command": "pyright-langserver"}}}
         config_file.write_text(json.dumps(config_data))
 
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
@@ -187,12 +161,7 @@ class TestConfigLoader:
         monkeypatch.setenv("PYRIGHT_CMD", "pyright-langserver")
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {
-                    "command": "$PYRIGHT_CMD",
-                    "args": ["--stdio"]
-                }
-            },
+            "languages": {"python": {"command": "$PYRIGHT_CMD", "args": ["--stdio"]}},
             "timeout_seconds": 30,
         }
         config_file.write_text(json.dumps(config_data))
@@ -213,9 +182,7 @@ class TestConfigLoader:
         monkeypatch.setenv("TEST_PATH", "/bracket-test")
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright", "args": ["--stdio"]}
-            },
+            "languages": {"python": {"command": "pyright", "args": ["--stdio"]}},
             "socket_path": "${TEST_PATH}/socket",
             "timeout_seconds": 30,
         }

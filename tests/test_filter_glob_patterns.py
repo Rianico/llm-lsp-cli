@@ -16,15 +16,9 @@ class TestGlobPatternMatching:
 
         # ** matches zero or more directories
         assert _is_test_path("file:///project/tests/test.py", language="python") is True
-        assert _is_test_path(
-            "file:///project/tests/unit/test.py", language="python"
-        ) is True
-        assert _is_test_path(
-            "file:///project/src/tests/unit/test.py", language="python"
-        ) is True
-        assert _is_test_path(
-            "file:///a/b/c/d/tests/e/f/g/test.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/tests/unit/test.py", language="python") is True
+        assert _is_test_path("file:///project/src/tests/unit/test.py", language="python") is True
+        assert _is_test_path("file:///a/b/c/d/tests/e/f/g/test.py", language="python") is True
 
     def test_single_star_matches_within_segment(self) -> None:
         """* should match characters within a path segment.
@@ -66,9 +60,7 @@ class TestGlobPatternMatching:
         from llm_lsp_cli.test_filter import _is_test_path
 
         assert _is_test_path("file:///project/handler_test.go", language="go") is True
-        assert _is_test_path(
-            "file:///project/utils/util_test.go", language="go"
-        ) is True
+        assert _is_test_path("file:///project/utils/util_test.go", language="go") is True
         assert _is_test_path("file:///project/handler.go", language="go") is False
 
     def test_glob_pattern_typescript_test(self) -> None:
@@ -78,20 +70,23 @@ class TestGlobPatternMatching:
         """
         from llm_lsp_cli.test_filter import _is_test_path
 
-        assert _is_test_path(
-            "file:///project/__tests__/Component.test.ts", language="typescript"
-        ) is True
-        assert _is_test_path(
-            "file:///src/__tests__/utils.test.ts", language="typescript"
-        ) is True
-        assert _is_test_path(
-            "file:///src/__tests__/nested/deep/file.test.ts",
-            language="typescript",
-        ) is True
+        assert (
+            _is_test_path("file:///project/__tests__/Component.test.ts", language="typescript")
+            is True
+        )
+        assert _is_test_path("file:///src/__tests__/utils.test.ts", language="typescript") is True
+        assert (
+            _is_test_path(
+                "file:///src/__tests__/nested/deep/file.test.ts",
+                language="typescript",
+            )
+            is True
+        )
         # Should NOT match outside __tests__
-        assert _is_test_path(
-            "file:///src/components/Component.test.ts", language="typescript"
-        ) is False
+        assert (
+            _is_test_path("file:///src/components/Component.test.ts", language="typescript")
+            is False
+        )
 
     def test_glob_pattern_java_maven(self) -> None:
         """Java Maven test directory pattern.
@@ -100,16 +95,15 @@ class TestGlobPatternMatching:
         """
         from llm_lsp_cli.test_filter import _is_test_path
 
-        assert _is_test_path(
-            "file:///project/src/test/java/MyTest.java", language="java"
-        ) is True
-        assert _is_test_path(
-            "file:///project/src/test/java/com/example/MyTest.java",
-            language="java",
-        ) is True
-        assert _is_test_path(
-            "file:///project/src/main/java/MyTest.java", language="java"
-        ) is False
+        assert _is_test_path("file:///project/src/test/java/MyTest.java", language="java") is True
+        assert (
+            _is_test_path(
+                "file:///project/src/test/java/com/example/MyTest.java",
+                language="java",
+            )
+            is True
+        )
+        assert _is_test_path("file:///project/src/main/java/MyTest.java", language="java") is False
 
     def test_glob_pattern_rust_tests(self) -> None:
         """Rust test directory pattern.
@@ -119,16 +113,10 @@ class TestGlobPatternMatching:
         """
         from llm_lsp_cli.test_filter import _is_test_path
 
-        assert _is_test_path(
-            "file:///project/tests/integration_test.rs", language="rust"
-        ) is True
+        assert _is_test_path("file:///project/tests/integration_test.rs", language="rust") is True
         # tests/common/** is excluded by include_patterns (negation)
-        assert _is_test_path(
-            "file:///project/tests/common/helpers.rs", language="rust"
-        ) is False
-        assert _is_test_path(
-            "file:///project/tests/common/mod.rs", language="rust"
-        ) is False
+        assert _is_test_path("file:///project/tests/common/helpers.rs", language="rust") is False
+        assert _is_test_path("file:///project/tests/common/mod.rs", language="rust") is False
 
 
 class TestLanguageIsolation:
@@ -142,22 +130,18 @@ class TestLanguageIsolation:
         # So a Go file in tests/ should NOT be marked as test without suffix
         assert _is_test_path("file:///project/tests/handler.go", language="go") is False
         # But with correct suffix it should match
-        assert _is_test_path(
-            "file:///project/tests/handler_test.go", language="go"
-        ) is True
+        assert _is_test_path("file:///project/tests/handler_test.go", language="go") is True
 
     def test_python_patterns_dont_affect_typescript(self) -> None:
         """Python tests/ pattern should NOT match TypeScript files outside __tests__."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # TypeScript uses __tests__/ not tests/
-        assert _is_test_path(
-            "file:///project/tests/component.ts", language="typescript"
-        ) is False
+        assert _is_test_path("file:///project/tests/component.ts", language="typescript") is False
         # Only __tests__/ should match for TypeScript
-        assert _is_test_path(
-            "file:///project/__tests__/component.ts", language="typescript"
-        ) is True
+        assert (
+            _is_test_path("file:///project/__tests__/component.ts", language="typescript") is True
+        )
 
     def test_typescript_patterns_dont_affect_python(self) -> None:
         """TypeScript __tests__ pattern should NOT match Python files."""
@@ -168,9 +152,9 @@ class TestLanguageIsolation:
         # Actually this depends on defaults - if python has specific patterns only,
         # then __tests__ might not match. Let's test the isolation:
         # A .py file in __tests__ should NOT match TypeScript patterns
-        assert _is_test_path(
-            "file:///project/__tests__/Component.ts", language="typescript"
-        ) is True
+        assert (
+            _is_test_path("file:///project/__tests__/Component.ts", language="typescript") is True
+        )
         # Same path but different language - Python shouldn't match __tests__
         # unless in defaults. This tests that patterns are isolated per-language
 
@@ -190,12 +174,8 @@ class TestLanguageIsolation:
         from llm_lsp_cli.test_filter import _is_test_path
 
         # Unknown language should still detect common test patterns
-        assert _is_test_path(
-            "file:///project/tests/test_file.xyz", language="unknown"
-        ) is True
-        assert _is_test_path(
-            "file:///project/test_main.xyz", language="unknown"
-        ) is True
+        assert _is_test_path("file:///project/tests/test_file.xyz", language="unknown") is True
+        assert _is_test_path("file:///project/test_main.xyz", language="unknown") is True
 
 
 class TestFalsePositiveEdgeCases:
@@ -211,60 +191,44 @@ class TestFalsePositiveEdgeCases:
         from llm_lsp_cli.test_filter import _is_test_path
 
         # tests_backup is NOT the same as tests directory
-        assert _is_test_path(
-            "file:///project/tests_backup/test.py", language="python"
-        ) is False
-        assert _is_test_path(
-            "file:///project/tests_backup.py/main.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/tests_backup/test.py", language="python") is False
+        assert _is_test_path("file:///project/tests_backup.py/main.py", language="python") is False
 
     def test_testimonial_directory_not_matched(self) -> None:
         """testimonial/ should NOT match **/test/**/*.py pattern."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # testimonial contains 'test' but is NOT a test directory
-        assert _is_test_path(
-            "file:///project/testimonial/page.tsx", language="typescript"
-        ) is False
-        assert _is_test_path(
-            "file:///project/testimonials/list.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/testimonial/page.tsx", language="typescript") is False
+        assert _is_test_path("file:///project/testimonials/list.py", language="python") is False
 
     def test_testing_directory_not_matched(self) -> None:
         """testing/ should NOT match **/test/**/*.py pattern."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # testing is NOT the same as test directory
-        assert _is_test_path(
-            "file:///project/testing/utils.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/testing/utils.py", language="python") is False
 
     def test_latest_directory_not_matched(self) -> None:
         """latest/ should NOT match patterns containing 'test'."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # Edge case: 'latest' contains 'test' substring
-        assert _is_test_path(
-            "file:///project/latest/release.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/latest/release.py", language="python") is False
 
     def test_protest_directory_not_matched(self) -> None:
         """protest/ should NOT match patterns containing 'test'."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # Edge case: 'protest' contains 'test' substring
-        assert _is_test_path(
-            "file:///project/protest/sign.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/protest/sign.py", language="python") is False
 
     def test_contest_directory_not_matched(self) -> None:
         """contest/ should NOT match patterns containing 'test'."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # Edge case: 'contest' contains 'test' substring
-        assert _is_test_path(
-            "file:///project/contest/entry.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/contest/entry.py", language="python") is False
 
 
 class TestIncludePatternsNegation:
@@ -279,15 +243,11 @@ class TestIncludePatternsNegation:
 
         # These are in tests/ but should NOT be tests
         # (fixtures, data, conftest)
-        assert _is_test_path(
-            "file:///project/tests/fixtures/database.py", language="python"
-        ) is False
-        assert _is_test_path(
-            "file:///project/tests/data/sample.json", language="python"
-        ) is False
-        assert _is_test_path(
-            "file:///project/tests/conftest.py", language="python"
-        ) is False
+        assert (
+            _is_test_path("file:///project/tests/fixtures/database.py", language="python") is False
+        )
+        assert _is_test_path("file:///project/tests/data/sample.json", language="python") is False
+        assert _is_test_path("file:///project/tests/conftest.py", language="python") is False
 
     def test_rust_tests_common_not_test(self) -> None:
         """**/tests/common/** should NOT be classified as test files for Rust.
@@ -296,28 +256,18 @@ class TestIncludePatternsNegation:
         """
         from llm_lsp_cli.test_filter import _is_test_path
 
-        assert _is_test_path(
-            "file:///project/tests/common/mod.rs", language="rust"
-        ) is False
-        assert _is_test_path(
-            "file:///project/tests/common/helpers.rs", language="rust"
-        ) is False
+        assert _is_test_path("file:///project/tests/common/mod.rs", language="rust") is False
+        assert _is_test_path("file:///project/tests/common/helpers.rs", language="rust") is False
         # But actual test files in tests/ should still match
-        assert _is_test_path(
-            "file:///project/tests/integration_test.rs", language="rust"
-        ) is True
+        assert _is_test_path("file:///project/tests/integration_test.rs", language="rust") is True
 
     def test_python_test_file_still_detected_outside_fixtures(self) -> None:
         """Normal test files outside fixtures should still be detected."""
         from llm_lsp_cli.test_filter import _is_test_path
 
         # These should still be detected as tests
-        assert _is_test_path(
-            "file:///project/tests/test_main.py", language="python"
-        ) is True
-        assert _is_test_path(
-            "file:///project/tests/unit/test_utils.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/tests/test_main.py", language="python") is True
+        assert _is_test_path("file:///project/tests/unit/test_utils.py", language="python") is True
         assert _is_test_path("file:///project/test_main.py", language="python") is True
 
 
@@ -329,15 +279,9 @@ class TestConfigurationLoading:
         from llm_lsp_cli.test_filter import _is_test_path
 
         # Verify default Python patterns work
-        assert _is_test_path(
-            "file:///project/tests/test_file.py", language="python"
-        ) is True
-        assert _is_test_path(
-            "file:///project/test_helper.py", language="python"
-        ) is True
-        assert _is_test_path(
-            "file:///project/helper_test.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/tests/test_file.py", language="python") is True
+        assert _is_test_path("file:///project/test_helper.py", language="python") is True
+        assert _is_test_path("file:///project/helper_test.py", language="python") is True
 
     def test_user_config_can_override_defaults(self) -> None:
         """User configuration should override default patterns.
@@ -351,9 +295,7 @@ class TestConfigurationLoading:
         reload_config()
         # After reload, patterns should reflect current config.json
         # This is a placeholder for the full integration test
-        assert _is_test_path(
-            "file:///project/tests/test_file.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/tests/test_file.py", language="python") is True
 
     def test_empty_patterns_for_language(self) -> None:
         """Language with empty patterns should not match anything."""
@@ -387,10 +329,13 @@ class TestCaseInsensitiveMatching:
         """Component.TEST.TS should match TypeScript test patterns."""
         from llm_lsp_cli.test_filter import _is_test_path
 
-        assert _is_test_path(
-            "file:///project/__tests__/Component.TEST.tsx",
-            language="typescript",
-        ) is True
+        assert (
+            _is_test_path(
+                "file:///project/__tests__/Component.TEST.tsx",
+                language="typescript",
+            )
+            is True
+        )
 
 
 class TestPerformanceAndCaching:
@@ -401,13 +346,9 @@ class TestPerformanceAndCaching:
         from llm_lsp_cli.test_filter import _is_test_path
 
         # First call populates cache
-        result1 = _is_test_path(
-            "file:///project/tests/test.py", language="python"
-        )
+        result1 = _is_test_path("file:///project/tests/test.py", language="python")
         # Second call should use cache (verifiable via cache_info)
-        result2 = _is_test_path(
-            "file:///project/tests/test.py", language="python"
-        )
+        result2 = _is_test_path("file:///project/tests/test.py", language="python")
 
         assert result1 is result2
         # Cache effectiveness is tested more thoroughly in benchmarks

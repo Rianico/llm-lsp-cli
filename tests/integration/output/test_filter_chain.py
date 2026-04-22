@@ -25,7 +25,10 @@ class TestFilterChainIntegration:
                     "kind": SYMBOL_KIND_CLASS,
                     "location": {
                         "uri": "file:///project/src/models.py",
-                        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 50, "character": 0},
+                        },
                     },
                 },
                 {
@@ -33,7 +36,10 @@ class TestFilterChainIntegration:
                     "kind": SYMBOL_KIND_CLASS,
                     "location": {
                         "uri": "file:///project/tests/test_models.py",
-                        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 30, "character": 0}},
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 30, "character": 0},
+                        },
                     },
                 },
                 {
@@ -41,7 +47,10 @@ class TestFilterChainIntegration:
                     "kind": SYMBOL_KIND_VARIABLE,
                     "location": {
                         "uri": "file:///project/src/models.py",
-                        "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 20}},
+                        "range": {
+                            "start": {"line": 10, "character": 4},
+                            "end": {"line": 10, "character": 20},
+                        },
                     },
                 },
                 {
@@ -49,14 +58,19 @@ class TestFilterChainIntegration:
                     "kind": SYMBOL_KIND_VARIABLE,
                     "location": {
                         "uri": "file:///project/tests/test_models.py",
-                        "range": {"start": {"line": 5, "character": 4}, "end": {"line": 5, "character": 20}},
+                        "range": {
+                            "start": {"line": 5, "character": 4},
+                            "end": {"line": 5, "character": 20},
+                        },
                     },
                 },
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -96,18 +110,32 @@ class TestFilterChainIntegration:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}}},
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 50, "character": 0},
+                        },
+                    },
                 },
                 {
                     "name": "my_variable",
                     "kind": SYMBOL_KIND_VARIABLE,
-                    "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 20}}},
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 10, "character": 4},
+                            "end": {"line": 10, "character": 20},
+                        },
+                    },
                 },
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -139,13 +167,21 @@ class TestFilterChainIntegration:
                 {
                     "name": "TestMyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "location": {"uri": "file:///project/tests/test_models.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 30, "character": 0}}},
+                    "location": {
+                        "uri": "file:///project/tests/test_models.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 30, "character": 0},
+                        },
+                    },
                 },
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -158,7 +194,15 @@ class TestFilterChainIntegration:
             # With --include-tests, test file classes should be included
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "TestMyClass", "-w", "/project", "--include-tests", "-o", "json"],
+                [
+                    "workspace-symbol",
+                    "TestMyClass",
+                    "-w",
+                    "/project",
+                    "--include-tests",
+                    "-o",
+                    "json",
+                ],
             )
 
             assert result.exit_code == 0
@@ -176,16 +220,58 @@ class TestFilterChainIntegration:
         mock_response = {
             "symbols": [
                 # Source file symbols
-                {"name": "SourceClass", "kind": SYMBOL_KIND_CLASS, "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}}}},
-                {"name": "source_var", "kind": SYMBOL_KIND_VARIABLE, "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 20}}}},
+                {
+                    "name": "SourceClass",
+                    "kind": SYMBOL_KIND_CLASS,
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 50, "character": 0},
+                        },
+                    },
+                },
+                {
+                    "name": "source_var",
+                    "kind": SYMBOL_KIND_VARIABLE,
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 10, "character": 4},
+                            "end": {"line": 10, "character": 20},
+                        },
+                    },
+                },
                 # Test file symbols
-                {"name": "TestClass", "kind": SYMBOL_KIND_CLASS, "location": {"uri": "file:///project/tests/test_models.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 30, "character": 0}}}},
-                {"name": "test_var", "kind": SYMBOL_KIND_VARIABLE, "location": {"uri": "file:///project/tests/test_models.py", "range": {"start": {"line": 5, "character": 4}, "end": {"line": 5, "character": 20}}}},
+                {
+                    "name": "TestClass",
+                    "kind": SYMBOL_KIND_CLASS,
+                    "location": {
+                        "uri": "file:///project/tests/test_models.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 30, "character": 0},
+                        },
+                    },
+                },
+                {
+                    "name": "test_var",
+                    "kind": SYMBOL_KIND_VARIABLE,
+                    "location": {
+                        "uri": "file:///project/tests/test_models.py",
+                        "range": {
+                            "start": {"line": 5, "character": 4},
+                            "end": {"line": 5, "character": 20},
+                        },
+                    },
+                },
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -214,14 +300,46 @@ class TestFilterChainIntegration:
 
         mock_response = {
             "symbols": [
-                {"name": "MyClass", "kind": SYMBOL_KIND_CLASS, "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}}}},
-                {"name": "my_variable", "kind": SYMBOL_KIND_VARIABLE, "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 20}}}},
-                {"name": "my_field", "kind": SYMBOL_KIND_FIELD, "location": {"uri": "file:///project/src/models.py", "range": {"start": {"line": 5, "character": 8}, "end": {"line": 5, "character": 24}}}},
+                {
+                    "name": "MyClass",
+                    "kind": SYMBOL_KIND_CLASS,
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 50, "character": 0},
+                        },
+                    },
+                },
+                {
+                    "name": "my_variable",
+                    "kind": SYMBOL_KIND_VARIABLE,
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 10, "character": 4},
+                            "end": {"line": 10, "character": 20},
+                        },
+                    },
+                },
+                {
+                    "name": "my_field",
+                    "kind": SYMBOL_KIND_FIELD,
+                    "location": {
+                        "uri": "file:///project/src/models.py",
+                        "range": {
+                            "start": {"line": 5, "character": 8},
+                            "end": {"line": 5, "character": 24},
+                        },
+                    },
+                },
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance

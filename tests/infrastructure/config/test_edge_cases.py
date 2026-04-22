@@ -1,7 +1,6 @@
 """Edge case tests for configuration components."""
 
 import json
-import stat
 from pathlib import Path
 
 import pytest
@@ -35,23 +34,19 @@ class TestConfigEdgeCases:
 
         # Act/Assert: Raises PermissionError
         import pytest
+
         with pytest.raises(PermissionError):
             XdgPaths.get()
 
         # Cleanup
         config_home.chmod(0o755)
 
-    def test_config_loader_with_very_large_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_very_large_file(self, tmp_path: Path) -> None:
         """ConfigLoader handles very large config files."""
         # Arrange: Create large config
         config_file = tmp_path / "large-config.json"
         large_config = {
-            "languages": {
-                f"lang{i}": {"command": f"server{i}", "args": []}
-                for i in range(1000)
-            },
+            "languages": {f"lang{i}": {"command": f"server{i}", "args": []} for i in range(1000)},
             "timeout_seconds": 30,
         }
         config_file.write_text(json.dumps(large_config))
@@ -85,18 +80,12 @@ class TestConfigEdgeCases:
         # Assert
         assert loaded["socket_path"] == "/path/with spaces/and-dashes/socket.sock"
 
-    def test_repository_with_malformed_server_def(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_with_malformed_server_def(self, tmp_path: Path) -> None:
         """Repository handles malformed server definition."""
         # Arrange
         config_file = tmp_path / "config.json"
         # Missing required 'command' field
-        config_data = {
-            "languages": {
-                "python": {"args": [], "timeout_seconds": 30}
-            }
-        }
+        config_data = {"languages": {"python": {"args": [], "timeout_seconds": 30}}}
         config_file.write_text(json.dumps(config_data))
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
@@ -112,9 +101,7 @@ class TestConfigEdgeCases:
             # Also valid - should handle malformed data
             pass
 
-    def test_config_loader_with_readonly_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_readonly_file(self, tmp_path: Path) -> None:
         """ConfigLoader handles readonly config file."""
         # Arrange
         config_file = tmp_path / "readonly.json"
@@ -136,9 +123,7 @@ class TestConfigEdgeCases:
         # Cleanup
         config_file.chmod(0o644)
 
-    def test_repository_with_concurrent_writes(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_with_concurrent_writes(self, tmp_path: Path) -> None:
         """Repository handles concurrent writes safely."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -164,9 +149,9 @@ class TestConfigEdgeCases:
 
         # Act: Concurrent writes
         from threading import Thread
+
         threads = [
-            Thread(target=register_language, args=(f"lang{i}", f"server{i}"))
-            for i in range(5)
+            Thread(target=register_language, args=(f"lang{i}", f"server{i}")) for i in range(5)
         ]
         for t in threads:
             t.start()
@@ -221,9 +206,7 @@ class TestConfigEdgeCases:
         monkeypatch.setenv("SERVER_BIN", "$BASE_DIR/bin/server")
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "custom": {"command": "$SERVER_BIN", "args": []}
-            },
+            "languages": {"custom": {"command": "$SERVER_BIN", "args": []}},
             "timeout_seconds": 30,
         }
         config_file.write_text(json.dumps(config_data))
@@ -238,9 +221,7 @@ class TestConfigEdgeCases:
         command = loaded["languages"]["custom"]["command"]
         assert command in ["$BASE_DIR/bin/server", "/opt/bin/server"]
 
-    def test_repository_with_missing_languages_key(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_with_missing_languages_key(self, tmp_path: Path) -> None:
         """Repository handles config missing languages key."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -256,16 +237,12 @@ class TestConfigEdgeCases:
         # Assert
         assert result is None
 
-    def test_config_loader_with_null_values(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_null_values(self, tmp_path: Path) -> None:
         """ConfigLoader loads null values as None."""
         # Arrange
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright", "args": []}
-            },
+            "languages": {"python": {"command": "pyright", "args": []}},
             "timeout_seconds": 30,
             "null_field": None,
         }
@@ -294,9 +271,7 @@ class TestConfigEdgeCases:
         # Assert
         assert paths.config_dir.exists()
 
-    def test_config_loader_preserves_extra_fields(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_preserves_extra_fields(self, tmp_path: Path) -> None:
         """ConfigLoader preserves extra fields in config."""
         # Arrange
         config_file = tmp_path / "config.json"

@@ -28,5 +28,7 @@ class TestDefaultsNoInitializeParamsFile:
             config = LanguageServerConfig(**lang_config)
             assert config.command is not None
             # None should NOT have initialize_params_file
-            assert "initialize_params_file" not in lang_config or \
-                   lang_config.get("initialize_params_file") is None
+            assert (
+                "initialize_params_file" not in lang_config
+                or lang_config.get("initialize_params_file") is None
+            )

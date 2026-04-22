@@ -62,13 +62,11 @@ class TestTypeAnnotationCoverage:
             if py_file.name == "__init__.py":
                 continue
 
-            source = py_file.read_text()
-            tree = ast.parse(source)
-
             public_funcs = self._get_public_functions(py_file)
             for func in public_funcs:
-                assert self._has_return_annotation(func), \
+                assert self._has_return_annotation(func), (
                     f"{py_file}:{func.name} missing return annotation"
+                )
 
     def test_config_types_has_type_annotations(self):
         """Verify config/types.py has proper TypedDict definitions."""
@@ -92,5 +90,4 @@ class TestTypeAnnotationCoverage:
         ]
 
         for expected in expected_classes:
-            assert expected in typed_dict_classes, \
-                f"Missing TypedDict class: {expected}"
+            assert expected in typed_dict_classes, f"Missing TypedDict class: {expected}"

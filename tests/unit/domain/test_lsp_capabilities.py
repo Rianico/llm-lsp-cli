@@ -1,7 +1,6 @@
 """Tests for LSP server capabilities module."""
 
 import json
-import pytest
 
 
 class TestGetServerCapabilitiesStructure:

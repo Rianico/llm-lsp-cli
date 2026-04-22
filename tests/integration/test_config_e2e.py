@@ -56,6 +56,10 @@ def python_project_dir(temp_dir: Path) -> Path:
 def clean_config_state() -> Generator[None, None, None]:
     """Temporarily remove existing config for test isolation."""
     from llm_lsp_cli.config import ConfigManager
+    from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+
+    # Reset singleton to ensure fresh initialization
+    XdgPaths.reset_for_testing()
 
     config_path = ConfigManager.get_config_dir() / "config.yaml"
     original_content = None
@@ -66,6 +70,9 @@ def clean_config_state() -> Generator[None, None, None]:
         config_path.unlink()
 
     yield
+
+    # Reset singleton again for test isolation
+    XdgPaths.reset_for_testing()
 
     # Restore original state
     if existed and original_content:
@@ -225,9 +232,7 @@ edition = "2021"
         assert isinstance(output, dict)
         assert len(output) == 1
 
-    def test_e2e_006_config_list_text_format_all_servers(
-        self, clean_config_state: None
-    ) -> None:
+    def test_e2e_006_config_list_text_format_all_servers(self, clean_config_state: None) -> None:
         """E2E-006: config list text format shows all servers."""
         # Create empty dir (no project markers)
         with tempfile.TemporaryDirectory() as tmp_dir, in_directory(Path(tmp_dir)):
@@ -301,7 +306,7 @@ class TestConfigEdgeCases:
         # Should fall back gracefully with warning
         assert "Capabilities not found for 'nonexistent-server-xyz'" in result.output
         # Should still output valid JSON
-        json_start = result.output.find('{')
+        json_start = result.output.find("{")
         output = json.loads(result.output[json_start:])
         assert len(output) > 1  # Fallback to all servers
 
@@ -340,9 +345,7 @@ class TestConfigEdgeCases:
         # Should show all available servers
         assert len(output) >= 5  # At least pyright, basedpyright, typescript, rust, gopls, jdtls
 
-    def test_edge_006_config_init_preserves_existing_config(
-        self, clean_config_state: None
-    ) -> None:
+    def test_edge_006_config_init_preserves_existing_config(self, clean_config_state: None) -> None:
         """EDGE-006: config init preserves existing config (idempotency)."""
         from llm_lsp_cli.config import ConfigManager
 
@@ -365,20 +368,25 @@ class TestConfigEdgeCases:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """EDGE-007: config init creates parent directories."""
-        # Clear XdgPaths cache to force re-reading environment
         from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
-        XdgPaths._instance = None
 
-        # Create nested path that doesn't exist
-        nested_config = tmp_path / "deep" / "nested" / "config" / "llm-lsp-cli"
+        try:
+            # Clear XdgPaths cache to force re-reading environment
+            XdgPaths.reset_for_testing()
 
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "deep" / "nested" / "config"))
+            # Create nested path that doesn't exist
+            nested_config = tmp_path / "deep" / "nested" / "config" / "llm-lsp-cli"
 
-        result = runner.invoke(app, ["config", "init"])
+            monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "deep" / "nested" / "config"))
 
-        assert result.exit_code == 0
-        config_file = nested_config / "config.yaml"
-        assert config_file.exists()
+            result = runner.invoke(app, ["config", "init"])
+
+            assert result.exit_code == 0
+            config_file = nested_config / "config.yaml"
+            assert config_file.exists()
+        finally:
+            # Reset singleton for test isolation
+            XdgPaths.reset_for_testing()
 
     def test_edge_008_config_list_with_partial_capabilities(
         self, python_project_dir: Path, clean_config_state: None
@@ -400,7 +408,7 @@ class TestConfigEdgeCases:
             # Should skip invalid file and show others
             assert result.exit_code == 0
             # Warning message may be in output, extract JSON part (starts with '{')
-            json_start = result.output.find('{')
+            json_start = result.output.find("{")
             assert json_start != -1, "No JSON found in output"
             output = json.loads(result.output[json_start:])
             # Should have other servers but not pyright
@@ -422,7 +430,7 @@ class TestConfigEdgeCases:
 
         assert result.exit_code == 0
         # Should match pyright via substring
-        json_start = result.output.find('{')
+        json_start = result.output.find("{")
         output = json.loads(result.output[json_start:])
         assert len(output) == 1
         assert any("pyright" in key for key in output)
@@ -456,9 +464,7 @@ class TestConfigPerformance:
         assert result.exit_code == 0
         assert elapsed < 0.5  # 500ms
 
-    def test_perf_002_config_init_response_time(
-        self, clean_config_state: None
-    ) -> None:
+    def test_perf_002_config_init_response_time(self, clean_config_state: None) -> None:
         """PERF-002: config init should respond within 500ms."""
         start = time.perf_counter()
         result = runner.invoke(app, ["config", "init"])
@@ -484,9 +490,7 @@ class TestConfigPerformance:
         avg_time = sum(times) / len(times)
         assert avg_time < 0.2  # 200ms average
 
-    def test_perf_004_config_init_idempotency_performance(
-        self, clean_config_state: None
-    ) -> None:
+    def test_perf_004_config_init_idempotency_performance(self, clean_config_state: None) -> None:
         """PERF-004: Repeated config init should be fast (early exit)."""
         # First call creates config
         result = runner.invoke(app, ["config", "init"])
@@ -555,9 +559,7 @@ class TestConfigInitListWorkflow:
 
         # List with override
         with in_directory(python_project_dir):
-            result_list = runner.invoke(
-                app, ["config", "list", "--lsp-server", "rust-analyzer"]
-            )
+            result_list = runner.invoke(app, ["config", "list", "--lsp-server", "rust-analyzer"])
 
         assert result_list.exit_code == 0
         output = json.loads(result_list.output)

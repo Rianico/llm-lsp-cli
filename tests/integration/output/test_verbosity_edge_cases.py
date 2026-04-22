@@ -131,10 +131,7 @@ class TestVerbosityPerformance:
 
     def test_filter_performance_repeated_calls(self) -> None:
         """Verify filter handles repeated calls efficiently."""
-        symbols = [
-            {"name": f"symbol_{i}", "kind": i % 14 + 1}
-            for i in range(1000)
-        ]
+        symbols = [{"name": f"symbol_{i}", "kind": i % 14 + 1} for i in range(1000)]
 
         start = time.perf_counter()
         for _ in range(100):
@@ -166,8 +163,10 @@ class TestVerbosityCLIEdgeCases:
 
         mock_response = {"symbols": []}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -197,8 +196,10 @@ class TestVerbosityCLIEdgeCases:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -249,8 +250,10 @@ class TestVerbosityCLIEdgeCases:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -333,8 +336,10 @@ class TestVerbosityCLIEdgeCases:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -388,7 +393,7 @@ class TestRecursiveFilteringEdgeCases:
                     {"name": "valid", "kind": SYMBOL_KIND_METHOD},
                     {"name": "none_kind", "kind": None},
                     {"name": "missing_kind"},
-                ]
+                ],
             }
         ]
 
@@ -405,21 +410,23 @@ class TestRecursiveFilteringPerformance:
         """Verify 10k symbols with 3-level nesting filters in <100ms."""
         symbols = []
         for i in range(1000):
-            symbols.append({
-                "name": f"class_{i}",
-                "kind": SYMBOL_KIND_CLASS,
-                "children": [
-                    {"name": f"method_{i}_a", "kind": SYMBOL_KIND_METHOD},
-                    {"name": f"field_{i}_a", "kind": SYMBOL_KIND_FIELD},
-                    {
-                        "name": f"method_{i}_b",
-                        "kind": SYMBOL_KIND_METHOD,
-                        "children": [
-                            {"name": f"var_{i}_local", "kind": SYMBOL_KIND_VARIABLE},
-                        ]
-                    },
-                ]
-            })
+            symbols.append(
+                {
+                    "name": f"class_{i}",
+                    "kind": SYMBOL_KIND_CLASS,
+                    "children": [
+                        {"name": f"method_{i}_a", "kind": SYMBOL_KIND_METHOD},
+                        {"name": f"field_{i}_a", "kind": SYMBOL_KIND_FIELD},
+                        {
+                            "name": f"method_{i}_b",
+                            "kind": SYMBOL_KIND_METHOD,
+                            "children": [
+                                {"name": f"var_{i}_local", "kind": SYMBOL_KIND_VARIABLE},
+                            ],
+                        },
+                    ],
+                }
+            )
 
         start = time.perf_counter()
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
@@ -440,9 +447,9 @@ class TestRecursiveFilteringPerformance:
                         "kind": SYMBOL_KIND_METHOD,
                         "children": [
                             {"name": "var", "kind": SYMBOL_KIND_VARIABLE},
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
         ] * 100
 

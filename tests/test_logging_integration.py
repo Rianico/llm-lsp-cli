@@ -231,9 +231,7 @@ class TestDaemonLifecycleIntegration:
             (workspace / "pyproject.toml").write_text("[project]\nname = 'test'")
             yield workspace
 
-    def test_daemon_manager_is_running_detection(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_manager_is_running_detection(self, temp_workspace: Path) -> None:
         """Test DaemonManager.is_running() with no PID file."""
         manager = DaemonManager(
             workspace_path=str(temp_workspace),
@@ -243,9 +241,7 @@ class TestDaemonLifecycleIntegration:
         # Should return False when no PID file exists
         assert manager.is_running() is False
 
-    def test_daemon_manager_cleanup_when_not_running(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_manager_cleanup_when_not_running(self, temp_workspace: Path) -> None:
         """Test DaemonManager cleans up stale PID file."""
         manager = DaemonManager(
             workspace_path=str(temp_workspace),
@@ -263,9 +259,7 @@ class TestDaemonLifecycleIntegration:
         finally:
             manager._cleanup_files()
 
-    def test_daemon_manager_pid_file_path_isolation(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_manager_pid_file_path_isolation(self, temp_workspace: Path) -> None:
         """Test different workspaces get different PID file paths."""
         workspace_a = temp_workspace / "project_a"
         workspace_b = temp_workspace / "project_b"
@@ -277,11 +271,10 @@ class TestDaemonLifecycleIntegration:
 
         assert manager_a.pid_file != manager_b.pid_file
         assert manager_a.socket_path != manager_b.socket_path
-        assert manager_a.log_file != manager_b.log_file
+        # LSP log file was removed - all logs now go to daemon.log
+        assert manager_a.daemon_log_file != manager_b.daemon_log_file
 
-    def test_daemon_manager_language_isolation(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_manager_language_isolation(self, temp_workspace: Path) -> None:
         """Test different languages get different runtime files."""
         manager_python = DaemonManager(
             workspace_path=str(temp_workspace),
@@ -312,9 +305,7 @@ class TestLogFileMarkers:
             workspace.mkdir()
             yield workspace
 
-    def test_daemon_log_file_path_structure(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_log_file_path_structure(self, temp_workspace: Path) -> None:
         """Test daemon log file path follows expected structure."""
         manager = DaemonManager(
             workspace_path=str(temp_workspace),
@@ -325,36 +316,37 @@ class TestLogFileMarkers:
         assert manager.daemon_log_file.suffix == ".log"
         assert "daemon" in str(manager.daemon_log_file).lower()
 
-    def test_lsp_log_file_path_structure(
-        self, temp_workspace: Path
-    ) -> None:
-        """Test LSP server log file path follows expected structure."""
+    def test_lsp_log_file_path_structure(self, temp_workspace: Path) -> None:
+        """Test LSP server log file path follows expected structure.
+
+        Deprecated: LSP server log files are no longer created separately.
+        All LSP stderr output is now captured in daemon.log only.
+        """
         manager = DaemonManager(
             workspace_path=str(temp_workspace),
             language="python",
         )
 
-        # Verify LSP log file path structure
-        assert manager.log_file.suffix == ".log"
-        assert manager.log_file.parent.exists() or True  # Parent may not exist yet
+        # LSP log file was removed - verify daemon_log_file exists instead
+        assert manager.daemon_log_file.suffix == ".log"
+        assert manager.daemon_log_file.name == "daemon.log"
 
-    def test_log_file_paths_include_language(
-        self, temp_workspace: Path
-    ) -> None:
-        """Test log file paths include language identifier."""
+    def test_log_file_paths_include_language(self, temp_workspace: Path) -> None:
+        """Test log file paths include language identifier.
+
+        Deprecated: LSP server log files are no longer created separately.
+        Daemon log path still includes workspace but not language-specific.
+        """
         manager = DaemonManager(
             workspace_path=str(temp_workspace),
             language="python",
         )
 
-        log_path_str = str(manager.log_file)
+        # Daemon log file path includes workspace info
+        log_path_str = str(manager.daemon_log_file)
+        assert "daemon.log" in log_path_str
 
-        # LSP log file path should include language/server name
-        assert "python" in log_path_str or "pyright" in log_path_str
-
-    def test_daemon_log_includes_workspace_info(
-        self, temp_workspace: Path
-    ) -> None:
+    def test_daemon_log_includes_workspace_info(self, temp_workspace: Path) -> None:
         """Test daemon log path includes workspace identification."""
         manager = DaemonManager(
             workspace_path=str(temp_workspace),

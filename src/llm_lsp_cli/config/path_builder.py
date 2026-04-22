@@ -1,5 +1,6 @@
 """Path building utilities for llm-lsp-cli runtime files."""
 
+import warnings
 from pathlib import Path
 
 
@@ -107,15 +108,19 @@ class RuntimePathBuilder:
     ) -> Path:
         """Build log file path.
 
-        Args:
-            workspace_path: Workspace directory path.
-            language: Language identifier.
-            base_dir: Optional base directory override.
-            lsp_server_name: Optional server name override.
+        Deprecated: LSP server log files are no longer created separately.
+        All LSP stderr output is now captured in daemon.log only.
 
         Returns:
-            Path to the log file.
+            Path to the log file (deprecated).
         """
+        warnings.warn(
+            "build_log_file_path is deprecated. "
+            "LSP server log files are no longer created separately. "
+            "Use build_daemon_log_path instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return cls.build_socket_path(
             workspace_path, language, base_dir, lsp_server_name
         ).with_suffix(".log")
@@ -140,3 +145,24 @@ class RuntimePathBuilder:
         if base_dir is None:
             base_dir = cls.get_runtime_base_dir(workspace_path)
         return base_dir / "daemon.log"
+
+    @classmethod
+    def build_diagnostic_log_path(
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
+    ) -> Path:
+        """Build diagnostic log file path.
+
+        Args:
+            workspace_path: Workspace directory path.
+            language: Language identifier.
+            base_dir: Optional base directory override.
+
+        Returns:
+            Path to the diagnostic log file.
+        """
+        if base_dir is None:
+            base_dir = cls.get_runtime_base_dir(workspace_path)
+        return base_dir / "diagnostics.log"

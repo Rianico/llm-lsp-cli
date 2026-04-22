@@ -66,16 +66,12 @@ class TestDiagnosticTypes:
                 {
                     "uri": "file:///test1.py",
                     "version": 1,
-                    "diagnostics": [
-                        {"severity": 1, "message": "Error 1"}
-                    ],
+                    "diagnostics": [{"severity": 1, "message": "Error 1"}],
                 },
                 {
                     "uri": "file:///test2.py",
                     "version": 1,
-                    "diagnostics": [
-                        {"severity": 2, "message": "Warning 2"}
-                    ],
+                    "diagnostics": [{"severity": 2, "message": "Warning 2"}],
                 },
             ],
         }

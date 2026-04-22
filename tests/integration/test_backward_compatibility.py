@@ -1,7 +1,5 @@
 """Tests ensuring backward compatibility after refactoring."""
 
-import pytest
-
 from llm_lsp_cli.lsp.constants import LSPConstants
 
 

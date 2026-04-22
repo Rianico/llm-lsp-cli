@@ -1,6 +1,5 @@
 """Tests for runtime path building with flat directory structure."""
 
-import os
 from pathlib import Path
 
 import pytest
@@ -117,7 +116,6 @@ class TestRuntimePathBuilderFlatStructure:
         # Old: {base}/llm-lsp-cli/{name}-{hash}/{server}.sock
         # New: {base}/.llm-lsp-cli/{server}.sock
         # Savings: no workspace name + hash subdirectory (~15-25 chars)
-        path_str = str(socket_path)
         # Verify flat structure (no workspace name in parent dir)
         assert socket_path.parent.name == ".llm-lsp-cli"
         # Verify path doesn't contain workspace hash pattern

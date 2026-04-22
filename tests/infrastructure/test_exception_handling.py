@@ -35,9 +35,7 @@ class TestExceptionHandling:
         with pytest.raises(ConfigWriteError):
             repo.register(definition)
 
-    def test_registry_logs_config_errors(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_registry_logs_config_errors(self, caplog: pytest.LogCaptureFixture) -> None:
         """ServerRegistry logs config errors with context."""
         # Arrange
         caplog.set_level(logging.ERROR)
@@ -61,9 +59,7 @@ class TestExceptionHandling:
         pass  # Placeholder for future implementation
 
     @pytest.mark.asyncio
-    async def test_transport_logs_spawn_errors(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_transport_logs_spawn_errors(self, caplog: pytest.LogCaptureFixture) -> None:
         """StdioTransport logs spawn errors with context."""
         # Arrange
         caplog.set_level(logging.ERROR)
@@ -84,9 +80,7 @@ class TestExceptionHandling:
         assert "command not found" in caplog.text.lower() or "LSP server" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_daemon_handler_logs_exceptions(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_daemon_handler_logs_exceptions(self, caplog: pytest.LogCaptureFixture) -> None:
         """Daemon request handler logs exceptions with traceback."""
         # Arrange
         caplog.set_level(logging.ERROR)

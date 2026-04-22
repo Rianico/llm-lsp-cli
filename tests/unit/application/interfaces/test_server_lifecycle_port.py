@@ -1,8 +1,5 @@
 """Tests for ServerLifecyclePort protocol."""
 
-import pytest
-from typing import Protocol
-
 from llm_lsp_cli.application.interfaces.server_lifecycle import (
     ServerLifecyclePort,
     ServerStatus,
@@ -56,5 +53,6 @@ class TestServerLifecycleProtocolStructure:
         from llm_lsp_cli.application.interfaces.server_lifecycle import (
             ServerLifecyclePort,
         )
+
         # Just verify it's a valid class
         assert isinstance(ServerLifecyclePort, type)

@@ -22,7 +22,10 @@ def sample_workspace_symbols(temp_dir: Path) -> list[dict[str, Any]]:
             "kind": 5,
             "location": {
                 "uri": f"file://{temp_dir}/src/models.py",
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 50, "character": 0},
+                },
             },
             "detail": "class MyClass",
             "containerName": None,
@@ -32,7 +35,10 @@ def sample_workspace_symbols(temp_dir: Path) -> list[dict[str, Any]]:
             "kind": 12,
             "location": {
                 "uri": f"file://{temp_dir}/src/utils.py",
-                "range": {"start": {"line": 10, "character": 0}, "end": {"line": 30, "character": 0}},
+                "range": {
+                    "start": {"line": 10, "character": 0},
+                    "end": {"line": 30, "character": 0},
+                },
             },
             "detail": "def my_function(x: int) -> str",
         },
@@ -72,7 +78,9 @@ class TestCompactFormatterInit:
 class TestTransformSymbols:
     """Tests for transform_symbols method."""
 
-    def test_transform_basic(self, sample_workspace_symbols: list[dict[str, Any]], temp_dir: Path) -> None:
+    def test_transform_basic(
+        self, sample_workspace_symbols: list[dict[str, Any]], temp_dir: Path
+    ) -> None:
         """Verify basic transformation to SymbolRecord list."""
         formatter = CompactFormatter(str(temp_dir))
         result = formatter.transform_symbols(sample_workspace_symbols)
@@ -93,7 +101,10 @@ class TestTransformSymbols:
                 "kind": 5,
                 "location": {
                     "uri": "file:///project/src/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
                 "detail": "class TestSymbol",
                 "containerName": "TestContainer",
@@ -111,7 +122,11 @@ class TestTransformSymbols:
         """Handle document symbol format (no location wrapper)."""
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
-            {"name": "X", "kind": 1, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+            {
+                "name": "X",
+                "kind": 1,
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+            },
         ]
         result = formatter.transform_symbols(symbols)
 
@@ -134,7 +149,10 @@ class TestTransformSymbols:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/utils.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -150,7 +168,10 @@ class TestTransformSymbols:
                 "kind": 12,
                 "location": {
                     "uri": "file:///project/src/utils.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
                 },
             },
         ]
@@ -161,7 +182,9 @@ class TestTransformSymbols:
 class TestTransformLocations:
     """Tests for transform_locations method."""
 
-    def test_transform_locations_basic(self, sample_locations: list[dict[str, Any]], temp_dir: Path) -> None:
+    def test_transform_locations_basic(
+        self, sample_locations: list[dict[str, Any]], temp_dir: Path
+    ) -> None:
         """Basic transformation to LocationRecord list."""
         formatter = CompactFormatter(str(temp_dir))
         result = formatter.transform_locations(sample_locations)
@@ -204,7 +227,10 @@ class TestSymbolsToText:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/file.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 9, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 9, "character": 0},
+                    },
                 },
             },
             {
@@ -212,7 +238,10 @@ class TestSymbolsToText:
                 "kind": 12,
                 "location": {
                     "uri": f"file://{temp_dir}/src/file.py",
-                    "range": {"start": {"line": 19, "character": 0}, "end": {"line": 29, "character": 0}},
+                    "range": {
+                        "start": {"line": 19, "character": 0},
+                        "end": {"line": 29, "character": 0},
+                    },
                 },
             },
         ]
@@ -231,7 +260,10 @@ class TestSymbolsToText:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/b_file.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
             {
@@ -239,7 +271,10 @@ class TestSymbolsToText:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/a_file.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -258,7 +293,10 @@ class TestSymbolsToText:
                 "kind": 12,
                 "location": {
                     "uri": "file:///project/src/utils.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
                 "detail": "def my_func() -> str",
             },
@@ -275,7 +313,10 @@ class TestSymbolsToText:
                 "kind": 5,
                 "location": {
                     "uri": "file:///project/src/models.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -297,12 +338,24 @@ class TestSymbolsToText:
             {
                 "name": "Sym1",
                 "kind": 5,
-                "location": {"uri": f"file://{temp_dir}/src/z.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": f"file://{temp_dir}/src/z.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
             {
                 "name": "Sym2",
                 "kind": 5,
-                "location": {"uri": f"file://{temp_dir}/src/a.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": f"file://{temp_dir}/src/a.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
@@ -323,7 +376,10 @@ class TestSymbolsToJson:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -341,7 +397,13 @@ class TestSymbolsToJson:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
@@ -355,7 +417,13 @@ class TestSymbolsToJson:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
@@ -369,7 +437,13 @@ class TestSymbolsToJson:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
@@ -383,7 +457,13 @@ class TestSymbolsToJson:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
                 "detail": "detail text",
                 "containerName": "container",
                 "tags": [1],
@@ -416,7 +496,10 @@ class TestSymbolsToYaml:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -433,7 +516,13 @@ class TestSymbolsToYaml:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_yaml(formatter.transform_symbols(symbols))
@@ -447,7 +536,13 @@ class TestSymbolsToYaml:
             {
                 "name": "\u03b1\u03b2\u03b3_Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_yaml(formatter.transform_symbols(symbols))
@@ -471,7 +566,13 @@ class TestSymbolsToCsv:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
@@ -491,7 +592,10 @@ class TestSymbolsToCsv:
                 "kind": 5,
                 "location": {
                     "uri": f"file://{temp_dir}/src/test.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             },
         ]
@@ -512,7 +616,13 @@ class TestSymbolsToCsv:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
                 "tags": [1, 2, 3],
             },
         ]
@@ -526,7 +636,13 @@ class TestSymbolsToCsv:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": f"file://{temp_dir}/file,with,commas.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": f"file://{temp_dir}/file,with,commas.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
@@ -542,7 +658,13 @@ class TestSymbolsToCsv:
             {
                 "name": "Test",
                 "kind": 5,
-                "location": {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+                "location": {
+                    "uri": "file:///project/test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                },
             },
         ]
         result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
@@ -565,7 +687,10 @@ class TestLocationsToText:
             },
             {
                 "uri": f"file://{temp_dir}/src/file.py",
-                "range": {"start": {"line": 19, "character": 0}, "end": {"line": 29, "character": 0}},
+                "range": {
+                    "start": {"line": 19, "character": 0},
+                    "end": {"line": 29, "character": 0},
+                },
             },
         ]
         result = formatter.locations_to_text(formatter.transform_locations(locations))
@@ -584,8 +709,14 @@ class TestLocationsToText:
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         locations = [
-            {"uri": f"file://{temp_dir}/src/a.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
-            {"uri": f"file://{temp_dir}/src/b.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+            {
+                "uri": f"file://{temp_dir}/src/a.py",
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+            },
+            {
+                "uri": f"file://{temp_dir}/src/b.py",
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+            },
         ]
         result = formatter.locations_to_text(formatter.transform_locations(locations))
         # Should have blank line between files
@@ -652,7 +783,10 @@ class TestLocationsToCsv:
         """Compact headers."""
         formatter = CompactFormatter(str(temp_dir))
         locations = [
-            {"uri": "file:///project/test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}},
+            {
+                "uri": "file:///project/test.py",
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+            },
         ]
         result = formatter.locations_to_csv(formatter.transform_locations(locations))
         header = result.split("\n")[0]

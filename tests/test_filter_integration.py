@@ -41,9 +41,7 @@ class TestCLIIntegrationWithConfig:
         ]
 
         # Python should filter tests/ directory
-        result_python = _filter_test_locations(
-            locations, include_tests=False, language="python"
-        )
+        result_python = _filter_test_locations(locations, include_tests=False, language="python")
         # main.py and utils_test.go (not python) should remain
         assert len(result_python) == 2
         uris = {loc["uri"] for loc in result_python}
@@ -83,14 +81,10 @@ class TestCLIIntegrationWithConfig:
 
     def test_unknown_language_falls_back_to_defaults(self) -> None:
         """Verify unknown languages use default patterns."""
-        result = _is_test_path(
-            "file:///project/tests/test.xyz", language="unknown_lang_xyz"
-        )
+        result = _is_test_path("file:///project/tests/test.xyz", language="unknown_lang_xyz")
         assert result is True  # Default tests/ pattern
 
-        result2 = _is_test_path(
-            "file:///project/src/main.xyz", language="unknown_lang_xyz"
-        )
+        result2 = _is_test_path("file:///project/src/main.xyz", language="unknown_lang_xyz")
         assert result2 is False
 
 
@@ -98,7 +92,7 @@ class TestComplexGlobPatterns:
     """Tests for complex glob pattern edge cases."""
 
     def test_double_star_matches_zero_directories(self) -> None:
-        """"**" should match zero or more directories."""
+        """ "**" should match zero or more directories."""
         pattern = CompiledPattern(
             pattern="**/test.py",
             pattern_lower="**/test.py",
@@ -111,7 +105,7 @@ class TestComplexGlobPatterns:
         assert pattern.match_path("/a/b/c/test.py") is True
 
     def test_double_star_in_middle(self) -> None:
-        """"**" in middle of pattern should work correctly.
+        """ "**" in middle of pattern should work correctly.
 
         Pattern: **/src/**/test.py
         The ** at the start allows matching at any depth.
@@ -184,14 +178,15 @@ class TestComplexGlobPatterns:
         for simple character classes.
         """
         # TypeScript uses __tests__ directory pattern
-        assert _is_test_path(
-            "file:///project/__tests__/Component.test.ts",
-            language="typescript",
-        ) is True
+        assert (
+            _is_test_path(
+                "file:///project/__tests__/Component.test.ts",
+                language="typescript",
+            )
+            is True
+        )
         # Non-test file outside __tests__
-        assert _is_test_path(
-            "file:///project/src/Component.ts", language="typescript"
-        ) is False
+        assert _is_test_path("file:///project/src/Component.ts", language="typescript") is False
 
     def test_curly_braces_literal(self) -> None:
         """Curly braces should be treated literally (not brace expansion)."""
@@ -236,16 +231,10 @@ class TestNestedDirectoryScenarios:
     def test_rust_nested_common_exclusion(self) -> None:
         """Rust tests/common/** exclusion at various depths."""
         assert _is_test_path("file:///tests/common/mod.rs", language="rust") is False
-        assert _is_test_path(
-            "file:///tests/common/helpers.rs", language="rust"
-        ) is False
-        assert _is_test_path(
-            "file:///tests/common/utils/deep.rs", language="rust"
-        ) is False
+        assert _is_test_path("file:///tests/common/helpers.rs", language="rust") is False
+        assert _is_test_path("file:///tests/common/utils/deep.rs", language="rust") is False
         # But actual tests should still match
-        assert _is_test_path(
-            "file:///tests/integration_test.rs", language="rust"
-        ) is True
+        assert _is_test_path("file:///tests/integration_test.rs", language="rust") is True
 
 
 class TestCrossLanguageProjects:
@@ -255,40 +244,26 @@ class TestCrossLanguageProjects:
         """Test filtering in a monorepo with Python and TypeScript."""
         locations = [
             {"uri": "file:///monorepo/packages/frontend/src/index.ts"},
-            {
-                "uri": "file:///monorepo/packages/frontend/__tests__/Component.test.tsx"
-            },
+            {"uri": "file:///monorepo/packages/frontend/__tests__/Component.test.tsx"},
             {"uri": "file:///monorepo/packages/backend/app/main.py"},
             {"uri": "file:///monorepo/packages/backend/tests/test_api.py"},
         ]
 
         # TypeScript filtering - uses __tests__ directory
-        ts_result = _filter_test_locations(
-            locations, include_tests=False, language="typescript"
-        )
+        ts_result = _filter_test_locations(locations, include_tests=False, language="typescript")
         ts_uris = {loc["uri"] for loc in ts_result}
         assert "file:///monorepo/packages/frontend/src/index.ts" in ts_uris
-        assert (
-            "file:///monorepo/packages/frontend/__tests__/Component.test.tsx"
-            not in ts_uris
-        )
+        assert "file:///monorepo/packages/frontend/__tests__/Component.test.tsx" not in ts_uris
         # Python files not filtered by TypeScript patterns
         assert "file:///monorepo/packages/backend/app/main.py" in ts_uris
 
         # Python filtering - uses tests/ directory
-        py_result = _filter_test_locations(
-            locations, include_tests=False, language="python"
-        )
+        py_result = _filter_test_locations(locations, include_tests=False, language="python")
         py_uris = {loc["uri"] for loc in py_result}
         assert "file:///monorepo/packages/backend/app/main.py" in py_uris
-        assert (
-            "file:///monorepo/packages/backend/tests/test_api.py" not in py_uris
-        )
+        assert "file:///monorepo/packages/backend/tests/test_api.py" not in py_uris
         # TypeScript test file not filtered by Python patterns
-        assert (
-            "file:///monorepo/packages/frontend/__tests__/Component.test.tsx"
-            in py_uris
-        )
+        assert "file:///monorepo/packages/frontend/__tests__/Component.test.tsx" in py_uris
 
     def test_go_and_rust_mixed_project(self) -> None:
         """Test filtering with Go and Rust in same project."""
@@ -301,9 +276,7 @@ class TestCrossLanguageProjects:
         ]
 
         # Go filtering - only _test.go suffix
-        go_result = _filter_test_locations(
-            locations, include_tests=False, language="go"
-        )
+        go_result = _filter_test_locations(locations, include_tests=False, language="go")
         go_uris = {loc["uri"] for loc in go_result}
         assert "file:///project/handler.go" in go_uris
         assert "file:///project/handler_test.go" not in go_uris
@@ -311,9 +284,7 @@ class TestCrossLanguageProjects:
         assert "file:///project/src/lib.rs" in go_uris
 
         # Rust filtering - excludes common/
-        rust_result = _filter_test_locations(
-            locations, include_tests=False, language="rust"
-        )
+        rust_result = _filter_test_locations(locations, include_tests=False, language="rust")
         rust_uris = {loc["uri"] for loc in rust_result}
         assert "file:///project/src/lib.rs" in rust_uris
         assert "file:///project/tests/integration_test.rs" not in rust_uris
@@ -324,24 +295,15 @@ class TestCrossLanguageProjects:
         """Test Java Maven project structure."""
         locations = [
             {"uri": "file:///project/src/main/java/com/example/Service.java"},
-            {
-                "uri": "file:///project/src/test/java/com/example/ServiceTest.java"
-            },
+            {"uri": "file:///project/src/test/java/com/example/ServiceTest.java"},
             {"uri": "file:///project/src/main/resources/config.xml"},
         ]
 
         result = _filter_test_locations(locations, include_tests=False, language="java")
         result_uris = {loc["uri"] for loc in result}
-        assert (
-            "file:///project/src/main/java/com/example/Service.java" in result_uris
-        )
-        assert (
-            "file:///project/src/test/java/com/example/ServiceTest.java"
-            not in result_uris
-        )
-        assert (
-            "file:///project/src/main/resources/config.xml" in result_uris
-        )
+        assert "file:///project/src/main/java/com/example/Service.java" in result_uris
+        assert "file:///project/src/test/java/com/example/ServiceTest.java" not in result_uris
+        assert "file:///project/src/main/resources/config.xml" in result_uris
 
 
 class TestConfigurationOverride:
@@ -368,14 +330,10 @@ class TestConfigurationOverride:
         registry._filters.clear()  # Clear cache
 
         # User pattern should match
-        assert _is_test_path(
-            "file:///project/custom_tests/file.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/custom_tests/file.py", language="python") is True
         # Default patterns should NOT match
         assert _is_test_path("file:///project/tests/file.py", language="python") is False
-        assert _is_test_path(
-            "file:///project/test_file.py", language="python"
-        ) is False
+        assert _is_test_path("file:///project/test_file.py", language="python") is False
 
         # Restore default config
         reload_config()
@@ -409,15 +367,11 @@ class TestConfigurationOverride:
         registry._filters.clear()
 
         # Python uses custom pattern
-        assert _is_test_path(
-            "file:///project/python_tests/test.py", language="python"
-        ) is True
+        assert _is_test_path("file:///project/python_tests/test.py", language="python") is True
         assert _is_test_path("file:///project/tests/test.py", language="python") is False
 
         # Other languages use defaults
-        assert _is_test_path(
-            "file:///project/tests/test.ts", language="typescript"
-        ) is True
+        assert _is_test_path("file:///project/tests/test.ts", language="typescript") is True
 
         # Restore default config
         reload_config()
@@ -613,9 +567,7 @@ class TestEdgeCasesAndErrorHandling:
         assert result is True
 
         # Unicode in filename
-        result2 = _is_test_path(
-            "file:///project/tests/test_\u00e9.py", language="python"
-        )
+        result2 = _is_test_path("file:///project/tests/test_\u00e9.py", language="python")
         assert result2 is True
 
     def test_missing_uri_in_location(self) -> None:
@@ -626,9 +578,7 @@ class TestEdgeCasesAndErrorHandling:
             {"uri": None},  # None uri
         ]
 
-        result = _filter_test_locations(
-            locations, include_tests=False, language="python"
-        )
+        result = _filter_test_locations(locations, include_tests=False, language="python")
         # Should not filter locations with missing/None uri
         assert len(result) == 3
 
@@ -640,9 +590,7 @@ class TestEdgeCasesAndErrorHandling:
             {"name": "EmptyLocation", "location": {}},  # Empty location
         ]
 
-        result = _filter_test_symbols(
-            symbols, include_tests=False, language="python"
-        )
+        result = _filter_test_symbols(symbols, include_tests=False, language="python")
         # Should not filter out symbols with missing location
         assert len(result) == 3
 
@@ -667,9 +615,7 @@ class TestEdgeCasesAndErrorHandling:
     def test_case_preservation_in_match_result(self) -> None:
         """MatchResult should preserve original pattern."""
         pattern_set = PatternSet()
-        pattern_set.add_directory_pattern(
-            "**/MyTests/**", PatternSource.USER_OVERRIDE
-        )
+        pattern_set.add_directory_pattern("**/MyTests/**", PatternSource.USER_OVERRIDE)
 
         result = pattern_set.match("file:///project/MyTests/test.py")
         assert result.matched_pattern == "**/MyTests/**"
@@ -689,9 +635,7 @@ class TestPatternSetFromConfig:
             enabled=True,
         )
 
-        pattern_set = PatternSet.from_language_config(
-            config, PatternSource.USER_OVERRIDE
-        )
+        pattern_set = PatternSet.from_language_config(config, PatternSource.USER_OVERRIDE)
 
         # Verify patterns were added with correct source
         assert len(pattern_set._directory_patterns) == 1
@@ -760,9 +704,7 @@ class TestRealWorldScenarios:
             {"uri": "file:///react_app/src/utils/helpers.test.ts"},
         ]
 
-        result = _filter_test_locations(
-            locations, include_tests=False, language="typescript"
-        )
+        result = _filter_test_locations(locations, include_tests=False, language="typescript")
         result_uris = {loc["uri"] for loc in result}
 
         assert "file:///react_app/src/components/Button.tsx" in result_uris
@@ -837,9 +779,7 @@ class TestTempDirectoryIntegration:
                 {"uri": (tests_dir / "test_main.py").as_uri()},
             ]
 
-            result = _filter_test_locations(
-                locations, include_tests=False, language="python"
-            )
+            result = _filter_test_locations(locations, include_tests=False, language="python")
             result_uris = {loc["uri"] for loc in result}
 
             expected_src_uri = (src_dir / "main.py").as_uri()

@@ -1,12 +1,9 @@
 """Integration tests for type-safe architecture."""
 
-import pytest
 from pathlib import Path
 
 from llm_lsp_cli.domain import (
-    ServerDefinition,
     WorkspacePath,
-    ServerDefinitionRepository,
     LspMethodRouter,
     LspMethodConfig,
 )
@@ -70,7 +67,6 @@ class TestProtocolImplementations:
         from llm_lsp_cli.infrastructure.config.repository.json_server_def_repo import (
             JsonServerDefinitionRepository,
         )
-        from llm_lsp_cli.domain import ServerDefinitionRepository
 
         # Runtime check - repository should satisfy protocol
         repo = JsonServerDefinitionRepository(config_file=Path("/tmp/test.json"))

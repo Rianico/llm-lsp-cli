@@ -1,10 +1,48 @@
 """Unit tests for StdioTransport startup verification."""
 
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from llm_lsp_cli.lsp.transport import StdioTransport
+
+
+class TestTransportStartNoFileOpen:
+    """Test StdioTransport.start does not open log file."""
+
+    @pytest.mark.asyncio
+    async def test_start_does_not_open_log_file(self) -> None:
+        """start() method does not call open() for log file."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        transport = StdioTransport(command="echo")
+
+        with patch("builtins.open") as mock_open:
+            # Mock the subprocess to avoid actually starting it
+            mock_process = AsyncMock()
+            mock_process.returncode = None
+            mock_process.stdin = MagicMock()
+            mock_process.stdout = AsyncMock()
+            mock_process.stderr = AsyncMock()
+
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+                with patch("asyncio.create_task"):
+                    # Act
+                    await transport.start()
+
+            # Assert
+            mock_open.assert_not_called()
+
+    def test_log_fh_attribute_not_created(self) -> None:
+        """StdioTransport does not create _log_fh attribute."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        # Act
+        transport = StdioTransport(command="echo")
+
+        # Assert
+        assert not hasattr(transport, "_log_fh")
 
 
 class TestTransportStartup:

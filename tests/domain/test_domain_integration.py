@@ -53,9 +53,7 @@ LifecycleFixture = tuple[WorkspacePath, InMemoryServerDefinitionRepository, LspM
 class TestWorkspacePathWithServerDefinition:
     """Integration tests for WorkspacePath with ServerDefinition."""
 
-    def test_workspace_path_validates_server_command_path(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_validates_server_command_path(self, temp_dir: Path) -> None:
         """WorkspacePath can validate paths referenced in server commands."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -69,9 +67,7 @@ class TestWorkspacePathWithServerDefinition:
         assert resolved_bin.exists()
         assert resolved_bin == server_bin.resolve()
 
-    def test_workspace_path_prevents_outside_server_binary(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_prevents_outside_server_binary(self, temp_dir: Path) -> None:
         """WorkspacePath prevents referencing server binaries outside workspace."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -84,9 +80,7 @@ class TestWorkspacePathWithServerDefinition:
         with pytest.raises(PathValidationError):
             ws_path.resolve_child("../outside/malicious-server")
 
-    def test_server_definition_with_workspace_relative_path(
-        self, temp_dir: Path
-    ) -> None:
+    def test_server_definition_with_workspace_relative_path(self, temp_dir: Path) -> None:
         """ServerDefinition can use workspace-relative paths."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -432,9 +426,7 @@ class TestFullRequestLifecycle:
 
         return ws_path, repo, router
 
-    def test_complete_definition_request_lifecycle(
-        self, setup_lifecycle: LifecycleFixture
-    ) -> None:
+    def test_complete_definition_request_lifecycle(self, setup_lifecycle: LifecycleFixture) -> None:
         """Complete lifecycle for a definition request."""
         ws_path, repo, router = setup_lifecycle
 
@@ -455,9 +447,7 @@ class TestFullRequestLifecycle:
         assert config is not None
         assert config.registry_method == "request_definition"
 
-    def test_complete_hover_request_lifecycle(
-        self, setup_lifecycle: LifecycleFixture
-    ) -> None:
+    def test_complete_hover_request_lifecycle(self, setup_lifecycle: LifecycleFixture) -> None:
         """Complete lifecycle for a hover request."""
         ws_path, repo, router = setup_lifecycle
 
@@ -477,9 +467,7 @@ class TestFullRequestLifecycle:
         assert config is not None
         assert config.registry_method == "request_hover"
 
-    def test_workspace_symbol_request_lifecycle(
-        self, setup_lifecycle: LifecycleFixture
-    ) -> None:
+    def test_workspace_symbol_request_lifecycle(self, setup_lifecycle: LifecycleFixture) -> None:
         """Complete lifecycle for a workspace/symbol request."""
         ws_path, repo, router = setup_lifecycle
 
@@ -513,9 +501,7 @@ class TestFullRequestLifecycle:
         config = router.get_config(LSPConstants.COMPLETION)
         assert config is not None
 
-    def test_request_lifecycle_with_unknown_server(
-        self, setup_lifecycle: LifecycleFixture
-    ) -> None:
+    def test_request_lifecycle_with_unknown_server(self, setup_lifecycle: LifecycleFixture) -> None:
         """Request lifecycle handles unknown server gracefully."""
         ws_path, repo, router = setup_lifecycle
 

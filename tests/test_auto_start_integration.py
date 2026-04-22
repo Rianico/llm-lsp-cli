@@ -132,9 +132,7 @@ class TestAutoStartLogic:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_request_reuses_existing_daemon(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_request_reuses_existing_daemon(self, mock_socket_path: Path) -> None:
         """DaemonClient.request() skips start when daemon already running."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -157,9 +155,7 @@ class TestAutoStartLogic:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_notify_auto_starts_daemon(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_notify_auto_starts_daemon(self, mock_socket_path: Path) -> None:
         """DaemonClient.notify() triggers auto-start."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -187,9 +183,7 @@ class TestSocketWaiting:
     """Tests for socket waiting behavior."""
 
     @pytest.mark.asyncio
-    async def test_wait_for_socket_immediate_success(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_wait_for_socket_immediate_success(self, mock_socket_path: Path) -> None:
         """_wait_for_socket returns immediately when socket exists."""
         mock_socket_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -215,9 +209,7 @@ class TestSocketWaiting:
             mock_socket_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
-    async def test_wait_for_socket_timeout_raises_error(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_wait_for_socket_timeout_raises_error(self, mock_socket_path: Path) -> None:
         """_wait_for_socket raises DaemonStartupTimeoutError when socket never appears."""
         # Ensure socket doesn't exist
         mock_socket_path.unlink(missing_ok=True)
@@ -239,9 +231,7 @@ class TestSocketWaiting:
         assert "language=" in error_msg
 
     @pytest.mark.asyncio
-    async def test_exponential_backoff_pattern(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_exponential_backoff_pattern(self, mock_socket_path: Path) -> None:
         """Verify exponential backoff follows 50ms, 100ms, 200ms, 400ms pattern."""
         # Ensure socket doesn't exist
         mock_socket_path.unlink(missing_ok=True)
@@ -282,9 +272,7 @@ class TestAutoStartErrorHandling:
     """Tests for auto-start error handling."""
 
     @pytest.mark.asyncio
-    async def test_daemon_startup_failure_wraps_exception(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_daemon_startup_failure_wraps_exception(self, mock_socket_path: Path) -> None:
         """DaemonStartupError raised when daemon subprocess spawn fails."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -311,9 +299,7 @@ class TestAutoStartErrorHandling:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_daemon_crashed_on_connection_failure(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_daemon_crashed_on_connection_failure(self, mock_socket_path: Path) -> None:
         """DaemonCrashedError raised when socket exists but connection fails."""
         # Create socket file to simulate existing daemon
         mock_socket_path.parent.mkdir(parents=True, exist_ok=True)
@@ -346,9 +332,7 @@ class TestAutoStartErrorHandling:
         mock_socket_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
-    async def test_connection_timeout_wrapped(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_connection_timeout_wrapped(self, mock_socket_path: Path) -> None:
         """DaemonError raised when request times out."""
         mock_socket_path.parent.mkdir(parents=True, exist_ok=True)
         mock_socket_path.touch()
@@ -463,9 +447,7 @@ class TestAutoStartPerformance:
     """Performance tests for auto-start behavior."""
 
     @pytest.mark.asyncio
-    async def test_socket_wait_fast_path_when_exists(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_socket_wait_fast_path_when_exists(self, mock_socket_path: Path) -> None:
         """Socket wait returns quickly when socket already exists."""
         mock_socket_path.parent.mkdir(parents=True, exist_ok=True)
         mock_socket_path.touch()
@@ -488,9 +470,7 @@ class TestAutoStartPerformance:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_multiple_requests_no_additional_startup(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_multiple_requests_no_additional_startup(self, mock_socket_path: Path) -> None:
         """Multiple requests don't trigger multiple daemon starts."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -522,9 +502,7 @@ class TestAutoStartEdgeCases:
     """Edge case tests for auto-start behavior."""
 
     @pytest.mark.asyncio
-    async def test_close_is_idempotent(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_close_is_idempotent(self, mock_socket_path: Path) -> None:
         """Multiple close() calls are safe."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -541,9 +519,7 @@ class TestAutoStartEdgeCases:
         assert client._client is None
 
     @pytest.mark.asyncio
-    async def test_request_after_close(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_request_after_close(self, mock_socket_path: Path) -> None:
         """New request after explicit close works correctly."""
         client = DaemonClient(
             workspace_path="/test/workspace",
@@ -574,9 +550,7 @@ class TestAutoStartEdgeCases:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_different_workspaces_different_sockets(
-        self, temp_base_dir: Path
-    ) -> None:
+    async def test_different_workspaces_different_sockets(self, temp_base_dir: Path) -> None:
         """Different workspaces produce different socket paths."""
         import uuid
 
@@ -634,9 +608,7 @@ class TestAutoStartConfiguration:
     """Tests for auto-start configuration options."""
 
     @pytest.mark.asyncio
-    async def test_custom_startup_timeout(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_custom_startup_timeout(self, mock_socket_path: Path) -> None:
         """Custom startup_timeout is stored correctly."""
         custom_timeout = 5.0
         client = DaemonClient(
@@ -651,9 +623,7 @@ class TestAutoStartConfiguration:
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_custom_connection_timeout(
-        self, mock_socket_path: Path
-    ) -> None:
+    async def test_custom_connection_timeout(self, mock_socket_path: Path) -> None:
         """Custom connection_timeout is stored correctly."""
         custom_timeout = 15.0
         client = DaemonClient(

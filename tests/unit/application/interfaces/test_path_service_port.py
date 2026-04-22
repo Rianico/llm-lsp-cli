@@ -1,8 +1,6 @@
 """Tests for PathServicePort protocol."""
 
-import pytest
 import inspect
-from pathlib import Path
 
 from llm_lsp_cli.application.interfaces.path_service import PathServicePort
 

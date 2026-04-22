@@ -38,8 +38,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -71,8 +73,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -84,7 +88,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "json"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "json",
+                ],
             )
 
             assert result.exit_code == 0
@@ -104,8 +116,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -117,7 +131,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "json"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "json",
+                ],
             )
 
             assert result.exit_code == 0
@@ -137,8 +159,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -150,7 +174,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "json"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "json",
+                ],
             )
 
             assert result.exit_code == 0
@@ -164,8 +196,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -177,7 +211,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "yaml"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "yaml",
+                ],
             )
 
             assert result.exit_code == 0
@@ -191,8 +233,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -204,7 +248,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "csv"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "csv",
+                ],
             )
 
             assert result.exit_code == 0
@@ -219,8 +271,10 @@ class TestDocumentSymbolVerbose:
         mock_response = create_document_symbol_response_with_variables()
         workspace = str(test_file_in_workspace.parent.parent)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -232,7 +286,15 @@ class TestDocumentSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-v", "-o", "text"],
+                [
+                    "document-symbol",
+                    str(test_file_in_workspace),
+                    "-w",
+                    workspace,
+                    "-v",
+                    "-o",
+                    "text",
+                ],
             )
 
             assert result.exit_code == 0
@@ -248,8 +310,10 @@ class TestDocumentSymbolVerbose:
         nonexistent_file = temp_dir / "missing.py"
         workspace = str(temp_dir)
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance

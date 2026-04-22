@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from contextlib import suppress
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 

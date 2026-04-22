@@ -150,8 +150,7 @@ class TestFilterSymbols:
     def test_mixed_kinds_correct_filtering(self) -> None:
         """Verify mixed symbol list is filtered correctly at NORMAL verbosity."""
         symbols = [
-            {"kind": k, "name": f"sym_{k}"}
-            for k in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+            {"kind": k, "name": f"sym_{k}"} for k in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         ]
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
         # Should exclude kind 8 (FIELD) and 13 (VARIABLE)
@@ -193,7 +192,7 @@ class TestFilterSymbolsRecursive:
                 "children": [
                     {"name": "method", "kind": SYMBOL_KIND_METHOD},
                     {"name": "field", "kind": SYMBOL_KIND_FIELD},
-                ]
+                ],
             }
         ]
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
@@ -213,7 +212,7 @@ class TestFilterSymbolsRecursive:
                 "children": [
                     {"name": "method", "kind": SYMBOL_KIND_METHOD},
                     {"name": "field", "kind": SYMBOL_KIND_FIELD},
-                ]
+                ],
             }
         ]
         result = filter_symbols(symbols, VerbosityLevel.VERBOSE)
@@ -256,13 +255,7 @@ class TestFilterSymbolsRecursive:
 
     def test_empty_children_array(self) -> None:
         """Verify symbols with empty children array are handled correctly."""
-        symbols = [
-            {
-                "name": "MyClass",
-                "kind": SYMBOL_KIND_CLASS,
-                "children": []
-            }
-        ]
+        symbols = [{"name": "MyClass", "kind": SYMBOL_KIND_CLASS, "children": []}]
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
 
         assert len(result) == 1
@@ -280,7 +273,7 @@ class TestFilterSymbolsRecursive:
                     {"name": "field1", "kind": SYMBOL_KIND_FIELD},
                     {"name": "function", "kind": SYMBOL_KIND_FUNCTION},
                     {"name": "field2", "kind": SYMBOL_KIND_FIELD},
-                ]
+                ],
             }
         ]
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
@@ -322,9 +315,9 @@ class TestFilterSymbolsRecursive:
                         "children": [
                             {"name": "var", "kind": SYMBOL_KIND_VARIABLE},
                             {"name": "method", "kind": SYMBOL_KIND_METHOD},
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
         ]
         result = filter_symbols(symbols, VerbosityLevel.NORMAL)
@@ -344,7 +337,7 @@ class TestFilterSymbolsRecursive:
             "children": [
                 {"name": "field", "kind": SYMBOL_KIND_FIELD},
                 {"name": "method", "kind": SYMBOL_KIND_METHOD},
-            ]
+            ],
         }
         symbols = [original_symbol]
 
@@ -354,7 +347,7 @@ class TestFilterSymbolsRecursive:
             "children": [
                 {"name": "field", "kind": SYMBOL_KIND_FIELD},
                 {"name": "method", "kind": SYMBOL_KIND_METHOD},
-            ]
+            ],
         }
 
         filter_symbols(symbols, VerbosityLevel.NORMAL)

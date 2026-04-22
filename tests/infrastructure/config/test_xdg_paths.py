@@ -16,6 +16,36 @@ def reset_xdg_paths():
     XdgPaths._instance = None
 
 
+class TestBuildLogFilePathDeprecation:
+    """Test build_log_file_path() emits deprecation warning."""
+
+    def test_config_manager_build_log_file_path_warns(self) -> None:
+        """ConfigManager.build_log_file_path() emits DeprecationWarning."""
+        # Arrange
+        from llm_lsp_cli.config.manager import ConfigManager
+
+        # Act & Assert
+        with pytest.warns(DeprecationWarning, match="log_file_path"):
+            ConfigManager.build_log_file_path(
+                workspace_path="/tmp/test",
+                language="python",
+            )
+
+    def test_path_builder_build_log_file_path_warns(self) -> None:
+        """RuntimePathBuilder.build_log_file_path() emits DeprecationWarning."""
+        # Arrange
+        from llm_lsp_cli.config.path_builder import RuntimePathBuilder
+
+        builder = RuntimePathBuilder()
+
+        # Act & Assert
+        with pytest.warns(DeprecationWarning, match="log_file_path"):
+            builder.build_log_file_path(
+                workspace_path="/tmp/test",
+                language="python",
+            )
+
+
 class TestXdgPathsLazyInitialization:
     """Test XdgPaths lazy initialization behavior."""
 
@@ -32,7 +62,7 @@ class TestXdgPathsLazyInitialization:
         monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_dir))
 
         # Act: Import and access class without calling get()
-        from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+        from llm_lsp_cli.infrastructure.config import xdg_paths  # noqa: F401
 
         # Assert: Directories should NOT exist yet
         assert not config_home.exists()

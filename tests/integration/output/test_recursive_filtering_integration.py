@@ -52,8 +52,10 @@ class TestDocumentSymbolRecursiveFiltering:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -109,8 +111,10 @@ class TestDocumentSymbolRecursiveFiltering:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -122,7 +126,16 @@ class TestDocumentSymbolRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-v", "-o", "json", "--raw"],
+                [
+                    "document-symbol",
+                    str(test_file),
+                    "-w",
+                    str(tmp_path),
+                    "-v",
+                    "-o",
+                    "json",
+                    "--raw",
+                ],
             )
 
             assert result.exit_code == 0
@@ -156,17 +169,26 @@ class TestDeepNestedRecursiveFiltering:
                 {
                     "name": "mymodule",
                     "kind": SYMBOL_KIND_MODULE,
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 100, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 100, "character": 0},
+                    },
                     "children": [
                         {
                             "name": "MyClass",
                             "kind": SYMBOL_KIND_CLASS,
-                            "range": {"start": {"line": 5, "character": 0}, "end": {"line": 50, "character": 0}},
+                            "range": {
+                                "start": {"line": 5, "character": 0},
+                                "end": {"line": 50, "character": 0},
+                            },
                             "children": [
                                 {
                                     "name": "my_method",
                                     "kind": SYMBOL_KIND_METHOD,
-                                    "range": {"start": {"line": 10, "character": 4}, "end": {"line": 30, "character": 0}},
+                                    "range": {
+                                        "start": {"line": 10, "character": 4},
+                                        "end": {"line": 30, "character": 0},
+                                    },
                                     "children": [
                                         {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
                                         {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE},
@@ -175,7 +197,10 @@ class TestDeepNestedRecursiveFiltering:
                                 {
                                     "name": "class_field",
                                     "kind": SYMBOL_KIND_FIELD,
-                                    "range": {"start": {"line": 6, "character": 8}, "end": {"line": 6, "character": 20}},
+                                    "range": {
+                                        "start": {"line": 6, "character": 8},
+                                        "end": {"line": 6, "character": 20},
+                                    },
                                 },
                             ],
                         },
@@ -184,8 +209,10 @@ class TestDeepNestedRecursiveFiltering:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -228,17 +255,26 @@ class TestDeepNestedRecursiveFiltering:
                 {
                     "name": "mymodule",
                     "kind": SYMBOL_KIND_MODULE,
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 100, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 100, "character": 0},
+                    },
                     "children": [
                         {
                             "name": "MyClass",
                             "kind": SYMBOL_KIND_CLASS,
-                            "range": {"start": {"line": 5, "character": 0}, "end": {"line": 50, "character": 0}},
+                            "range": {
+                                "start": {"line": 5, "character": 0},
+                                "end": {"line": 50, "character": 0},
+                            },
                             "children": [
                                 {
                                     "name": "my_method",
                                     "kind": SYMBOL_KIND_METHOD,
-                                    "range": {"start": {"line": 10, "character": 4}, "end": {"line": 30, "character": 0}},
+                                    "range": {
+                                        "start": {"line": 10, "character": 4},
+                                        "end": {"line": 30, "character": 0},
+                                    },
                                     "children": [
                                         {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
                                     ],
@@ -250,8 +286,10 @@ class TestDeepNestedRecursiveFiltering:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -263,7 +301,16 @@ class TestDeepNestedRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-v", "-o", "json", "--raw"],
+                [
+                    "document-symbol",
+                    str(test_file),
+                    "-w",
+                    str(tmp_path),
+                    "-v",
+                    "-o",
+                    "json",
+                    "--raw",
+                ],
             )
 
             assert result.exit_code == 0
@@ -297,7 +344,10 @@ class TestMultiBranchRecursiveFiltering:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 100, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 100, "character": 0},
+                    },
                     "children": [
                         {
                             "name": "method_a",
@@ -323,8 +373,10 @@ class TestMultiBranchRecursiveFiltering:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -374,23 +426,34 @@ class TestWorkspaceSymbolRecursiveFiltering:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "location": {"uri": "file:///test.py", "range": {"start": {"line": 0}, "end": {"line": 50}}},
+                    "location": {
+                        "uri": "file:///test.py",
+                        "range": {"start": {"line": 0}, "end": {"line": 50}},
+                    },
                 },
                 {
                     "name": "my_function",
                     "kind": SYMBOL_KIND_FUNCTION,
-                    "location": {"uri": "file:///test.py", "range": {"start": {"line": 55}, "end": {"line": 70}}},
+                    "location": {
+                        "uri": "file:///test.py",
+                        "range": {"start": {"line": 55}, "end": {"line": 70}},
+                    },
                 },
                 {
                     "name": "module_var",
                     "kind": SYMBOL_KIND_VARIABLE,
-                    "location": {"uri": "file:///test.py", "range": {"start": {"line": 5}, "end": {"line": 5}}},
+                    "location": {
+                        "uri": "file:///test.py",
+                        "range": {"start": {"line": 5}, "end": {"line": 5}},
+                    },
                 },
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -427,7 +490,10 @@ class TestRecursiveFilteringWithTestData:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "location": {"uri": "file:///src/models.py", "range": {"start": {"line": 0}, "end": {"line": 50}}},
+                    "location": {
+                        "uri": "file:///src/models.py",
+                        "range": {"start": {"line": 0}, "end": {"line": 50}},
+                    },
                     "children": [
                         {"name": "field", "kind": SYMBOL_KIND_FIELD},
                         {"name": "method", "kind": SYMBOL_KIND_METHOD},
@@ -436,7 +502,10 @@ class TestRecursiveFilteringWithTestData:
                 {
                     "name": "TestMyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "location": {"uri": "file:///tests/test_models.py", "range": {"start": {"line": 0}, "end": {"line": 30}}},
+                    "location": {
+                        "uri": "file:///tests/test_models.py",
+                        "range": {"start": {"line": 0}, "end": {"line": 30}},
+                    },
                     "children": [
                         {"name": "test_field", "kind": SYMBOL_KIND_FIELD},
                         {"name": "test_method", "kind": SYMBOL_KIND_METHOD},
@@ -445,8 +514,10 @@ class TestRecursiveFilteringWithTestData:
             ],
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -459,7 +530,16 @@ class TestRecursiveFilteringWithTestData:
             # With --include-tests but without -v
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "Class", "-w", "/tmp", "--include-tests", "-o", "json", "--raw"],
+                [
+                    "workspace-symbol",
+                    "Class",
+                    "-w",
+                    "/tmp",
+                    "--include-tests",
+                    "-o",
+                    "json",
+                    "--raw",
+                ],
             )
 
             assert result.exit_code == 0

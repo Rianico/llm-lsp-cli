@@ -2,8 +2,6 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.lsp.transport import StdioTransport
 

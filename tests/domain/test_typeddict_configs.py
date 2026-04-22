@@ -1,6 +1,5 @@
 """Tests for TypedDict configurations."""
 
-import pytest
 from typing import get_type_hints
 
 from llm_lsp_cli.config.types import (
@@ -87,8 +86,11 @@ class TestCapabilityConfig:
             },
             "definitionProvider": True,
         }
-        assert config["textDocumentSync"]["openClose"] is True
-        assert config["definitionProvider"] is True
+        # Use .get() for safer access to nested TypedDict
+        sync_config = config.get("textDocumentSync", {})
+        assert isinstance(sync_config, dict)
+        assert sync_config.get("openClose") is True
+        assert config.get("definitionProvider") is True
 
     def test_capability_config_providers(self):
         """Verify CapabilityConfig supports various providers."""

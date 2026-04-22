@@ -1,6 +1,5 @@
 """Tests for IpcTransportPort protocol."""
 
-import pytest
 import inspect
 
 from llm_lsp_cli.application.interfaces.ipc_transport import IpcTransportPort

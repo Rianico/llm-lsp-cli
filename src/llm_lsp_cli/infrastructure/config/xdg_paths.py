@@ -50,6 +50,15 @@ class XdgPaths:
                     cls._instance = cls()
         return cls._instance
 
+    @classmethod
+    def reset_for_testing(cls) -> None:
+        """Reset singleton instance for testing.
+
+        This allows tests to override environment variables and get fresh initialization.
+        """
+        with cls._lock:
+            cls._instance = None
+
     @staticmethod
     def _resolve_config_home() -> Path:
         """Resolve XDG_CONFIG_HOME with fallback."""

@@ -37,9 +37,7 @@ def build_request_bytes(request: dict) -> bytes:
 class TestFullSecurityPipeline:
     """Test suite for full security pipeline integration."""
 
-    async def test_path_validation_and_ipc_auth_integration(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_path_validation_and_ipc_auth_integration(self, tmp_path: Path) -> None:
         """Test full security pipeline: path validation + IPC auth."""
         # Arrange: Set up workspace with files
         workspace = tmp_path / "workspace"
@@ -61,14 +59,10 @@ class TestFullSecurityPipeline:
         # Track validated paths
         validated_paths: list[Path] = []
 
-        async def handler_with_path_validation(
-            method: str, params: dict
-        ) -> dict:
+        async def handler_with_path_validation(method: str, params: dict) -> dict:
             """Handler that validates paths."""
             if "path" in params:
-                validated_path = path_validator.validate_within_boundary(
-                    params["path"]
-                )
+                validated_path = path_validator.validate_within_boundary(params["path"])
                 validated_paths.append(validated_path)
                 return {"result": "access granted", "path": str(validated_path)}
             return {"result": "ok"}
@@ -201,9 +195,7 @@ class TestFullSecurityPipeline:
 
             # Execute 10 concurrent requests
             num_concurrent = 10
-            tasks = [
-                make_request(i) for i in range(1, num_concurrent + 1)
-            ]
+            tasks = [make_request(i) for i in range(1, num_concurrent + 1)]
             results = await asyncio.gather(*tasks)
 
             # Assert all requests succeeded

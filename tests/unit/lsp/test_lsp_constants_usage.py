@@ -10,7 +10,9 @@ from llm_lsp_cli.lsp.constants import LSPConstants
 class TestLspConstantUsage:
     """Verify LSP method strings reference LSPConstants."""
 
-    def _find_string_literals(self, file_path: Path, target_strings: list[str]) -> list[tuple[int, str]]:
+    def _find_string_literals(
+        self, file_path: Path, target_strings: list[str]
+    ) -> list[tuple[int, str]]:
         """Find occurrences of target strings in a Python file."""
         source = file_path.read_text()
         tree = ast.parse(source)
@@ -40,8 +42,9 @@ class TestLspConstantUsage:
         occurrences = self._find_string_literals(daemon_file, lsp_methods)
 
         # Daemon should import from LSPConstants, not duplicate strings
-        assert len(occurrences) == 0, \
+        assert len(occurrences) == 0, (
             f"Found duplicated LSP method strings in daemon.py: {occurrences}"
+        )
 
     def test_daemon_imports_lsp_constants(self):
         """Verify daemon.py imports LSPConstants."""
@@ -49,8 +52,10 @@ class TestLspConstantUsage:
         source = daemon_file.read_text()
 
         # Should import LSPConstants
-        assert "from llm_lsp_cli.lsp.constants import LSPConstants" in source or \
-               "import LSPConstants" in source
+        assert (
+            "from llm_lsp_cli.lsp.constants import LSPConstants" in source
+            or "import LSPConstants" in source
+        )
 
     def test_registry_uses_lsp_constants(self):
         """Verify server registry is properly structured.
@@ -62,8 +67,7 @@ class TestLspConstantUsage:
         source = registry_file.read_text()
 
         # Registry should import ConfigManager which handles LSP constants
-        assert "ConfigManager" in source, \
-            "registry.py should import ConfigManager"
+        assert "ConfigManager" in source, "registry.py should import ConfigManager"
 
     def test_method_router_provides_all_constants(self):
         """Verify LspMethodRouter provides configs for all LSPConstants methods."""
@@ -83,8 +87,7 @@ class TestLspConstantUsage:
 
         for method in key_methods:
             config = router.get_config(method)
-            assert config is not None, \
-                f"LspMethodRouter missing config for {method}"
+            assert config is not None, f"LspMethodRouter missing config for {method}"
 
     def test_lsp_constants_are_defined(self):
         """Verify LSPConstants has all expected method constants."""

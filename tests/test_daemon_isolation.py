@@ -175,8 +175,8 @@ class TestDaemonIsolation:
 
         assert hasattr(manager, "daemon_log_file")
         assert manager.daemon_log_file.name == "daemon.log"
-        assert manager.log_file.name != "daemon.log"
-        assert manager.log_file.name.endswith(".log")
+        # log_file attribute was removed - LSP logs now go to daemon.log only
+        assert not hasattr(manager, "log_file")
 
 
 class TestDaemonManagerIsolation:

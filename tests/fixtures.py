@@ -489,38 +489,49 @@ MIXED_SYMBOLS: list[dict[str, Any]] = [
 # =============================================================================
 
 DEEPLY_NESTED_SYMBOL_RESPONSE: dict[str, Any] = {
-    "symbols": [{
-        "name": "Module",
-        "kind": SYMBOL_KIND_MODULE,
-        "children": [{
-            "name": "MyClass",
-            "kind": SYMBOL_KIND_CLASS,
-            "children": [{
-                "name": "method",
-                "kind": SYMBOL_KIND_METHOD,
-                "children": [{
-                    "name": "local_var",
-                    "kind": SYMBOL_KIND_VARIABLE,
-                }]
-            }, {
-                "name": "field",
-                "kind": SYMBOL_KIND_FIELD,
-            }]
-        }]
-    }]
+    "symbols": [
+        {
+            "name": "Module",
+            "kind": SYMBOL_KIND_MODULE,
+            "children": [
+                {
+                    "name": "MyClass",
+                    "kind": SYMBOL_KIND_CLASS,
+                    "children": [
+                        {
+                            "name": "method",
+                            "kind": SYMBOL_KIND_METHOD,
+                            "children": [
+                                {
+                                    "name": "local_var",
+                                    "kind": SYMBOL_KIND_VARIABLE,
+                                }
+                            ],
+                        },
+                        {
+                            "name": "field",
+                            "kind": SYMBOL_KIND_FIELD,
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
 }
 """Deeply nested structure (3+ levels) for recursive filtering tests."""
 
 
 PARENT_WITH_ONLY_VARIABLE_CHILDREN: dict[str, Any] = {
-    "symbols": [{
-        "name": "MyClass",
-        "kind": SYMBOL_KIND_CLASS,
-        "children": [
-            {"name": "field1", "kind": SYMBOL_KIND_FIELD},
-            {"name": "field2", "kind": SYMBOL_KIND_FIELD},
-        ]
-    }]
+    "symbols": [
+        {
+            "name": "MyClass",
+            "kind": SYMBOL_KIND_CLASS,
+            "children": [
+                {"name": "field1", "kind": SYMBOL_KIND_FIELD},
+                {"name": "field2", "kind": SYMBOL_KIND_FIELD},
+            ],
+        }
+    ]
 }
 """Parent with all variable children (tests empty-after-filter scenario)."""
 
@@ -532,29 +543,31 @@ WIDE_TREE_SYMBOLS: list[dict[str, Any]] = [
         "children": [
             {"name": f"child_{i}", "kind": SYMBOL_KIND_METHOD if i % 2 == 0 else SYMBOL_KIND_FIELD}
             for i in range(100)
-        ]
+        ],
     }
 ]
 """Wide tree fixture with 100 sibling children for performance tests."""
 
 
 MULTI_BRANCH_NESTED: dict[str, Any] = {
-    "symbols": [{
-        "name": "Root",
-        "kind": SYMBOL_KIND_CLASS,
-        "children": [
-            {
-                "name": "branch_a",
-                "kind": SYMBOL_KIND_METHOD,
-                "children": [{"name": "var_a", "kind": SYMBOL_KIND_VARIABLE}]
-            },
-            {
-                "name": "branch_b",
-                "kind": SYMBOL_KIND_METHOD,
-                "children": [{"name": "func_b", "kind": SYMBOL_KIND_FUNCTION}]
-            }
-        ]
-    }]
+    "symbols": [
+        {
+            "name": "Root",
+            "kind": SYMBOL_KIND_CLASS,
+            "children": [
+                {
+                    "name": "branch_a",
+                    "kind": SYMBOL_KIND_METHOD,
+                    "children": [{"name": "var_a", "kind": SYMBOL_KIND_VARIABLE}],
+                },
+                {
+                    "name": "branch_b",
+                    "kind": SYMBOL_KIND_METHOD,
+                    "children": [{"name": "func_b", "kind": SYMBOL_KIND_FUNCTION}],
+                },
+            ],
+        }
+    ]
 }
 """Multi-branch nested fixture for testing recursive filtering at multiple branch points."""
 
@@ -575,7 +588,7 @@ def create_nested_symbol(depth: int, variable_at_leaf: bool = True) -> dict[str,
     return {
         "name": f"node_{depth}",
         "kind": SYMBOL_KIND_CLASS if depth % 2 == 0 else SYMBOL_KIND_METHOD,
-        "children": [create_nested_symbol(depth - 1, variable_at_leaf)]
+        "children": [create_nested_symbol(depth - 1, variable_at_leaf)],
     }
 
 

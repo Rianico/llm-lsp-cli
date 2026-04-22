@@ -1,11 +1,92 @@
 """Integration tests for transport logging."""
 
 import asyncio
-from unittest.mock import MagicMock
+import logging
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from llm_lsp_cli.lsp.transport import StdioTransport
+
+
+class TestStdioTransportNoLogFile:
+    """Test StdioTransport no longer accepts log_file parameter."""
+
+    def test_init_rejects_log_file_kwarg(self) -> None:
+        """StdioTransport.__init__ raises TypeError for log_file kwarg."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        # Act & Assert
+        with pytest.raises(TypeError, match="log_file"):
+            StdioTransport(
+                command="echo",
+                log_file=Path("/tmp/test.log"),  # type: ignore
+            )
+
+    def test_init_has_no_log_file_attribute(self) -> None:
+        """StdioTransport instance has no log_file attribute."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        # Act
+        transport = StdioTransport(command="echo")
+
+        # Assert
+        assert not hasattr(transport, "log_file")
+
+
+class TestStderrLoopLoggerOnly:
+    """Test _stderr_loop logs to Python logger only."""
+
+    @pytest.mark.asyncio
+    async def test_stderr_logs_to_logger_not_file(
+        self,
+        log_capture_handler: logging.StreamHandler,  # type: ignore[assignment]
+    ) -> None:
+        """_stderr_loop writes to logger.debug(), not file handle."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        transport = StdioTransport(command="echo", trace=True)
+        # Mock process with stderr that yields a line then stops
+        mock_process = AsyncMock()
+        mock_process.stderr.readline = AsyncMock(side_effect=[b"LSP error\n", b""])
+        transport._process = mock_process
+        transport._running = True
+
+        # Act
+        await transport._stderr_loop()
+
+        # Assert
+        log_output = log_capture_handler.stream.getvalue()
+        assert "LSP error" in log_output
+        assert "LSP stderr:" in log_output  # Log format prefix
+
+    @pytest.mark.asyncio
+    async def test_no_file_handle_written(self) -> None:
+        """_stderr_loop does not write to any file handle."""
+        # Arrange
+        from llm_lsp_cli.lsp.transport import StdioTransport
+
+        transport = StdioTransport(command="echo")
+        # Mock with a file handle that would raise if written to
+        mock_file_handle = MagicMock()
+        mock_file_handle.write.side_effect = RuntimeError("Should not write to file")
+
+        # Mock process stderr that returns empty immediately
+        mock_process = AsyncMock()
+        mock_process.stderr.readline = AsyncMock(return_value=b"")
+        transport._process = mock_process
+        transport._running = True
+
+        # Act & Assert
+        # If _log_fh is accessed, test will fail
+        transport._log_fh = mock_file_handle  # type: ignore
+
+        # Should not raise RuntimeError
+        await transport._stderr_loop()
 
 
 class TestTransportLoggerIntegration:
@@ -49,7 +130,6 @@ class TestTransportLoggerIntegration:
         assert transport.cwd is None
         assert transport.env is None
         assert transport.trace is False
-        assert transport.log_file is None
 
     @pytest.mark.asyncio
     async def test_handle_message_processes_response(self) -> None:
@@ -76,8 +156,7 @@ class TestTransportLoggerIntegration:
         transport._pending[1] = mock_future
 
         message_body = (
-            b'{"jsonrpc": "2.0", "id": 1, '
-            b'"error": {"code": -32600, "message": "Test error"}}'
+            b'{"jsonrpc": "2.0", "id": 1, "error": {"code": -32600, "message": "Test error"}}'
         )
 
         await transport._handle_message(message_body)

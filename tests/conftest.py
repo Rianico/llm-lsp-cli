@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures."""
 
+import logging
 import shutil
 import tempfile
 import typing
@@ -43,18 +44,27 @@ if __name__ == "__main__":
     return filepath
 
 
+@pytest.fixture(autouse=True)
+def _reset_diagnostic_logger() -> typing.Generator[None, None, None]:
+    """Reset diagnostic logger state between tests for isolation.
+
+    This fixture ensures that tests configuring the diagnostic logger
+    (llm_lsp_cli.lsp.diagnostic) don't affect other tests.
+    """
+    yield
+    # Cleanup after test
+    diagnostic_logger = logging.getLogger("llm_lsp_cli.lsp.diagnostic")
+    diagnostic_logger.handlers.clear()
+    diagnostic_logger.setLevel(logging.NOTSET)
+    diagnostic_logger.propagate = True
+
+
 def is_pyright_langserver_installed() -> bool:
     """Check if pyright-langserver is installed and available."""
     try:
-        # Check if the command exists using shutil.which
         import shutil
+
         path = shutil.which("pyright-langserver")
         return path is not None
     except Exception:
         return False
-
-
-@pytest.fixture
-def pyright_langserver_available() -> bool:
-    """Fixture that returns True if pyright-langserver is installed."""
-    return is_pyright_langserver_installed()

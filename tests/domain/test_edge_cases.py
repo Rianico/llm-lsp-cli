@@ -25,9 +25,7 @@ from llm_lsp_cli.domain.value_objects.workspace_path import WorkspacePath
 class TestEmptyAndMalformedInputs:
     """Tests for empty and malformed input handling."""
 
-    def test_workspace_path_with_empty_string_raises(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_empty_string_raises(self, temp_dir: Path) -> None:
         """WorkspacePath with empty string raises appropriate error.
 
         Note: Path("") resolves to the current directory, which exists.
@@ -136,9 +134,7 @@ class TestEmptyAndMalformedInputs:
 class TestSymlinkAttackVectors:
     """Tests for various symlink-based attack vectors."""
 
-    def test_direct_symlink_to_outside_file(
-        self, temp_dir: Path
-    ) -> None:
+    def test_direct_symlink_to_outside_file(self, temp_dir: Path) -> None:
         """Blocks direct symlink to file outside workspace."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -155,9 +151,7 @@ class TestSymlinkAttackVectors:
         with pytest.raises(PathValidationError):
             ws_path.resolve_child("link_to_secret")
 
-    def test_symlink_to_outside_directory(
-        self, temp_dir: Path
-    ) -> None:
+    def test_symlink_to_outside_directory(self, temp_dir: Path) -> None:
         """Blocks symlink to directory outside workspace."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -237,9 +231,7 @@ class TestSymlinkAttackVectors:
         # or potentially workspace root depending on OS behavior
         assert workspace.resolve() in [result] + list(result.parents)
 
-    def test_symlink_loops_back_to_parent(
-        self, temp_dir: Path
-    ) -> None:
+    def test_symlink_loops_back_to_parent(self, temp_dir: Path) -> None:
         """Handles symlink looping back to parent directory."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -290,9 +282,7 @@ class TestSymlinkAttackVectors:
 class TestConcurrentAccessPatterns:
     """Tests for concurrent access patterns and thread safety."""
 
-    def test_concurrent_workspace_path_access(
-        self, temp_dir: Path
-    ) -> None:
+    def test_concurrent_workspace_path_access(self, temp_dir: Path) -> None:
         """WorkspacePath handles concurrent read access."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -342,10 +332,7 @@ class TestConcurrentAccessPatterns:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=read_command)
-            for _ in range(10)
-        ]
+        threads = [threading.Thread(target=read_command) for _ in range(10)]
 
         for t in threads:
             t.start()
@@ -408,10 +395,7 @@ class TestConcurrentAccessPatterns:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=create_and_access)
-            for _ in range(20)
-        ]
+        threads = [threading.Thread(target=create_and_access) for _ in range(20)]
 
         for t in threads:
             t.start()
@@ -433,9 +417,7 @@ class TestConcurrentAccessPatterns:
 class TestUnicodeAndSpecialCharacters:
     """Tests for Unicode and special character handling."""
 
-    def test_workspace_path_with_unicode_directory(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_unicode_directory(self, temp_dir: Path) -> None:
         """WorkspacePath handles Unicode directory names."""
         workspace = temp_dir / "プロジェクト"
         workspace.mkdir()
@@ -444,9 +426,7 @@ class TestUnicodeAndSpecialCharacters:
         assert ws_path.path.exists()
         assert "プロジェクト" in str(ws_path.path)
 
-    def test_workspace_path_with_unicode_filename(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_unicode_filename(self, temp_dir: Path) -> None:
         """WorkspacePath handles Unicode filenames."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -458,9 +438,7 @@ class TestUnicodeAndSpecialCharacters:
         assert result.exists()
         assert "ファイル" in str(result)
 
-    def test_workspace_path_with_emoji_in_path(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_emoji_in_path(self, temp_dir: Path) -> None:
         """WorkspacePath handles emoji in paths."""
         workspace = temp_dir / "project"
         workspace.mkdir()
@@ -486,9 +464,7 @@ class TestUnicodeAndSpecialCharacters:
         )
         assert "عربي" in server_def.language_id
 
-    def test_workspace_path_with_chinese_characters(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_chinese_characters(self, temp_dir: Path) -> None:
         """WorkspacePath handles Chinese characters in paths."""
         workspace = temp_dir / "项目"
         workspace.mkdir()
@@ -500,9 +476,7 @@ class TestUnicodeAndSpecialCharacters:
         assert "项目" in str(result)
         assert "文件" in str(result)
 
-    def test_workspace_path_with_cyrillic_characters(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_cyrillic_characters(self, temp_dir: Path) -> None:
         """WorkspacePath handles Cyrillic characters in paths."""
         workspace = temp_dir / "проект"
         workspace.mkdir()
@@ -510,9 +484,7 @@ class TestUnicodeAndSpecialCharacters:
         ws_path = WorkspacePath(workspace)
         assert "проект" in str(ws_path.path)
 
-    def test_workspace_path_with_mixed_scripts(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_with_mixed_scripts(self, temp_dir: Path) -> None:
         """WorkspacePath handles mixed character scripts."""
         workspace = temp_dir / "project-项目-プロジェクト"
         workspace.mkdir()
@@ -548,9 +520,7 @@ class TestUnicodeAndSpecialCharacters:
 class TestBoundaryConditions:
     """Tests for boundary conditions in domain objects."""
 
-    def test_workspace_path_at_filesystem_root(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_at_filesystem_root(self, temp_dir: Path) -> None:
         """WorkspacePath behavior at filesystem boundaries."""
         # Use temp_dir as it's a valid existing directory
         ws_path = WorkspacePath(temp_dir)
@@ -584,9 +554,7 @@ class TestBoundaryConditions:
         )
         assert server_def.timeout_seconds == 2**31 - 1
 
-    def test_workspace_path_resolve_child_at_depth(
-        self, temp_dir: Path
-    ) -> None:
+    def test_workspace_path_resolve_child_at_depth(self, temp_dir: Path) -> None:
         """WorkspacePath handles deeply nested paths."""
         workspace = temp_dir / "project"
         workspace.mkdir()

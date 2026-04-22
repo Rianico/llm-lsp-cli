@@ -36,10 +36,12 @@ class TestE2EIPCCommunication:
     def temp_base_dir(self):  # type: ignore
         """Create a short base directory for UNIX socket paths."""
         import uuid
+
         base_dir = Path("/tmp") / f"llm-{uuid.uuid4().hex[:6]}"
         base_dir.mkdir(parents=True, exist_ok=True)
         yield base_dir
         import shutil
+
         shutil.rmtree(base_dir, ignore_errors=True)
 
     @pytest.fixture
@@ -50,10 +52,12 @@ class TestE2EIPCCommunication:
         Using /tmp directly ensures we stay within this limit.
         """
         import uuid
+
         workspace = Path("/tmp") / f"ws-{uuid.uuid4().hex[:6]}"
         workspace.mkdir(parents=True, exist_ok=True)
         yield workspace
         import shutil
+
         shutil.rmtree(workspace, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -136,31 +140,40 @@ class TestE2EIPCCommunication:
             test_file.write_text("def hello(): pass")
 
             # Test definition request
-            result = await client.request("textDocument/definition", {
-                "workspacePath": str(temp_workspace),
-                "filePath": str(test_file),
-                "line": 0,
-                "column": 5,
-            })
+            result = await client.request(
+                "textDocument/definition",
+                {
+                    "workspacePath": str(temp_workspace),
+                    "filePath": str(test_file),
+                    "line": 0,
+                    "column": 5,
+                },
+            )
             # Should return locations (might be empty)
             assert "locations" in result
 
             # Test references request
-            result = await client.request("textDocument/references", {
-                "workspacePath": str(temp_workspace),
-                "filePath": str(test_file),
-                "line": 0,
-                "column": 5,
-            })
+            result = await client.request(
+                "textDocument/references",
+                {
+                    "workspacePath": str(temp_workspace),
+                    "filePath": str(test_file),
+                    "line": 0,
+                    "column": 5,
+                },
+            )
             assert "locations" in result
 
             # Test hover request
-            result = await client.request("textDocument/hover", {
-                "workspacePath": str(temp_workspace),
-                "filePath": str(test_file),
-                "line": 0,
-                "column": 5,
-            })
+            result = await client.request(
+                "textDocument/hover",
+                {
+                    "workspacePath": str(temp_workspace),
+                    "filePath": str(test_file),
+                    "line": 0,
+                    "column": 5,
+                },
+            )
             # Hover returns dict (might be empty if no info)
             assert isinstance(result, dict)
 
@@ -177,6 +190,7 @@ class TestE2EWorkspaceIsolation:
     def temp_workspaces(self):  # type: ignore
         """Create multiple temporary workspaces with short paths."""
         import uuid
+
         base = Path("/tmp") / f"llm-lsp-test-{uuid.uuid4().hex[:8]}"
         base.mkdir(parents=True, exist_ok=True)
 
@@ -193,6 +207,7 @@ class TestE2EWorkspaceIsolation:
 
         # Cleanup
         import shutil
+
         shutil.rmtree(base, ignore_errors=True)
 
     def test_different_workspaces_different_sockets(self, temp_workspaces) -> None:  # type: ignore
@@ -278,7 +293,9 @@ class TestE2EConfigManagement:
             yield config_dir
 
     @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
-    def test_config_init_creates_file(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
+    def test_config_init_creates_file(
+        self, mock_get_paths: MagicMock, temp_config_dir: Path
+    ) -> None:
         """Test config init creates configuration file."""
         import yaml
 
@@ -300,8 +317,6 @@ class TestE2EConfigManagement:
     @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
     def test_config_load_after_init(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
         """Test config loads after initialization."""
-        config_file = temp_config_dir / "config.yaml"
-
         mock_paths = MagicMock()
         mock_paths.config_dir = temp_config_dir
         mock_get_paths.return_value = mock_paths
@@ -315,7 +330,9 @@ class TestE2EConfigManagement:
         assert "languages" in config.model_dump()
 
     @patch("llm_lsp_cli.config.manager.ConfigManager._get_xdg_paths")
-    def test_config_init_returns_false_if_exists(self, mock_get_paths: MagicMock, temp_config_dir: Path) -> None:
+    def test_config_init_returns_false_if_exists(
+        self, mock_get_paths: MagicMock, temp_config_dir: Path
+    ) -> None:
         """Test config init returns False if config exists."""
         config_file = temp_config_dir / "config.yaml"
         config_file.write_text("{}")
@@ -335,26 +352,28 @@ class TestE2EErrorHandling:
     def temp_base_dir(self):  # type: ignore
         """Create a short base directory for UNIX socket paths."""
         import uuid
+
         base_dir = Path("/tmp") / f"llm-err-{uuid.uuid4().hex[:6]}"
         base_dir.mkdir(parents=True, exist_ok=True)
         yield base_dir
         import shutil
+
         shutil.rmtree(base_dir, ignore_errors=True)
 
     @pytest.fixture
     def temp_workspace(self):  # type: ignore
         """Create a temporary workspace with short path for UNIX socket compatibility."""
         import uuid
+
         workspace = Path("/tmp") / f"ws-{uuid.uuid4().hex[:6]}"
         workspace.mkdir(parents=True, exist_ok=True)
         yield workspace
         import shutil
+
         shutil.rmtree(workspace, ignore_errors=True)
 
     @pytest.mark.asyncio
-    async def test_unknown_method_error(
-        self, temp_workspace: Path, temp_base_dir: Path
-    ) -> None:
+    async def test_unknown_method_error(self, temp_workspace: Path, temp_base_dir: Path) -> None:
         """Test unknown method returns error."""
         socket_path = ConfigManager.build_socket_path(
             workspace_path=str(temp_workspace),
@@ -379,6 +398,7 @@ class TestE2EErrorHandling:
 
             # Unknown method should raise error
             from llm_lsp_cli.ipc.unix_client import RPCError
+
             with pytest.raises(RPCError):
                 await client.request("unknown_method_xyz", {})
 
@@ -388,9 +408,7 @@ class TestE2EErrorHandling:
             await server.stop()
 
     @pytest.mark.asyncio
-    async def test_missing_filepath_error(
-        self, temp_workspace: Path, temp_base_dir: Path
-    ) -> None:
+    async def test_missing_filepath_error(self, temp_workspace: Path, temp_base_dir: Path) -> None:
         """Test missing filePath returns error."""
         socket_path = ConfigManager.build_socket_path(
             workspace_path=str(temp_workspace),
@@ -415,11 +433,15 @@ class TestE2EErrorHandling:
 
             # Missing required params should raise error
             from llm_lsp_cli.ipc.unix_client import RPCError
+
             with pytest.raises(RPCError):
-                await client.request("textDocument/definition", {
-                    "workspacePath": str(temp_workspace),
-                    # Missing filePath, line, column
-                })
+                await client.request(
+                    "textDocument/definition",
+                    {
+                        "workspacePath": str(temp_workspace),
+                        # Missing filePath, line, column
+                    },
+                )
 
             await client.close()
 
@@ -427,9 +449,7 @@ class TestE2EErrorHandling:
             await server.stop()
 
     @pytest.mark.asyncio
-    async def test_shutdown_request(
-        self, temp_workspace: Path, temp_base_dir: Path
-    ) -> None:
+    async def test_shutdown_request(self, temp_workspace: Path, temp_base_dir: Path) -> None:
         """Test shutdown request."""
         socket_path = ConfigManager.build_socket_path(
             workspace_path=str(temp_workspace),
@@ -469,20 +489,24 @@ class TestE2EConcurrentRequests:
     def temp_base_dir(self):  # type: ignore
         """Create a short base directory for UNIX socket paths."""
         import uuid
+
         base_dir = Path("/tmp") / f"llm-conc-{uuid.uuid4().hex[:6]}"
         base_dir.mkdir(parents=True, exist_ok=True)
         yield base_dir
         import shutil
+
         shutil.rmtree(base_dir, ignore_errors=True)
 
     @pytest.fixture
     def temp_workspace(self):  # type: ignore
         """Create a temporary workspace with short path for UNIX socket compatibility."""
         import uuid
+
         workspace = Path("/tmp") / f"ws-{uuid.uuid4().hex[:6]}"
         workspace.mkdir(parents=True, exist_ok=True)
         yield workspace
         import shutil
+
         shutil.rmtree(workspace, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -512,10 +536,7 @@ class TestE2EConcurrentRequests:
             client = UNIXClient(str(socket_path))
 
             # Send multiple concurrent ping requests
-            tasks = [
-                client.request("ping", {})
-                for _ in range(10)
-            ]
+            tasks = [client.request("ping", {}) for _ in range(10)]
             results = await asyncio.gather(*tasks)
 
             # All should succeed
@@ -561,18 +582,24 @@ class TestE2EConcurrentRequests:
             tasks = [
                 client.request("ping", {}),
                 client.request("status", {}),
-                client.request("textDocument/definition", {
-                    "workspacePath": str(temp_workspace),
-                    "filePath": str(test_file),
-                    "line": 0,
-                    "column": 5,
-                }),
-                client.request("textDocument/references", {
-                    "workspacePath": str(temp_workspace),
-                    "filePath": str(test_file),
-                    "line": 0,
-                    "column": 5,
-                }),
+                client.request(
+                    "textDocument/definition",
+                    {
+                        "workspacePath": str(temp_workspace),
+                        "filePath": str(test_file),
+                        "line": 0,
+                        "column": 5,
+                    },
+                ),
+                client.request(
+                    "textDocument/references",
+                    {
+                        "workspacePath": str(temp_workspace),
+                        "filePath": str(test_file),
+                        "line": 0,
+                        "column": 5,
+                    },
+                ),
             ]
             results = await asyncio.gather(*tasks)
 
@@ -595,11 +622,13 @@ class TestE2ERequestHandlerFeatures:
     def temp_workspace(self):  # type: ignore
         """Create a temporary workspace with short path for UNIX socket compatibility."""
         import uuid
+
         workspace = Path("/tmp") / f"llm-lsp-feat-{uuid.uuid4().hex[:8]}"
         workspace.mkdir(parents=True, exist_ok=True)
         yield workspace
         # Cleanup
         import shutil
+
         shutil.rmtree(workspace, ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -648,10 +677,13 @@ class TestE2ERequestHandlerFeatures:
         test_file = temp_workspace / "test.py"
         test_file.write_text("def foo(): pass")
 
-        result = await handler.handle("textDocument/documentSymbol", {
-            "workspacePath": str(temp_workspace),
-            "filePath": str(test_file),
-        })
+        result = await handler.handle(
+            "textDocument/documentSymbol",
+            {
+                "workspacePath": str(temp_workspace),
+                "filePath": str(test_file),
+            },
+        )
         assert "symbols" in result
 
     @pytest.mark.asyncio
@@ -678,10 +710,13 @@ def my_function():
 """)
 
         try:
-            result = await handler.handle("workspace/symbol", {
-                "workspacePath": str(temp_workspace),
-                "query": "my",
-            })
+            result = await handler.handle(
+                "workspace/symbol",
+                {
+                    "workspacePath": str(temp_workspace),
+                    "query": "my",
+                },
+            )
             # If successful, should return symbols list
             assert "symbols" in result
         except Exception as e:
@@ -701,10 +736,13 @@ def my_function():
         test_file = temp_workspace / "test.py"
         test_file.write_text("def hello(): pass\n")
 
-        result = await handler.handle("textDocument/completion", {
-            "workspacePath": str(temp_workspace),
-            "filePath": str(test_file),
-            "line": 0,
-            "column": 5,
-        })
+        result = await handler.handle(
+            "textDocument/completion",
+            {
+                "workspacePath": str(temp_workspace),
+                "filePath": str(test_file),
+                "line": 0,
+                "column": 5,
+            },
+        )
         assert "items" in result

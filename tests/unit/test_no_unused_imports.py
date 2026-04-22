@@ -91,5 +91,4 @@ class TestUnusedImports:
         actual_unused = imports - used - allowed_unused
 
         # This should pass - no unused imports
-        assert len(actual_unused) == 0, \
-            f"config/types.py has unused imports: {actual_unused}"
+        assert len(actual_unused) == 0, f"config/types.py has unused imports: {actual_unused}"

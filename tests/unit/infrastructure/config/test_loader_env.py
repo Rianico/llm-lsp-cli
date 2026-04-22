@@ -47,7 +47,9 @@ languages:
 
         assert data["languages"]["python"]["env"]["CUSTOM_PATH"] == "/my/path"
 
-    def test_env_var_missing_remains_literal(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_env_var_missing_remains_literal(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Missing env vars remain as literal string."""
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 
@@ -69,7 +71,9 @@ languages:
         # Should remain as literal string
         assert data["languages"]["python"]["env"]["CUSTOM_PATH"] == "$NONEXISTENT_VAR_12345"
 
-    def test_env_expansion_in_nested_values(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_env_expansion_in_nested_values(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Env expansion works in nested values."""
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 

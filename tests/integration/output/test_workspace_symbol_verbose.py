@@ -25,8 +25,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -57,8 +59,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -88,8 +92,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -116,8 +122,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -153,8 +161,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -181,8 +191,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -208,8 +220,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -235,8 +249,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = create_workspace_symbol_response_with_variables()
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -264,8 +280,10 @@ class TestWorkspaceSymbolVerbose:
 
         mock_response = {"symbols": []}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -277,7 +295,15 @@ class TestWorkspaceSymbolVerbose:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "nonexistent", "-w", "/tmp/test_workspace", "-v", "-o", "json"],
+                [
+                    "workspace-symbol",
+                    "nonexistent",
+                    "-w",
+                    "/tmp/test_workspace",
+                    "-v",
+                    "-o",
+                    "json",
+                ],
             )
 
             assert result.exit_code == 0

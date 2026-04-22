@@ -76,9 +76,10 @@ class TestE2ECsvDefinition:
 
     def test_e2e_definition_csv_parses_correctly(self, temp_file: Path) -> None:
         """Test that definition CSV output can be parsed correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -101,9 +102,10 @@ class TestE2ECsvDefinition:
 
     def test_e2e_definition_csv_empty_results(self, temp_file: Path) -> None:
         """Test definition CSV with no results returns empty string."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -133,9 +135,10 @@ class TestE2ECsvDefinition:
         ]
         mock_response = {"locations": locations}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -160,9 +163,10 @@ class TestE2ECsvReferences:
 
     def test_e2e_references_csv_parses_correctly(self, temp_file: Path) -> None:
         """Test that references CSV output parses correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -185,9 +189,10 @@ class TestE2ECsvReferences:
         workspace = str(temp_file.parent)
 
         # Without --include-tests, test files should be filtered
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -204,9 +209,10 @@ class TestE2ECsvReferences:
             assert "test_file.py" not in rows[0]["file"]
 
         # With --include-tests, all files should be included
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -236,9 +242,10 @@ class TestE2ECsvCompletion:
 
     def test_e2e_completion_csv_parses_correctly(self, temp_file: Path) -> None:
         """Test completion CSV output parses correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -259,9 +266,10 @@ class TestE2ECsvCompletion:
 
     def test_e2e_completion_csv_empty_results(self, temp_file: Path) -> None:
         """Test completion CSV with no results."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -281,9 +289,10 @@ class TestE2ECsvHover:
 
     def test_e2e_hover_csv_parses_correctly(self, temp_file: Path) -> None:
         """Test hover CSV output parses correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -303,9 +312,10 @@ class TestE2ECsvHover:
 
     def test_e2e_hover_csv_no_hover_data(self, temp_file: Path) -> None:
         """Test hover CSV when no hover data available."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -325,9 +335,10 @@ class TestE2ECsvDocumentSymbol:
 
     def test_e2e_document_symbol_csv_parses_correctly(self, temp_file: Path) -> None:
         """Test document-symbol CSV output parses correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -352,9 +363,10 @@ class TestE2ECsvWorkspaceSymbol:
 
     def test_e2e_workspace_symbol_csv_parses_correctly(self, temp_dir: Path) -> None:
         """Test workspace-symbol CSV output parses correctly."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -376,9 +388,10 @@ class TestE2ECsvWorkspaceSymbol:
     def test_e2e_workspace_symbol_csv_with_test_filtering(self, temp_dir: Path) -> None:
         """Test workspace-symbol CSV respects --include-tests flag."""
         # Without --include-tests
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -395,9 +408,10 @@ class TestE2ECsvWorkspaceSymbol:
             assert "test" not in rows[0]["file"].lower()
 
         # With --include-tests
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -430,9 +444,10 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_uri_with_comma(self, temp_file: Path) -> None:
         """Test CSV escaping when URI contains comma."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -451,9 +466,10 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_uri_with_quotes(self, temp_file: Path) -> None:
         """Test CSV escaping when URI contains double quotes."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -472,9 +488,10 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_detail_with_comma(self, temp_file: Path) -> None:
         """Test CSV escaping when detail contains comma."""
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -504,9 +521,10 @@ class TestCsvEdgeCasesSpecialCharacters:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -528,13 +546,17 @@ class TestCsvEdgeCasesSpecialCharacters:
         mock_response = {
             "hover": {
                 "contents": {"kind": "plaintext", "value": "Line1\nLine2\nLine3"},
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
             }
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -559,14 +581,18 @@ class TestCsvEdgeCasesSpecialCharacters:
                 {
                     "name": "function_with_underscore_and_123_numbers",
                     "kind": 12,
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -597,9 +623,10 @@ class TestCsvEdgeCasesEmptyAndNone:
         }
 
         for command, response in empty_responses.items():
-            with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-                "llm_lsp_cli.cli._send_request"
-            ) as mock_send:
+            with (
+                patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+                patch("llm_lsp_cli.cli._send_request") as mock_send,
+            ):
                 mock_instance = MagicMock()
                 mock_instance.is_running.return_value = True
                 mock_manager.return_value = mock_instance
@@ -623,9 +650,10 @@ class TestCsvEdgeCasesEmptyAndNone:
         """Test hover CSV returns empty for None hover."""
         mock_response = {"hover": None}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -641,15 +669,12 @@ class TestCsvEdgeCasesEmptyAndNone:
 
     def test_csv_missing_optional_fields(self, temp_file: Path) -> None:
         """Test CSV handles missing optional fields gracefully."""
-        mock_response = {
-            "items": [
-                {"label": "simple_item", "kind": 1}
-            ]
-        }
+        mock_response = {"items": [{"label": "simple_item", "kind": 1}]}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -686,9 +711,10 @@ class TestCsvEdgeCasesUnicode:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -718,9 +744,10 @@ class TestCsvEdgeCasesUnicode:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -744,14 +771,18 @@ class TestCsvEdgeCasesUnicode:
                 {
                     "name": "\u65e5\u672c\u8a9e_class",  # Japanese
                     "kind": 5,
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -785,9 +816,10 @@ class TestCsvEdgeCasesLargeResultSets:
         ]
         mock_response = {"items": items}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -811,15 +843,19 @@ class TestCsvEdgeCasesLargeResultSets:
             {
                 "name": f"symbol_{i}",
                 "kind": 12,
-                "range": {"start": {"line": i, "character": 0}, "end": {"line": i + 1, "character": 0}},
+                "range": {
+                    "start": {"line": i, "character": 0},
+                    "end": {"line": i + 1, "character": 0},
+                },
             }
             for i in range(2000)
         ]
         mock_response = {"symbols": symbols}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -843,16 +879,20 @@ class TestCsvEdgeCasesLargeResultSets:
                 "kind": 5,
                 "location": {
                     "uri": f"file:///path/to/file{i}.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
                 },
             }
             for i in range(3000)
         ]
         mock_response = {"symbols": symbols}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -881,15 +921,19 @@ class TestCsvPerformance:
         locations = [
             {
                 "uri": f"file:///path/to/file{i}.py",
-                "range": {"start": {"line": i, "character": 0}, "end": {"line": i, "character": 20}},
+                "range": {
+                    "start": {"line": i, "character": 0},
+                    "end": {"line": i, "character": 20},
+                },
             }
             for i in range(10000)
         ]
         mock_response = {"locations": locations}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -923,9 +967,10 @@ class TestCsvPerformance:
         ]
         mock_response = {"items": items}
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -961,7 +1006,10 @@ class TestCsvCrossFormatConsistency:
             "locations": [
                 {
                     "uri": "file:///path/to/file.py",
-                    "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 20}},
+                    "range": {
+                        "start": {"line": 10, "character": 4},
+                        "end": {"line": 10, "character": 20},
+                    },
                 }
             ]
         }
@@ -969,9 +1017,10 @@ class TestCsvCrossFormatConsistency:
         csv_output: str | None = None
         json_output: str | None = None
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -997,6 +1046,7 @@ class TestCsvCrossFormatConsistency:
         # Parse both and verify same data
         csv_rows = parse_csv_output(csv_output)
         import json
+
         json_data = json.loads(json_output)
 
         assert len(csv_rows) == len(json_data["locations"])
@@ -1018,9 +1068,10 @@ class TestCsvCrossFormatConsistency:
         csv_output: str | None = None
         json_output: str | None = None
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1045,6 +1096,7 @@ class TestCsvCrossFormatConsistency:
 
         csv_rows = parse_csv_output(csv_output)
         import json
+
         json_data = json.loads(json_output)
 
         assert len(csv_rows) == len(json_data["items"])
@@ -1063,13 +1115,20 @@ class TestCsvSchemaValidation:
         """Test definition CSV has correct column schema."""
         mock_response = {
             "locations": [
-                {"uri": "file:///test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}}}
+                {
+                    "uri": "file:///test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 10},
+                    },
+                }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1089,13 +1148,20 @@ class TestCsvSchemaValidation:
         """Test references CSV has correct column schema."""
         mock_response = {
             "locations": [
-                {"uri": "file:///test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}}}
+                {
+                    "uri": "file:///test.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 10},
+                    },
+                }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1119,9 +1185,10 @@ class TestCsvSchemaValidation:
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1141,13 +1208,21 @@ class TestCsvSchemaValidation:
         """Test document-symbol CSV has correct column schema."""
         mock_response = {
             "symbols": [
-                {"name": "MyClass", "kind": 5, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}}
+                {
+                    "name": "MyClass",
+                    "kind": 5,
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 1, "character": 0},
+                    },
+                }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1167,13 +1242,24 @@ class TestCsvSchemaValidation:
         """Test workspace-symbol CSV has correct column schema."""
         mock_response = {
             "symbols": [
-                {"name": "MyClass", "kind": 5, "location": {"uri": "file:///test.py", "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}}}}
+                {
+                    "name": "MyClass",
+                    "kind": 5,
+                    "location": {
+                        "uri": "file:///test.py",
+                        "range": {
+                            "start": {"line": 0, "character": 0},
+                            "end": {"line": 1, "character": 0},
+                        },
+                    },
+                }
             ]
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1193,13 +1279,17 @@ class TestCsvSchemaValidation:
         mock_response = {
             "hover": {
                 "contents": {"kind": "plaintext", "value": "Hover content"},
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 10}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 10},
+                },
             }
         }
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, patch(
-            "llm_lsp_cli.cli._send_request"
-        ) as mock_send:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.cli._send_request") as mock_send,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -1212,5 +1302,11 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["content", "range_start_line", "range_start_char", "range_end_line", "range_end_char"]
+            expected_columns = [
+                "content",
+                "range_start_line",
+                "range_start_char",
+                "range_end_line",
+                "range_end_char",
+            ]
             assert header == ",".join(expected_columns)

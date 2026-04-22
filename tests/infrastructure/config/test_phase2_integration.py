@@ -1,7 +1,6 @@
 """Phase 2 integration tests for configuration pipeline."""
 
 import json
-import os
 from pathlib import Path
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -140,7 +139,6 @@ class TestFullConfigLoadingPipeline:
         """ConfigManager.init_config() returns False when config already exists."""
         # Arrange
         config_home = tmp_path / "config"
-        config_file = config_home / "llm-lsp-cli" / "config.yaml"
         monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
 
         from llm_lsp_cli.config.manager import ConfigManager
@@ -194,17 +192,12 @@ class TestLazyInitializationConcurrentAccess:
         # All should be the same singleton instance
         assert all(r is results[0] for r in results)
 
-    def test_repository_concurrent_first_load(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_concurrent_first_load(self, tmp_path: Path) -> None:
         """Repository handles concurrent first-time loads."""
         # Arrange
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                f"lang{i}": {"command": f"server{i}", "args": []}
-                for i in range(10)
-            }
+            "languages": {f"lang{i}": {"command": f"server{i}", "args": []} for i in range(10)}
         }
         config_file.write_text(json.dumps(config_data))
 
@@ -223,10 +216,7 @@ class TestLazyInitializationConcurrentAccess:
                 errors.append(e)
 
         # Act: Multiple threads accessing different languages
-        threads = [
-            Thread(target=get_server, args=(f"lang{i}",))
-            for i in range(10)
-        ]
+        threads = [Thread(target=get_server, args=(f"lang{i}",)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:
@@ -236,9 +226,7 @@ class TestLazyInitializationConcurrentAccess:
         assert len(errors) == 0, f"Errors: {errors}"
         assert len(results) == 10
 
-    def test_concurrent_repository_register_operations(
-        self, tmp_path: Path
-    ) -> None:
+    def test_concurrent_repository_register_operations(self, tmp_path: Path) -> None:
         """Repository handles concurrent register operations."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -297,9 +285,7 @@ class TestLazyInitializationConcurrentAccess:
         # Assert
         assert all(r is results[0] for r in results)
 
-    def test_concurrent_config_load_and_save(
-        self, tmp_path: Path
-    ) -> None:
+    def test_concurrent_config_load_and_save(self, tmp_path: Path) -> None:
         """ConfigLoader handles concurrent load and save operations.
 
         Note: Without file locking, some read/write races may cause temporary
@@ -344,10 +330,7 @@ class TestLazyInitializationConcurrentAccess:
         # Act: Mix of concurrent loads and saves
         with ThreadPoolExecutor(max_workers=10) as executor:
             loads = [executor.submit(load_config) for _ in range(10)]
-            saves = [
-                executor.submit(save_config, f"lang{i}")
-                for i in range(10)
-            ]
+            saves = [executor.submit(save_config, f"lang{i}") for i in range(10)]
             for future in as_completed(loads + saves):
                 future.result()
 
@@ -367,9 +350,7 @@ class TestLazyInitializationConcurrentAccess:
 class TestEnvironmentVariableExpansionEdgeCases:
     """Test environment variable expansion edge cases."""
 
-    def test_env_var_undefined_keeps_original_pattern(
-        self, tmp_path: Path
-    ) -> None:
+    def test_env_var_undefined_keeps_original_pattern(self, tmp_path: Path) -> None:
         """Undefined env vars keep their original $VAR pattern."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -387,9 +368,7 @@ class TestEnvironmentVariableExpansionEdgeCases:
         # Assert: Undefined var should remain as-is
         assert loaded["socket_path"] == "$UNDEFINED_VAR/socket"
 
-    def test_env_var_brace_undefined_keeps_pattern(
-        self, tmp_path: Path
-    ) -> None:
+    def test_env_var_brace_undefined_keeps_pattern(self, tmp_path: Path) -> None:
         """Undefined ${VAR} keeps original pattern."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -506,11 +485,7 @@ class TestEnvironmentVariableExpansionEdgeCases:
                 "python": {
                     "command": "$DEEP_CMD",
                     "args": ["--env=$DEEP_CMD"],
-                    "nested": {
-                        "deeply": {
-                            "path": "$DEEP_CMD/path"
-                        }
-                    }
+                    "nested": {"deeply": {"path": "$DEEP_CMD/path"}},
                 }
             }
         }
@@ -526,9 +501,7 @@ class TestEnvironmentVariableExpansionEdgeCases:
         assert loaded["languages"]["python"]["args"] == ["--env=deep_server"]
         assert loaded["languages"]["python"]["nested"]["deeply"]["path"] == "deep_server/path"
 
-    def test_env_var_in_list_items(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_var_in_list_items(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Env vars expand in list items."""
         # Arrange
         monkeypatch.setenv("ARG1", "first")
@@ -568,9 +541,7 @@ class TestEnvironmentVariableExpansionEdgeCases:
         # Assert: Should remain as-is since MY_VAR_EXTRA is not defined
         assert loaded["path"] == "$MY_VAR_EXTRA"
 
-    def test_env_var_with_numbers(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_var_with_numbers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Env vars with numbers in name expand correctly."""
         # Arrange
         monkeypatch.setenv("VAR_123", "numeric")

@@ -186,9 +186,7 @@ class TestLanguageWithFallback:
 
         with TemporaryDirectory() as tmpdir:
             Path(tmpdir, "Cargo.toml").touch()
-            assert detect_language_with_fallback(
-                tmpdir, explicit_language="python"
-            ) == "python"
+            assert detect_language_with_fallback(tmpdir, explicit_language="python") == "python"
 
     def test_detected_language(self) -> None:
         """Test that detected language is used."""
@@ -203,18 +201,16 @@ class TestLanguageWithFallback:
         from llm_lsp_cli.utils.language_detector import detect_language_with_fallback
 
         with TemporaryDirectory() as tmpdir:
-            assert detect_language_with_fallback(
-                tmpdir, default_language="python"
-            ) == "python"
+            assert detect_language_with_fallback(tmpdir, default_language="python") == "python"
 
     def test_custom_default_fallback(self) -> None:
         """Test custom default fallback."""
         from llm_lsp_cli.utils.language_detector import detect_language_with_fallback
 
         with TemporaryDirectory() as tmpdir:
-            assert detect_language_with_fallback(
-                tmpdir, default_language="typescript"
-            ) == "typescript"
+            assert (
+                detect_language_with_fallback(tmpdir, default_language="typescript") == "typescript"
+            )
 
     def test_explicit_language_overrides_detected(self) -> None:
         """Test explicit language overrides any detected language."""
@@ -223,6 +219,4 @@ class TestLanguageWithFallback:
         with TemporaryDirectory() as tmpdir:
             Path(tmpdir, "pom.xml").touch()
             # Java would be detected, but we override to Rust
-            assert detect_language_with_fallback(
-                tmpdir, explicit_language="rust"
-            ) == "rust"
+            assert detect_language_with_fallback(tmpdir, explicit_language="rust") == "rust"

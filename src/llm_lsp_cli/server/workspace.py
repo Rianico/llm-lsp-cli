@@ -21,7 +21,6 @@ class WorkspaceManager:
         trace: bool = False,
         timeout: float = 30.0,
         lsp_conf: str | None = None,
-        log_file: Path | None = None,
     ):
         self.workspace_path = Path(workspace_path).resolve()
         self.server_command = server_command
@@ -30,7 +29,6 @@ class WorkspaceManager:
         self.trace = trace
         self.timeout = timeout
         self.lsp_conf = lsp_conf
-        self.log_file = log_file
 
         self._client: LSPClient | None = None
         self._lock = asyncio.Lock()
@@ -55,7 +53,6 @@ class WorkspaceManager:
                     trace=self.trace,
                     timeout=self.timeout,
                     lsp_conf=self.lsp_conf,
-                    log_file=self.log_file,
                 )
                 try:
                     # Wrap initialization with timeout

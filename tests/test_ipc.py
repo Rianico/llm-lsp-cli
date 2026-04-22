@@ -1,4 +1,5 @@
 """Tests for IPC protocol and communication."""
+
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -190,6 +191,7 @@ class TestUNIXClientServer:
     @pytest.fixture
     async def server(self, socket_path: Path) -> AsyncGenerator[UNIXServer, None]:
         """Create and start a test server."""
+
         async def handler(method: str, params: dict[str, Any]) -> Any:
             if method == "echo":
                 return {"method": method, "params": params}

@@ -12,16 +12,12 @@ class TestFilterDiagnosticItems:
             {
                 "uri": "file:///project/src/main.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 1, "message": "Source error"}
-                ],
+                "diagnostics": [{"severity": 1, "message": "Source error"}],
             },
             {
                 "uri": "file:///project/tests/test_main.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 1, "message": "Test error"}
-                ],
+                "diagnostics": [{"severity": 1, "message": "Test error"}],
             },
         ]
 
@@ -38,16 +34,12 @@ class TestFilterDiagnosticItems:
             {
                 "uri": "file:///project/src/main.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 1, "message": "Source error"}
-                ],
+                "diagnostics": [{"severity": 1, "message": "Source error"}],
             },
             {
                 "uri": "file:///project/tests/test_main.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 1, "message": "Test error"}
-                ],
+                "diagnostics": [{"severity": 1, "message": "Test error"}],
             },
         ]
 
@@ -67,16 +59,12 @@ class TestFilterDiagnosticItems:
             {
                 "uri": "file:///project/src/main.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 1, "message": "Source error"}
-                ],
+                "diagnostics": [{"severity": 1, "message": "Source error"}],
             },
             {
                 "uri": "file:///project/src/utils.py",
                 "version": 1,
-                "diagnostics": [
-                    {"severity": 2, "message": "Source warning"}
-                ],
+                "diagnostics": [{"severity": 2, "message": "Source warning"}],
             },
         ]
 

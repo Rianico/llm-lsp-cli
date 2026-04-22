@@ -1,5 +1,6 @@
 """LSP client implementation for llm-lsp-cli."""
 
+from .cache import DiagnosticCache, FileState
 from .constants import LSPConstants
 from .transport import LSPError, StdioTransport
 from .types import (
@@ -29,4 +30,6 @@ __all__ = [
     "LSPConstants",
     "StdioTransport",
     "LSPError",
+    "DiagnosticCache",
+    "FileState",
 ]

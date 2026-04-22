@@ -463,14 +463,22 @@ def _send_request(
             return response
         except DaemonStartupError as e:
             # Use log_file from exception if available
-            log_path = e.log_file if hasattr(e, 'log_file') and e.log_file else ConfigManager.build_log_file_path(workspace_path, language)
+            log_path = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(workspace_path, language)
+            )
             raise CLIError(
                 f"Failed to start daemon: {e}\n"
                 f"Check logs at: {log_path}"
             ) from e
         except DaemonCrashedError as e:
             # Use log_file from exception if available
-            log_path = e.log_file if hasattr(e, 'log_file') and e.log_file else ConfigManager.build_log_file_path(workspace_path, language)
+            log_path = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(workspace_path, language)
+            )
             raise CLIError(
                 f"Daemon crashed: {e}\n"
                 f"Check logs at: {log_path}"
@@ -593,7 +601,7 @@ def _run_daemon_command(
         raise typer.Exit(0)
     if check_running is False and is_running:
         # Error case: require stopped but already running
-        typer.echo(f"Error: Daemon is already running.", err=True)
+        typer.echo("Error: Daemon is already running.", err=True)
         raise typer.Exit(1)
 
     # Log detected language only if auto-detected (not explicit)
@@ -606,8 +614,8 @@ def _run_daemon_command(
             action_fn(manager, command_name, detected_language)
         except Exception as e:
             # Print failure message and log path
-            # Prefer exception's log_file if available, fallback to manager.log_file
-            log_path = getattr(e, 'log_file', None) or str(manager.log_file)
+            # Prefer exception's log_file if available, fallback to manager.daemon_log_file
+            log_path = getattr(e, 'log_file', None) or str(manager.daemon_log_file)
             typer.echo(f"[{command_name}] Failed: {e}", err=True)
             typer.echo(f"[{command_name}] Check logs at: {log_path}", err=True)
             raise typer.Exit(1) from e
@@ -621,6 +629,9 @@ def start(
     ),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
+    diagnostic_log: bool = typer.Option(
+        False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
+    ),
 ) -> None:
     """Start the LSP daemon server.
 
@@ -633,13 +644,14 @@ def start(
     - Go: go.mod
     - C#: *.sln, *.csproj
     - C/C++: Makefile, compile_commands.json
+    - C/C++: Makefile, compile_commands.json
     - Python: pyproject.toml, setup.py, requirements.txt
     """
 
     def do_start(manager: Any, cmd: str, detected_lang: str) -> None:
         typer.echo(f"[{cmd}] Initializing daemon...", err=True)
         typer.echo(f"[{cmd}] Spawning {_get_lsp_server_name(detected_lang)}...", err=True)
-        manager.start()
+        manager.start(diagnostic_log=diagnostic_log)
         typer.echo(f"[{cmd}] Ready (PID: {manager.get_pid()})", err=True)
 
     _run_daemon_command(
@@ -688,6 +700,9 @@ def restart(
     ),
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
+    diagnostic_log: bool = typer.Option(
+        False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
+    ),
 ) -> None:
     """Restart the LSP daemon server."""
 
@@ -699,7 +714,7 @@ def restart(
             manager.stop()
 
         typer.echo(f"[{cmd}] Starting {_get_lsp_server_name(detected_lang)}...", err=True)
-        manager.start()
+        manager.start(diagnostic_log=diagnostic_log)
         typer.echo(f"[{cmd}] Daemon restarted (PID: {manager.get_pid()})", err=True)
 
     _run_daemon_command(

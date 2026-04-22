@@ -20,11 +20,11 @@ class TestColorCodes:
 
     def test_color_codes_match_reference(self) -> None:
         """Verify color codes match reference implementation."""
-        assert Colors.CLI == "\033[36m"      # Cyan
-        assert Colors.SERVER == "\033[33m"   # Yellow
+        assert Colors.CLI == "\033[36m"  # Cyan
+        assert Colors.SERVER == "\033[33m"  # Yellow
         assert Colors.SUCCESS == "\033[32m"  # Green
-        assert Colors.ERROR == "\033[31m"    # Red
-        assert Colors.INFO == "\033[34m"     # Blue
+        assert Colors.ERROR == "\033[31m"  # Red
+        assert Colors.INFO == "\033[34m"  # Blue
 
 
 class TestColorSupport:

@@ -57,11 +57,7 @@ class TestFullConfigPipeline:
 
         import yaml
 
-        config_data = {
-            "languages": {
-                "python": {"command": "pyright-custom", "args": []}
-            }
-        }
+        config_data = {"languages": {"python": {"command": "pyright-custom", "args": []}}}
         config_file.parent.mkdir(parents=True)
         config_file.write_text(yaml.dump(config_data))
 
@@ -81,9 +77,7 @@ class TestFullConfigPipeline:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
 
         config_data = {
-            "languages": {
-                "rust": {"command": "rust-analyzer", "args": []}
-            },
+            "languages": {"rust": {"command": "rust-analyzer", "args": []}},
             "timeout_seconds": 90,
         }
         config_file.parent.mkdir(parents=True)
@@ -98,9 +92,7 @@ class TestFullConfigPipeline:
         assert loaded["languages"]["rust"]["command"] == "rust-analyzer"
         assert loaded["timeout_seconds"] == 90
 
-    def test_repository_loads_user_overrides(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_loads_user_overrides(self, tmp_path: Path) -> None:
         """Repository loads user config overrides."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -125,9 +117,7 @@ class TestFullConfigPipeline:
         assert result.args == ["--custom-arg"]
         assert result.timeout_seconds == 120
 
-    def test_config_save_and_reload_round_trip(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_save_and_reload_round_trip(self, tmp_path: Path) -> None:
         """Configuration survives save and reload."""
         config_file = tmp_path / "config.json"
         config_data = {
@@ -149,19 +139,13 @@ class TestFullConfigPipeline:
         assert loaded["trace_lsp"] is True
         assert loaded["timeout_seconds"] == 60
 
-    def test_multiple_repos_isolated(
-        self, tmp_path: Path
-    ) -> None:
+    def test_multiple_repos_isolated(self, tmp_path: Path) -> None:
         """Multiple repository instances are isolated."""
         config_file1 = tmp_path / "config1.json"
         config_file2 = tmp_path / "config2.json"
 
-        config_file1.write_text(json.dumps({
-            "languages": {"python": {"command": "pyright1"}}
-        }))
-        config_file2.write_text(json.dumps({
-            "languages": {"python": {"command": "pyright2"}}
-        }))
+        config_file1.write_text(json.dumps({"languages": {"python": {"command": "pyright1"}}}))
+        config_file2.write_text(json.dumps({"languages": {"python": {"command": "pyright2"}}}))
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
 
@@ -186,9 +170,7 @@ class TestFullConfigPipeline:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
 
         config_data = {
-            "languages": {
-                "python": {"command": "pyright", "args": []}
-            },
+            "languages": {"python": {"command": "pyright", "args": []}},
             "socket_path": "$CUSTOM_SOCKET",
             "timeout_seconds": 30,
         }
@@ -203,9 +185,7 @@ class TestFullConfigPipeline:
 
         assert loaded["socket_path"] == "/custom/socket/path"
 
-    def test_repository_with_empty_config(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_with_empty_config(self, tmp_path: Path) -> None:
         """Repository handles empty config gracefully."""
         config_file = tmp_path / "config.json"
         config_file.write_text('{"languages": {}}')
@@ -218,15 +198,11 @@ class TestFullConfigPipeline:
 
         assert len(all_defs) == 0
 
-    def test_concurrent_config_access(
-        self, tmp_path: Path
-    ) -> None:
+    def test_concurrent_config_access(self, tmp_path: Path) -> None:
         """ConfigLoader handles concurrent access safely."""
         config_file = tmp_path / "config.json"
         config_data = {
-            "languages": {
-                "python": {"command": "pyright", "args": []}
-            },
+            "languages": {"python": {"command": "pyright", "args": []}},
             "timeout_seconds": 30,
         }
         config_file.write_text(json.dumps(config_data))
@@ -273,14 +249,10 @@ class TestFullConfigPipeline:
 
         assert "test-workspace" in str(socket_path)
 
-    def test_repository_cache_invalidation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repository_cache_invalidation(self, tmp_path: Path) -> None:
         """Repository handles config file changes."""
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({
-            "languages": {"python": {"command": "pyright-v1"}}
-        }))
+        config_file.write_text(json.dumps({"languages": {"python": {"command": "pyright-v1"}}}))
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
 
@@ -290,9 +262,7 @@ class TestFullConfigPipeline:
         assert result1 is not None
         assert result1.command == "pyright-v1"
 
-        config_file.write_text(json.dumps({
-            "languages": {"python": {"command": "pyright-v2"}}
-        }))
+        config_file.write_text(json.dumps({"languages": {"python": {"command": "pyright-v2"}}}))
 
         result2 = repo.get("python")
 

@@ -95,6 +95,10 @@ def empty_project_dir(temp_dir: Path) -> Path:
 def clean_config_state() -> Generator[None, None, None]:
     """Temporarily remove existing config for test isolation."""
     from llm_lsp_cli.config import ConfigManager
+    from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+
+    # Reset singleton to ensure fresh initialization
+    XdgPaths.reset_for_testing()
 
     config_path = ConfigManager.get_config_dir() / "config.yaml"
     original_content = None
@@ -105,6 +109,9 @@ def clean_config_state() -> Generator[None, None, None]:
         config_path.unlink()
 
     yield
+
+    # Reset singleton again for test isolation
+    XdgPaths.reset_for_testing()
 
     # Restore original state
     if existed and original_content:
@@ -129,11 +136,7 @@ def custom_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_capability_files_exist() -> None:
     """Verify all expected capability files exist."""
     capabilities_dir = (
-        Path(__file__).parent.parent
-        / "src"
-        / "llm_lsp_cli"
-        / "config"
-        / "capabilities"
+        Path(__file__).parent.parent / "src" / "llm_lsp_cli" / "config" / "capabilities"
     )
 
     expected_files = [
@@ -258,9 +261,7 @@ class TestConfigListOverride:
     ) -> None:
         """CL-008: --lsp-server flag override."""
         with in_directory(python_project_dir):
-            result = runner.invoke(
-                app, ["config", "list", "--lsp-server", "rust-analyzer"]
-            )
+            result = runner.invoke(app, ["config", "list", "--lsp-server", "rust-analyzer"])
 
         assert result.exit_code == 0
         output = json.loads(result.output)
@@ -268,9 +269,7 @@ class TestConfigListOverride:
         assert len(output) == 1
         assert "rust-analyzer" in output
 
-    def test_cl_009_short_flag_ls(
-        self, python_project_dir: Path, clean_config_state: None
-    ) -> None:
+    def test_cl_009_short_flag_ls(self, python_project_dir: Path, clean_config_state: None) -> None:
         """CL-009: -ls short flag."""
         with in_directory(python_project_dir):
             result = runner.invoke(app, ["config", "list", "-ls", "gopls"])
@@ -285,16 +284,14 @@ class TestConfigListOverride:
     ) -> None:
         """CL-010: Override with non-existent server."""
         with in_directory(python_project_dir):
-            result = runner.invoke(
-                app, ["config", "list", "--lsp-server", "nonexistent-server"]
-            )
+            result = runner.invoke(app, ["config", "list", "--lsp-server", "nonexistent-server"])
 
         # Should fall back to all servers with warning
         assert result.exit_code == 0
         # Warning goes to stderr, JSON to stdout - but CliRunner combines them
         # Find the JSON part (starts with '{')
         output_str = result.output
-        json_start = output_str.find('{')
+        json_start = output_str.find("{")
         output = json.loads(output_str[json_start:])
         # Should contain multiple servers (fallback)
         assert len(output) > 1
@@ -393,9 +390,7 @@ class TestConfigListFormats:
 class TestConfigInit:
     """Tests for config init command."""
 
-    def test_ci_001_fresh_config_creation(
-        self, clean_config_state: None
-    ) -> None:
+    def test_ci_001_fresh_config_creation(self, clean_config_state: None) -> None:
         """CI-001: Fresh config creation."""
         from llm_lsp_cli.config import ConfigManager
 
@@ -407,9 +402,7 @@ class TestConfigInit:
         config_path = ConfigManager.get_config_dir() / "config.yaml"
         assert config_path.exists()
 
-    def test_ci_002_config_file_content_validation(
-        self, clean_config_state: None
-    ) -> None:
+    def test_ci_002_config_file_content_validation(self, clean_config_state: None) -> None:
         """CI-002: Config file content validation."""
         from llm_lsp_cli.config import ConfigManager
 
@@ -437,6 +430,7 @@ class TestConfigInit:
         # Ensure it doesn't exist
         if custom_config.exists():
             import shutil
+
             shutil.rmtree(custom_config)
 
         from llm_lsp_cli.config import ConfigManager
@@ -471,9 +465,7 @@ class TestConfigInit:
 class TestConfigInitIdempotency:
     """Tests for idempotent behavior."""
 
-    def test_ci_005_second_run_already_exists(
-        self, clean_config_state: None
-    ) -> None:
+    def test_ci_005_second_run_already_exists(self, clean_config_state: None) -> None:
         """CI-005: Second run (already exists)."""
         from llm_lsp_cli.config import ConfigManager
 
@@ -492,9 +484,7 @@ class TestConfigInitIdempotency:
         # File should NOT be modified
         assert config_path.read_text() == original_content
 
-    def test_ci_006_idempotency_multiple_runs(
-        self, clean_config_state: None
-    ) -> None:
+    def test_ci_006_idempotency_multiple_runs(self, clean_config_state: None) -> None:
         """CI-006: Idempotency - multiple runs."""
         from llm_lsp_cli.config import ConfigManager
 
@@ -545,34 +535,39 @@ class TestConfigIntegration:
         self, python_project_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """INT-002: config list with custom server command."""
-        # Set up custom config with custom server path
-        custom_config_dir = tmp_path / ".config" / "llm-lsp-cli"
-        custom_config_dir.mkdir(parents=True)
-        custom_config_file = custom_config_dir / "config.yaml"
+        from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
 
-        custom_config = {
-            "languages": {
-                "python": {
-                    "command": "/usr/local/bin/custom-pyright",
-                    "args": [],
-                    "testFilters": [],
+        try:
+            # Set up custom config with custom server path
+            custom_config_dir = tmp_path / ".config" / "llm-lsp-cli"
+            custom_config_dir.mkdir(parents=True)
+            custom_config_file = custom_config_dir / "config.yaml"
+
+            custom_config = {
+                "languages": {
+                    "python": {
+                        "command": "/usr/local/bin/custom-pyright",
+                        "args": [],
+                        "testFilters": [],
+                    }
                 }
             }
-        }
-        custom_config_file.write_text(yaml.dump(custom_config))
+            custom_config_file.write_text(yaml.dump(custom_config))
 
-        # Clear XdgPaths singleton cache before setting new XDG_CONFIG_HOME
-        from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
-        XdgPaths._instance = None
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+            # Clear XdgPaths singleton cache before setting new XDG_CONFIG_HOME
+            XdgPaths.reset_for_testing()
+            monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
 
-        with in_directory(python_project_dir):
-            result = runner.invoke(app, ["config", "list"])
+            with in_directory(python_project_dir):
+                result = runner.invoke(app, ["config", "list"])
 
-        assert result.exit_code == 0
-        output = json.loads(result.output)
-        # Should match pyright capabilities (custom-pyright contains "pyright")
-        assert "pyright" in output
+            assert result.exit_code == 0
+            output = json.loads(result.output)
+            # Should match pyright capabilities (custom-pyright contains "pyright")
+            assert "pyright" in output
+        finally:
+            # Reset singleton for test isolation
+            XdgPaths.reset_for_testing()
 
     def test_int_003_language_detection_config_resolution(
         self, python_project_dir: Path, clean_config_state: None

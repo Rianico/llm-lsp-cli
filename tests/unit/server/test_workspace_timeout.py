@@ -1,11 +1,29 @@
 """Unit tests for WorkspaceManager timeout functionality."""
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from llm_lsp_cli.server.workspace import WorkspaceManager
+
+
+class TestWorkspaceManagerNoLogFile:
+    """Test WorkspaceManager no longer uses log_file parameter."""
+
+    def test_init_signature_excludes_log_file(self) -> None:
+        """WorkspaceManager.__init__ does not accept log_file parameter."""
+        # Arrange
+        from llm_lsp_cli.server.workspace import WorkspaceManager
+
+        # Act & Assert
+        with pytest.raises(TypeError, match="log_file"):
+            WorkspaceManager(
+                workspace_path="/tmp/test",
+                server_command="pyright-langserver",
+                log_file=Path("/tmp/test.log"),  # type: ignore
+            )
 
 
 class TestWorkspaceTimeout:
@@ -20,9 +38,11 @@ class TestWorkspaceTimeout:
         with patch("llm_lsp_cli.server.workspace.LSPClient") as mock_lsp_class:
             # Setup mock LSP client that succeeds after 2 second delay
             mock_client = AsyncMock()
+
             async def delayed_initialize():
                 await asyncio.sleep(0.1)  # Simulate 100ms delay (scaled down for test)
                 return {"capabilities": {}}
+
             mock_client.initialize = delayed_initialize
             mock_lsp_class.return_value = mock_client
 
@@ -50,8 +70,10 @@ class TestWorkspaceTimeout:
             mock_client = AsyncMock()
             # Simulate a hang by never completing
             hang_event = asyncio.Event()
+
             async def hanging_initialize():
                 await hang_event.wait()  # Will never be set
+
             mock_client.initialize = hanging_initialize
             mock_lsp_class.return_value = mock_client
 
@@ -77,8 +99,10 @@ class TestWorkspaceTimeout:
 
         with patch("llm_lsp_cli.server.workspace.LSPClient") as mock_lsp_class:
             mock_client = AsyncMock()
+
             async def hanging_initialize():
                 await asyncio.Event().wait()  # Never completes
+
             mock_client.initialize = hanging_initialize
             mock_lsp_class.return_value = mock_client
 
@@ -108,8 +132,10 @@ class TestWorkspaceTimeout:
 
         with patch("llm_lsp_cli.server.workspace.LSPClient") as mock_lsp_class:
             mock_client = AsyncMock()
+
             async def hanging_initialize():
                 await asyncio.Event().wait()  # Never completes
+
             mock_client.initialize = hanging_initialize
             mock_lsp_class.return_value = mock_client
 

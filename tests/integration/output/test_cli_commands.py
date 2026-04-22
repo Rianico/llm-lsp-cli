@@ -26,7 +26,10 @@ class TestWorkspaceSymbolCommand:
                 "kind": 5,
                 "location": {
                     "uri": "file:///tmp/test_workspace/src/models.py",
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 50, "character": 0},
+                    },
                 },
                 "detail": "class MyClass",
             },
@@ -35,7 +38,10 @@ class TestWorkspaceSymbolCommand:
                 "kind": 12,
                 "location": {
                     "uri": "file:///tmp/test_workspace/src/utils.py",
-                    "range": {"start": {"line": 10, "character": 0}, "end": {"line": 30, "character": 0}},
+                    "range": {
+                        "start": {"line": 10, "character": 0},
+                        "end": {"line": 30, "character": 0},
+                    },
                 },
                 "detail": "def my_function(x: int) -> str",
             },
@@ -45,8 +51,10 @@ class TestWorkspaceSymbolCommand:
         """Test workspace-symbol with text output format."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -56,7 +64,9 @@ class TestWorkspaceSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "text"])
+            result = runner.invoke(
+                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "text"]
+            )
 
             # Note: Current format is verbose (pre-CompactFormatter)
             assert result.exit_code == 0
@@ -68,8 +78,10 @@ class TestWorkspaceSymbolCommand:
         """Test workspace-symbol with JSON output format."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -79,7 +91,9 @@ class TestWorkspaceSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"])
+            result = runner.invoke(
+                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"]
+            )
 
             assert result.exit_code == 0
             # Compact JSON format returns flat array directly
@@ -95,8 +109,10 @@ class TestWorkspaceSymbolCommand:
         """Test workspace-symbol with YAML output format."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -106,7 +122,9 @@ class TestWorkspaceSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "yaml"])
+            result = runner.invoke(
+                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "yaml"]
+            )
 
             assert result.exit_code == 0
             # Compact YAML format returns flat array directly
@@ -122,8 +140,10 @@ class TestWorkspaceSymbolCommand:
         """Test workspace-symbol with CSV output format."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -133,7 +153,9 @@ class TestWorkspaceSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "csv"])
+            result = runner.invoke(
+                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "csv"]
+            )
 
             assert result.exit_code == 0
             lines = result.output.strip().split("\n")
@@ -145,8 +167,10 @@ class TestWorkspaceSymbolCommand:
         """Test workspace-symbol with empty results."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class:
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -156,7 +180,9 @@ class TestWorkspaceSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-o", "text"])
+            result = runner.invoke(
+                app, ["workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-o", "text"]
+            )
 
             assert result.exit_code == 0
             # Empty results in text format
@@ -173,14 +199,20 @@ class TestDocumentSymbolCommand:
             {
                 "name": "MyClass",
                 "kind": 5,
-                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 50, "character": 0}},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 50, "character": 0},
+                },
                 "detail": "class MyClass",
                 "children": [],
             },
             {
                 "name": "my_function",
                 "kind": 12,
-                "range": {"start": {"line": 52, "character": 0}, "end": {"line": 70, "character": 0}},
+                "range": {
+                    "start": {"line": 52, "character": 0},
+                    "end": {"line": 70, "character": 0},
+                },
                 "detail": "def my_function(x: int) -> str",
                 "children": [],
             },
@@ -190,9 +222,11 @@ class TestDocumentSymbolCommand:
         """Test document-symbol with text output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -211,9 +245,11 @@ class TestDocumentSymbolCommand:
         """Test document-symbol with JSON output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -232,9 +268,11 @@ class TestDocumentSymbolCommand:
         """Test document-symbol with empty results."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -259,11 +297,17 @@ class TestReferencesCommand:
         return [
             {
                 "uri": "file:///tmp/test_workspace/src/main.py",
-                "range": {"start": {"line": 5, "character": 0}, "end": {"line": 5, "character": 20}},
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 5, "character": 20},
+                },
             },
             {
                 "uri": "file:///tmp/test_workspace/src/utils.py",
-                "range": {"start": {"line": 10, "character": 4}, "end": {"line": 10, "character": 24}},
+                "range": {
+                    "start": {"line": 10, "character": 4},
+                    "end": {"line": 10, "character": 24},
+                },
             },
         ]
 
@@ -271,9 +315,11 @@ class TestReferencesCommand:
         """Test references with text output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -292,9 +338,11 @@ class TestReferencesCommand:
         """Test references with JSON output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -312,9 +360,11 @@ class TestReferencesCommand:
         """Test references with YAML output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -332,9 +382,11 @@ class TestReferencesCommand:
         """Test references with CSV output."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -352,9 +404,11 @@ class TestReferencesCommand:
         """Test references with empty results."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -376,9 +430,11 @@ class TestOutputFormatOption:
         """Test -o text option."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -397,9 +453,11 @@ class TestOutputFormatOption:
         """Test -o json option."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -417,9 +475,11 @@ class TestOutputFormatOption:
         """Test -o yaml option."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -437,9 +497,11 @@ class TestOutputFormatOption:
         """Test -o csv option."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
@@ -457,9 +519,11 @@ class TestOutputFormatOption:
         """Test default format (text) when no -o option."""
         from llm_lsp_cli.cli import app
 
-        with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager, \
-             patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class, \
-             patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance

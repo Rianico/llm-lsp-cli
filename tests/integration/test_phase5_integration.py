@@ -10,23 +10,17 @@ Integration tests for:
 
 from __future__ import annotations
 
-import json
-import re
 from pathlib import Path
-from typing import Any, TypedDict
 
 import pytest
 
 from llm_lsp_cli.config.types import (
     CapabilityConfig,
-    ClientCapabilities,
     InitializeParams,
     LanguageConfig,
     LspMethodConfigDict,
     RuntimePaths,
     ServerConfig,
-    TextDocumentClientCapabilities,
-    WorkspaceFolder,
 )
 from llm_lsp_cli.ipc.protocol import (
     ERROR_INTERNAL_ERROR,
@@ -78,7 +72,9 @@ class TestJSONRPCRequest:
 
     def test_request_to_dict(self) -> None:
         """Test converting request to dictionary."""
-        req = JSONRPCRequest(method="textDocument/definition", params={"uri": "file://test.py"}, id=42)
+        req = JSONRPCRequest(
+            method="textDocument/definition", params={"uri": "file://test.py"}, id=42
+        )
         result = req.to_dict()
         assert result["jsonrpc"] == "2.0"
         assert result["method"] == "textDocument/definition"
@@ -182,8 +178,7 @@ class TestJSONRPCNotification:
     def test_notification_to_dict(self) -> None:
         """Test converting notification to dictionary."""
         notif = JSONRPCNotification(
-            method="textDocument/didOpen",
-            params={"textDocument": {"uri": "file://test.py"}}
+            method="textDocument/didOpen", params={"textDocument": {"uri": "file://test.py"}}
         )
         result = notif.to_dict()
         assert result["jsonrpc"] == "2.0"
@@ -230,10 +225,7 @@ class TestBuildHelpers:
     def test_build_error_with_data(self) -> None:
         """Test build_error helper with data."""
         resp = build_error(
-            ERROR_INVALID_PARAMS,
-            "Invalid params",
-            1,
-            data={"reason": "missing field"}
+            ERROR_INVALID_PARAMS, "Invalid params", 1, data={"reason": "missing field"}
         )
         assert resp.error is not None
         assert resp.error["data"] == {"reason": "missing field"}
@@ -405,14 +397,18 @@ class TestCapabilityConfigTypedDict:
         config: CapabilityConfig = {
             "completionProvider": {"resolveProvider": True, "triggerCharacters": ["."]},
         }
-        assert config["completionProvider"]["resolveProvider"] is True
+        completion = config.get("completionProvider", {})
+        assert isinstance(completion, dict)
+        assert completion.get("resolveProvider") is True
 
     def test_capability_config_text_document_sync(self) -> None:
         """Test CapabilityConfig with textDocumentSync."""
         config: CapabilityConfig = {
             "textDocumentSync": {"openClose": True, "change": 1},
         }
-        assert config["textDocumentSync"]["openClose"] is True
+        sync = config.get("textDocumentSync", {})
+        assert isinstance(sync, dict)
+        assert sync.get("openClose") is True
 
 
 class TestLspMethodConfigDictTypedDict:
@@ -526,7 +522,10 @@ class TestLSPFeatureTypes:
             },
             "range": None,
         }
-        assert hover["contents"]["kind"] == "markdown"
+        # Access contents directly - type is MarkupContent with kind/value
+        contents = hover["contents"]
+        assert isinstance(contents, dict)
+        assert contents.get("kind") == "markdown"
 
     def test_completion_item(self) -> None:
         """Test CompletionItem type."""
@@ -601,7 +600,10 @@ class TestLSPDiagnosticTypes:
             "kind": "full",
             "items": [
                 {
-                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}},
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 1},
+                    },
                     "severity": 2,
                     "source": "test",
                     "message": "Test diagnostic",
@@ -620,7 +622,10 @@ class TestLSPDiagnosticTypes:
                     "version": 1,
                     "diagnostics": [
                         {
-                            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 1}},
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 1},
+                            },
                             "severity": 1,
                             "source": "test",
                             "message": "Error",
@@ -752,6 +757,7 @@ class TestEnvironmentVariableExpansion:
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 
         import os
+
         os.environ["TEST_VAR"] = "test_value"
 
         data = {"path": "${TEST_VAR}/subdir"}
@@ -763,6 +769,7 @@ class TestEnvironmentVariableExpansion:
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 
         import os
+
         os.environ["TEST_VAR2"] = "value2"
 
         data = {"path": "$TEST_VAR2/subdir"}
@@ -774,6 +781,7 @@ class TestEnvironmentVariableExpansion:
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 
         import os
+
         os.environ["NESTED_VAR"] = "nested_value"
 
         data = {
@@ -949,10 +957,7 @@ class TestEdgeCaseIntegration:
         """Test building and parsing error response chain."""
         # Build error response
         error_resp = build_error(
-            ERROR_INVALID_PARAMS,
-            "Missing required parameter",
-            42,
-            data={"missing": "textDocument"}
+            ERROR_INVALID_PARAMS, "Missing required parameter", 42, data={"missing": "textDocument"}
         )
 
         # Serialize

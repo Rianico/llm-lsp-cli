@@ -1,8 +1,6 @@
 """Phase 2 edge case tests for configuration components."""
 
 import json
-import os
-import stat
 from pathlib import Path
 from threading import Thread
 
@@ -129,9 +127,7 @@ class TestXdgPathsEdgeCases:
 class TestConfigLoaderEdgeCases:
     """Edge case tests for ConfigLoader."""
 
-    def test_config_loader_empty_json_object(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_empty_json_object(self, tmp_path: Path) -> None:
         """ConfigLoader handles empty JSON object."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -144,9 +140,7 @@ class TestConfigLoaderEdgeCases:
         with pytest.raises(ConfigValidationError):
             ConfigLoader.load(config_file)
 
-    def test_config_loader_empty_languages_dict(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_empty_languages_dict(self, tmp_path: Path) -> None:
         """ConfigLoader handles empty languages dictionary."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -160,9 +154,7 @@ class TestConfigLoaderEdgeCases:
         # Assert
         assert loaded["languages"] == {}
 
-    def test_config_loader_non_dict_languages(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_non_dict_languages(self, tmp_path: Path) -> None:
         """ConfigLoader validates languages is a dict."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -177,17 +169,12 @@ class TestConfigLoaderEdgeCases:
 
         assert "must be a dictionary" in str(exc_info.value)
 
-    def test_config_loader_deeply_nested_structure(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_deeply_nested_structure(self, tmp_path: Path) -> None:
         """ConfigLoader handles deeply nested structures."""
         # Arrange
         config_file = tmp_path / "config.json"
         nested = {"nested": {"deep": {"deeper": {"value": "test"}}}}
-        config_data = {
-            "languages": {"python": {"command": "pyright", "args": []}},
-            **nested
-        }
+        config_data = {"languages": {"python": {"command": "pyright", "args": []}}, **nested}
         config_file.write_text(json.dumps(config_data))
 
         from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
@@ -198,9 +185,7 @@ class TestConfigLoaderEdgeCases:
         # Assert
         assert loaded["nested"]["deep"]["deeper"]["value"] == "test"
 
-    def test_config_loader_with_null_command(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_null_command(self, tmp_path: Path) -> None:
         """ConfigLoader handles null command value."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -214,9 +199,7 @@ class TestConfigLoaderEdgeCases:
         # Assert
         assert loaded["languages"]["python"]["command"] is None
 
-    def test_config_loader_with_array_at_root(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_array_at_root(self, tmp_path: Path) -> None:
         """ConfigLoader handles array at root level (invalid config)."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -229,9 +212,7 @@ class TestConfigLoaderEdgeCases:
         with pytest.raises(ConfigValidationError):
             ConfigLoader.load(config_file)
 
-    def test_config_loader_with_trailing_comma_invalid(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_with_trailing_comma_invalid(self, tmp_path: Path) -> None:
         """ConfigLoader rejects JSON with trailing commas."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -286,9 +267,7 @@ class TestConfigLoaderEdgeCases:
         # Assert
         assert "\n" in loaded["path"]
 
-    def test_config_loader_save_to_symlink(
-        self, tmp_path: Path
-    ) -> None:
+    def test_config_loader_save_to_symlink(self, tmp_path: Path) -> None:
         """ConfigLoader can save to symlinked file."""
         # Arrange
         real_file = tmp_path / "real_config.json"
@@ -314,9 +293,7 @@ class TestConfigLoaderEdgeCases:
 class TestJsonRepositoryEdgeCases:
     """Edge case tests for JsonServerDefinitionRepository."""
 
-    def test_repo_with_nonexistent_config_file_get(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_with_nonexistent_config_file_get(self, tmp_path: Path) -> None:
         """Repository.get() handles non-existent config file."""
         # Arrange
         config_file = tmp_path / "nonexistent.json"
@@ -331,9 +308,7 @@ class TestJsonRepositoryEdgeCases:
         # Assert
         assert result is None
 
-    def test_repo_with_nonexistent_config_file_list_all(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_with_nonexistent_config_file_list_all(self, tmp_path: Path) -> None:
         """Repository.list_all() handles non-existent config file."""
         # Arrange
         config_file = tmp_path / "nonexistent.json"
@@ -348,9 +323,7 @@ class TestJsonRepositoryEdgeCases:
         # Assert
         assert len(results) == 0
 
-    def test_repo_register_to_nonexistent_directory(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_register_to_nonexistent_directory(self, tmp_path: Path) -> None:
         """Repository.register() creates parent directories."""
         # Arrange
         config_file = tmp_path / "nested" / "dir" / "config.json"
@@ -371,9 +344,7 @@ class TestJsonRepositoryEdgeCases:
         # Assert
         assert config_file.exists()
 
-    def test_repo_with_corrupted_json_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_with_corrupted_json_file(self, tmp_path: Path) -> None:
         """Repository handles corrupted JSON file."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -389,9 +360,7 @@ class TestJsonRepositoryEdgeCases:
         # Assert: Should handle gracefully, return empty
         assert len(results) == 0
 
-    def test_repo_with_language_as_non_dict(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_with_language_as_non_dict(self, tmp_path: Path) -> None:
         """Repository handles language entry that's not a dict."""
         # Arrange
         config_file = tmp_path / "config.json"
@@ -407,20 +376,22 @@ class TestJsonRepositoryEdgeCases:
         # Assert: Should skip invalid entries
         assert len(results) == 0
 
-    def test_repo_with_mixed_valid_invalid_entries(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_with_mixed_valid_invalid_entries(self, tmp_path: Path) -> None:
         """Repository handles mix of valid and invalid entries."""
         # Arrange
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({
-            "languages": {
-                "python": {"command": "pyright", "args": []},  # Valid
-                "rust": "invalid",  # Invalid
-                "typescript": {"command": "ts_server"},  # Valid
-                "go": 123,  # Invalid
-            }
-        }))
+        config_file.write_text(
+            json.dumps(
+                {
+                    "languages": {
+                        "python": {"command": "pyright", "args": []},  # Valid
+                        "rust": "invalid",  # Invalid
+                        "typescript": {"command": "ts_server"},  # Valid
+                        "go": 123,  # Invalid
+                    }
+                }
+            )
+        )
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
 
@@ -434,17 +405,13 @@ class TestJsonRepositoryEdgeCases:
         ids = {r.language_id for r in results}
         assert ids == {"python", "typescript"}
 
-    def test_repo_register_overwrites_existing(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_register_overwrites_existing(self, tmp_path: Path) -> None:
         """Repository.register() overwrites existing definition."""
         # Arrange
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({
-            "languages": {
-                "python": {"command": "old_server", "args": ["--old"]}
-            }
-        }))
+        config_file.write_text(
+            json.dumps({"languages": {"python": {"command": "old_server", "args": ["--old"]}}})
+        )
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
         from llm_lsp_cli.domain.entities import ServerDefinition
@@ -467,15 +434,13 @@ class TestJsonRepositoryEdgeCases:
         assert result.args == ["--new"]
         assert result.timeout_seconds == 99
 
-    def test_repo_concurrent_get_same_language(
-        self, tmp_path: Path
-    ) -> None:
+    def test_repo_concurrent_get_same_language(self, tmp_path: Path) -> None:
         """Repository handles concurrent get() for same language."""
         # Arrange
         config_file = tmp_path / "config.json"
-        config_file.write_text(json.dumps({
-            "languages": {"python": {"command": "pyright", "args": []}}
-        }))
+        config_file.write_text(
+            json.dumps({"languages": {"python": {"command": "pyright", "args": []}}})
+        )
 
         from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
 
@@ -547,16 +512,20 @@ class TestConfigManagerFacadeEdgeCases:
         config_home = tmp_path / "config"
         monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
 
+        # Create a valid executable at the custom path
+        custom_dir = tmp_path / "custom" / "path" / "to"
+        custom_dir.mkdir(parents=True)
+        server_exe = custom_dir / "server"
+        server_exe.write_text("#!/bin/sh\necho 'server'\n")
+        server_exe.chmod(0o755)
+
         from llm_lsp_cli.config.manager import ConfigManager
 
         # Act
-        cmd, args = ConfigManager.resolve_server_command(
-            "any_language",
-            cli_arg="/custom/path/to/server"
-        )
+        cmd, args = ConfigManager.resolve_server_command("any_language", cli_arg=str(server_exe))
 
         # Assert
-        assert cmd == "/custom/path/to/server"
+        assert cmd == str(server_exe.resolve())
         assert args == []
 
     def test_config_manager_build_socket_path_with_custom_base(
@@ -573,10 +542,7 @@ class TestConfigManagerFacadeEdgeCases:
 
         # Act
         socket_path = ConfigManager.build_socket_path(
-            str(workspace),
-            "python",
-            base_dir=custom_base,
-            lsp_server_name="custom_server"
+            str(workspace), "python", base_dir=custom_base, lsp_server_name="custom_server"
         )
 
         # Assert
@@ -611,11 +577,12 @@ class TestConfigManagerFacadeEdgeCases:
         from llm_lsp_cli.config.schema import ClientConfig, LanguageServerConfig
 
         config = ClientConfig(
-            languages={"testlang": LanguageServerConfig(
-                command="test_server",
-                args=["--test"],
-                timeout_seconds=60,
-            )},
+            languages={
+                "testlang": LanguageServerConfig(
+                    command="test_server",
+                    args=["--test"],
+                )
+            },
             trace_lsp=True,
             timeout_seconds=120,
         )
