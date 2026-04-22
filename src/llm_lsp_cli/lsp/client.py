@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import uuid
 from pathlib import Path
 from typing import Any, cast
 
@@ -10,6 +11,7 @@ from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.infrastructure.lsp.progress_handler import ProgressHandler
 
 from . import types as lsp
+from .cache import DiagnosticCache
 from .constants import LSPConstants
 from .transport import StdioTransport
 
@@ -20,183 +22,6 @@ _WORKSPACE_INDEX_TIMEOUT = 10.0
 _WORKSPACE_DIAGNOSTIC_TIMEOUT = 30.0
 _WORKSPACE_INDEX_WAIT = 2.0
 _DOCUMENT_READY_WAIT = 2.0
-
-
-def _build_workspace_items(
-    cache: dict[str, list[dict[str, Any]]],
-) -> list[lsp.WorkspaceDiagnosticItem]:
-    """Build workspace diagnostic items from a cache dictionary.
-
-    Args:
-        cache: Dictionary mapping URIs to diagnostic lists.
-
-    Returns:
-        List of WorkspaceDiagnosticItem objects.
-    """
-    return cast(
-        list[lsp.WorkspaceDiagnosticItem],
-        [
-            {
-                "uri": uri,
-                "version": None,
-                "diagnostics": list(diags),
-            }
-            for uri, diags in cache.items()
-        ],
-    )
-
-
-class WorkspaceDiagnosticManager:
-    """Manages workspace diagnostic collection via pull mode.
-
-    Handles:
-    - Fire-and-forget workspace/diagnostic requests
-    - Processing $/progress notifications with partial results
-    - Thread-safe cache operations with asyncio.Lock
-    - Streaming completion signaling via asyncio.Event
-    """
-
-    def __init__(self, client: "LSPClient"):
-        self._client = client
-        self._cache: dict[str, list[dict[str, Any]]] = {}
-        self._cache_lock = asyncio.Lock()
-        self._streaming_complete = asyncio.Event()
-        self._partial_result_token = f"workspace-diagnostic-{id(self)}"
-        # Track if server supports pull mode (workspace/diagnostic)
-        # Defaults to True, will be set based on server capabilities
-        self._pull_mode_supported = True
-
-    def get_cached(self, uri: str) -> list[dict[str, Any]]:
-        """Get cached diagnostics for a URI (returns a copy)."""
-        return list(self._cache.get(uri, []))
-
-    async def _update_cache(self, uri: str, diagnostics: list[dict[str, Any]]) -> None:
-        """Update cache with new diagnostics for a URI."""
-        async with self._cache_lock:
-            self._cache[uri] = list(diagnostics)
-
-    async def _get_cache_items(self) -> list[lsp.WorkspaceDiagnosticItem]:
-        """Get all cached diagnostics as workspace diagnostic items.
-
-        If pull mode is not supported, returns diagnostics from the client's
-        _diagnostic_cache (populated via publishDiagnostics notifications).
-        """
-        # If pull mode is not supported, use the client's diagnostic cache
-        # which is populated via publishDiagnostics notifications
-        if not self._pull_mode_supported:
-            return _build_workspace_items(self._client._diagnostic_cache)
-
-        async with self._cache_lock:
-            return _build_workspace_items(self._cache)
-
-    def _handle_progress(self, params: dict[str, Any]) -> None:
-        """Handle $/progress notification for workspace diagnostics.
-
-        Handles three kinds of progress:
-        - begin: Start of diagnostic collection (logged only)
-        - report: Contains partial results with items
-        - end: Diagnostic collection complete
-        """
-        token = params.get("token", "")
-        value = params.get("value", {})
-
-        if not isinstance(value, dict):
-            return
-
-        kind = value.get("kind", "")
-
-        if kind == "begin":
-            logger.debug(f"Workspace diagnostic collection started: {value.get('title', '')}")
-            return
-
-        if kind == "report":
-            # Check if this is our diagnostic progress
-            if token != self._partial_result_token:
-                return
-
-            items = value.get("items", [])
-            if items:
-                # Process items - use create_task but handle case when no running loop
-                try:
-                    asyncio.create_task(self._process_report_items(items))
-                except RuntimeError:
-                    # No running event loop - process synchronously
-                    # This can happen in unit tests
-                    pass
-            return
-
-        if kind == "end":
-            logger.debug("Workspace diagnostic collection complete")
-            self._streaming_complete.set()
-            return
-
-    async def _process_report_items(self, items: list[dict[str, Any]]) -> None:
-        """Process report items from progress notification."""
-        for item in items:
-            uri = item.get("uri", "")
-            diagnostics = item.get("diagnostics", [])
-            if uri and diagnostics:
-                await self._update_cache(uri, diagnostics)
-
-    async def _send_diagnostic_request(self) -> None:
-        """Send workspace/diagnostic request with partial result token.
-
-        This is a fire-and-forget request - the server never sends a response.
-        Results come via $/progress notifications instead.
-        """
-        assert self._client._transport is not None
-
-        params: dict[str, Any] = {
-            "identifier": "basedpyright",
-            "previousResultIds": [],
-            "partialResultToken": self._partial_result_token,
-        }
-
-        # Send as fire-and-forget request (has ID but we don't wait for response)
-        await self._client._transport.send_request_fire_and_forget(
-            LSPConstants.WORKSPACE_DIAGNOSTIC,
-            params,
-        )
-
-    async def request(self) -> list[lsp.WorkspaceDiagnosticItem]:
-        """Request workspace diagnostics.
-
-        Sends a fire-and-forget workspace/diagnostic request and waits
-        for streaming to complete via $/progress notifications.
-
-        If pull mode is not supported by the server, returns cached
-        diagnostics from push mode (publishDiagnostics).
-
-        Returns partial results if timeout occurs.
-        """
-        # If pull mode is not supported, return cached diagnostics immediately
-        if not self._pull_mode_supported:
-            logger.debug("Pull mode not supported, returning cached diagnostics")
-            return await self._get_cache_items()
-
-        # Clear any previous completion signal
-        self._streaming_complete.clear()
-
-        # Register progress handler
-        assert self._client._transport is not None
-        self._client._transport.on_notification("$/progress", self._handle_progress)
-
-        # Send diagnostic request
-        await self._send_diagnostic_request()
-
-        # Wait for streaming to complete
-        try:
-            await asyncio.wait_for(self._streaming_complete.wait(), timeout=60.0)
-        except asyncio.TimeoutError:
-            logger.warning("Workspace diagnostic request timed out, returning partial results")
-
-        # Return cached results
-        return await self._get_cache_items()
-
-    def set_pull_mode_supported(self, supported: bool) -> None:
-        """Set whether the server supports pull mode diagnostics."""
-        self._pull_mode_supported = supported
-        logger.debug(f"Pull mode support: {supported}")
 
 
 class LSPClient:
@@ -211,7 +36,6 @@ class LSPClient:
         trace: bool = False,
         timeout: float = 30.0,
         lsp_conf: str | None = None,
-        log_file: Path | None = None,
     ):
         self.workspace_path = Path(workspace_path).resolve()
         self.server_command = server_command
@@ -220,7 +44,6 @@ class LSPClient:
         self.trace = trace
         self.timeout = timeout
         self.lsp_conf = lsp_conf
-        self.log_file = log_file
 
         self._transport: StdioTransport | None = None
         self._initialized = False
@@ -228,11 +51,11 @@ class LSPClient:
         self._open_files: dict[str, tuple[str, int, asyncio.Event]] = {}
         self._capabilities: lsp.ServerCapabilities | None = None
         self._workspace_indexed = asyncio.Event()
-        # Cache for diagnostics received via publishDiagnostics
-        # uri -> list[Diagnostic]
-        self._diagnostic_cache: dict[str, list[dict[str, Any]]] = {}
-        # Workspace diagnostic manager for pull mode
-        self._diagnostic_manager: WorkspaceDiagnosticManager | None = None
+        # Unified diagnostic cache with relative path keys and version tracking
+        self._diagnostic_cache = DiagnosticCache(self.workspace_path)
+        # GUID tokens for workspace diagnostics (generated once per session)
+        self._workspace_diagnostic_token: str | None = None
+        self._work_done_token: str | None = None
         # Progress handler for work done progress
         self._progress_handler = ProgressHandler()
 
@@ -243,7 +66,6 @@ class LSPClient:
             args=self.server_args,
             cwd=str(self.workspace_path),
             trace=self.trace,
-            log_file=self.log_file,
         )
 
         await self._transport.start()
@@ -268,23 +90,9 @@ class LSPClient:
             self._handle_configuration_request,
         )
         self._transport.on_request(
-            "client/registerCapability",
-            self._handle_register_capability_request,
-        )
-        self._transport.on_request(
-            "workspace/diagnostic/refresh",
-            self._handle_diagnostic_refresh_request,
-        )
-        self._transport.on_request(
             "window/workDoneProgress/create",
             self._handle_work_done_progress_create_request,
         )
-
-        # Create workspace diagnostic manager
-        # Pull mode is disabled by default - servers that support it will register
-        # the capability via client/registerCapability
-        self._diagnostic_manager = WorkspaceDiagnosticManager(self)
-        self._diagnostic_manager.set_pull_mode_supported(False)
 
         # Send initialize request
         init_params = self._build_initialize_params()
@@ -300,6 +108,10 @@ class LSPClient:
         # Send initialized notification
         assert self._transport is not None
         await self._transport.send_notification(LSPConstants.INITIALIZED, {})
+
+        # Send workspace/diagnostic request with GUID tokens
+        # This is a fire-and-forget request - results come via $/progress notifications
+        await self._send_workspace_diagnostic_request()
 
         # Send workspace/didChangeConfiguration to set diagnosticMode=workspace
         # This tells the server to analyze the entire workspace, not just open files
@@ -342,6 +154,91 @@ class LSPClient:
             workspace_path=str(self.workspace_path),
             custom_conf_path=self.lsp_conf,
         )
+
+    def get_workspace_diagnostic_token(self) -> str:
+        """Get the GUID token for workspace diagnostic progress matching.
+
+        Returns a UUID4 token generated once per client session.
+        This token is used to match $/progress notifications for workspace diagnostics.
+        """
+        if self._workspace_diagnostic_token is None:
+            self._workspace_diagnostic_token = str(uuid.uuid4())
+        return self._workspace_diagnostic_token
+
+    def get_work_done_token(self) -> str:
+        """Get the GUID token for work done progress matching.
+
+        Returns a UUID4 token generated once per client session.
+        """
+        if self._work_done_token is None:
+            self._work_done_token = str(uuid.uuid4())
+        return self._work_done_token
+
+    async def _send_workspace_diagnostic_request(self) -> None:
+        """Send workspace/diagnostic request with GUID tokens.
+
+        This is a fire-and-forget request - the server never sends a response.
+        Results come via $/progress notifications instead.
+        """
+        assert self._transport is not None
+
+        # Generate tokens if not already generated
+        partial_result_token = self.get_workspace_diagnostic_token()
+        work_done_token = self.get_work_done_token()
+
+        params: dict[str, Any] = {
+            "identifier": "basedpyright",
+            "previousResultIds": [],
+            "partialResultToken": partial_result_token,
+            "workDoneToken": work_done_token,
+        }
+
+        # Send as fire-and-forget request
+        await self._transport.send_request_fire_and_forget(
+            LSPConstants.WORKSPACE_DIAGNOSTIC,
+            params,
+        )
+
+    def _handle_workspace_diagnostic_progress(self, params: dict[str, Any]) -> None:
+        """Handle $/progress notification for workspace diagnostics.
+
+        Processes progress notifications that contain diagnostic items.
+        Handles both:
+        - Notifications with 'kind' field (begin/end)
+        - Notifications with 'items' field (diagnostic reports)
+        - basedpyright-style: no 'kind' at value level, just 'items'
+        """
+        value = params.get("value", {})
+
+        if not isinstance(value, dict):
+            return
+
+        kind = value.get("kind", "")
+        items = value.get("items", [])
+
+        if kind == "begin":
+            logger.debug(f"Workspace diagnostic collection started: {value.get('title', '')}")
+            return
+
+        if kind == "end":
+            logger.debug("Workspace diagnostic collection complete")
+            return
+
+        # Process items if present (report notification or items without kind)
+        if items:
+            with contextlib.suppress(RuntimeError):
+                # No running event loop - skip async processing
+                # This can happen in unit tests without event loop
+                asyncio.create_task(self._process_workspace_diagnostic_items(items))
+
+    async def _process_workspace_diagnostic_items(self, items: list[dict[str, Any]]) -> None:
+        """Process workspace diagnostic items and update cache."""
+        for item in items:
+            uri = item.get("uri", "")
+            diagnostics = item.get("diagnostics", [])
+            if uri:
+                # Update cache with diagnostics (including empty list for files with no issues)
+                await self._diagnostic_cache.update_diagnostics(uri, diagnostics)
 
     async def shutdown(self) -> None:
         """Shutdown the LSP connection."""
@@ -473,9 +370,16 @@ class LSPClient:
     async def request_document_symbols(
         self,
         file_path: str,
+        uri: str | None = None,
     ) -> list[lsp.DocumentSymbol]:
-        """Request document symbols."""
-        uri = await self._ensure_open(file_path)
+        """Request document symbols.
+
+        Args:
+            file_path: Path to the file (used if uri not provided)
+            uri: Optional file URI. If provided, skips _ensure_open.
+        """
+        if uri is None:
+            uri = await self._ensure_open(file_path)
 
         params = {"textDocument": {"uri": uri}}
 
@@ -517,6 +421,7 @@ class LSPClient:
     async def request_diagnostics(
         self,
         file_path: str,
+        uri: str | None = None,
     ) -> list[dict[str, Any]]:
         """Request diagnostics for a single document.
 
@@ -525,12 +430,14 @@ class LSPClient:
         if the method is not supported.
 
         Args:
-            file_path: Path to the file
+            file_path: Path to the file (used if uri not provided)
+            uri: Optional file URI. If provided, skips _ensure_open.
 
         Returns:
             List of diagnostic dictionaries.
         """
-        uri = await self._ensure_open(file_path)
+        if uri is None:
+            uri = await self._ensure_open(file_path)
 
         params: lsp.DocumentDiagnosticParams = {
             "textDocument": {"uri": uri},
@@ -548,7 +455,7 @@ class LSPClient:
         except Exception as e:
             logger.warning(f"textDocument/diagnostic failed: {e}, using cached")
             # Fallback to cached diagnostics from notifications
-            return list(self._diagnostic_cache.get(uri, []))
+            return await self._diagnostic_cache.get_diagnostics(uri)
 
     def _normalize_document_diagnostics(
         self,
@@ -573,7 +480,8 @@ class LSPClient:
             # Handle DocumentDiagnosticReport format
             if result.get("kind") == "unchanged":
                 # No changes since last request - return cached
-                return list(self._diagnostic_cache.get(result.get("uri", ""), []))
+                # Use synchronous fallback since we're in a type conversion helper
+                return self._diagnostic_cache.get_cached(result.get("uri", ""))
             items = result.get("items", [])
             return list(items)
 
@@ -602,12 +510,8 @@ class LSPClient:
         except asyncio.TimeoutError:
             logger.warning("Workspace indexing timed out, diagnostics may be incomplete")
 
-        # Use pull mode with diagnostic manager if available
-        if self._diagnostic_manager is not None:
-            return await self._diagnostic_manager.request()
-
-        # Fallback to push mode - return cached diagnostics
-        return _build_workspace_items(self._diagnostic_cache)
+        # Return cached diagnostics from unified cache
+        return await self._diagnostic_cache.get_all_workspace_diagnostics()
 
     def _handle_configuration_request(self, params: dict[str, Any]) -> list[dict[str, Any]]:
         """Handle workspace/configuration request from server.
@@ -626,52 +530,6 @@ class LSPClient:
                 results.append({"diagnosticMode": "workspace"})
 
         return results
-
-    async def _handle_register_capability_request(
-        self,
-        params: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Handle client/registerCapability request from server.
-
-        Auto-triggers workspace diagnostic collection when
-        workspace/diagnostic capability is registered.
-        """
-        registrations = params.get("registrations", [])
-
-        for reg in registrations:
-            method = reg.get("method", "")
-            register_options = reg.get("registerOptions", {})
-
-            # Check for workspace diagnostics support
-            # The server registers with method "workspace/diagnostic" and
-            # registerOptions containing workspaceDiagnostics: true
-            if method == "textDocument/diagnostic" and register_options.get("workspaceDiagnostics"):
-                # Enable pull mode and trigger diagnostic collection
-                if self._diagnostic_manager is not None:
-                    self._diagnostic_manager.set_pull_mode_supported(True)
-                    logger.info("Server supports pull mode diagnostics, requesting...")
-                    asyncio.create_task(self._diagnostic_manager.request())
-            elif method == "textDocument/diagnostic":
-                # Server registered workspace/diagnostic but didn't explicitly
-                # enable workspaceDiagnostics - assume pull mode is supported
-                if self._diagnostic_manager is not None:
-                    self._diagnostic_manager.set_pull_mode_supported(True)
-                    asyncio.create_task(self._diagnostic_manager.request())
-
-        return {}
-
-    def _handle_diagnostic_refresh_request(
-        self,
-        _params: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Handle workspace/diagnostic/refresh request from server.
-
-        Re-triggers workspace diagnostic collection.
-        """
-        if self._diagnostic_manager is not None:
-            asyncio.create_task(self._diagnostic_manager.request())
-
-        return {}
 
     def _handle_work_done_progress_create_request(
         self,
@@ -721,6 +579,45 @@ class LSPClient:
 
         return uri
 
+    async def open_document(self, file_path: Path, content: str) -> str:
+        """
+        Send textDocument/didOpen notification.
+
+        Args:
+            file_path: Path to the file
+            content: File content to send
+
+        Returns:
+            File URI
+        """
+        uri = file_path.as_uri()
+        assert self._transport is not None
+        await self._transport.send_notification(
+            LSPConstants.TEXT_DOCUMENT_DID_OPEN,
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": self.language_id,
+                    "version": 1,
+                    "text": content,
+                }
+            },
+        )
+        return uri
+
+    async def close_document(self, uri: str) -> None:
+        """
+        Send textDocument/didClose notification.
+
+        Args:
+            uri: File URI to close
+        """
+        assert self._transport is not None
+        await self._transport.send_notification(
+            LSPConstants.TEXT_DOCUMENT_DID_CLOSE,
+            {"textDocument": {"uri": uri}},
+        )
+
     def _normalize_locations(self, result: Any) -> list[lsp.Location]:
         """Normalize definition/references response to Location[]."""
         if result is None:
@@ -753,8 +650,9 @@ class LSPClient:
         uri = params.get("uri", "")
         diagnostics = params.get("diagnostics", [])
 
-        # Cache diagnostics for fallback
-        self._diagnostic_cache[uri] = diagnostics
+        # Cache diagnostics using unified DiagnosticCache
+        # Create task but don't await - this is a notification handler
+        asyncio.create_task(self._diagnostic_cache.update_diagnostics(uri, diagnostics))
 
         if uri in self._open_files:
             _, _, ready_event = self._open_files[uri]
@@ -764,11 +662,18 @@ class LSPClient:
 
     def _handle_progress(self, params: dict[str, Any]) -> None:
         """Handle $/progress notification."""
-        # Delegate to progress handler for work done progress
+        token = params.get("token", "")
+
+        # Check if this is workspace diagnostic progress (token-based routing)
+        ws_token = self._workspace_diagnostic_token
+        if ws_token is not None and token == ws_token:
+            self._handle_workspace_diagnostic_progress(params)
+            return
+
+        # Delegate to progress handler for other work done progress
         self._progress_handler.handle_progress(params)
 
         # Also log progress updates for visibility
-        token = params.get("token", "")
         value = params.get("value", {})
         if isinstance(value, dict):
             message = value.get("message", "")

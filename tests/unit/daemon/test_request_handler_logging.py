@@ -21,14 +21,21 @@ class TestRequestHandlerLogging:
                 language="python",
             )
 
-            # Mock registry method
-            with patch.object(handler._registry, "request_document_symbols") as mock_method:
-                mock_method.return_value = []
+            # Mock DocumentSyncContext and workspace
+            with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+                mock_context = MockContext.return_value
+                mock_context.__aenter__.return_value = "file:///test.py"
+                mock_context.__aexit__.return_value = None
 
-                await handler._handle_lsp_method(
-                    "textDocument/documentSymbol",
-                    {"filePath": "/test.py"},
-                )
+                with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                    mock_workspace = mock_ws.return_value
+                    mock_client = mock_workspace.ensure_initialized.return_value
+                    mock_client.request_document_symbols.return_value = []
+
+                    await handler._handle_lsp_method(
+                        "textDocument/documentSymbol",
+                        {"filePath": "/test.py"},
+                    )
 
             # Verify method entry was logged
             assert "Handling LSP method" in caplog.text
@@ -43,15 +50,22 @@ class TestRequestHandlerLogging:
                 language="python",
             )
 
-            # Mock registry method
-            with patch.object(handler._registry, "request_document_symbols") as mock_method:
-                mock_method.return_value = []
+            # Mock DocumentSyncContext and workspace
+            with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+                mock_context = MockContext.return_value
+                mock_context.__aenter__.return_value = "file:///test/file.py"
+                mock_context.__aexit__.return_value = None
 
-                params = {"filePath": "/test/file.py", "workspacePath": "/test/workspace"}
-                await handler._handle_lsp_method(
-                    "textDocument/documentSymbol",
-                    params,
-                )
+                with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                    mock_workspace = mock_ws.return_value
+                    mock_client = mock_workspace.ensure_initialized.return_value
+                    mock_client.request_document_symbols.return_value = []
+
+                    params = {"filePath": "/test/file.py", "workspacePath": "/test/workspace"}
+                    await handler._handle_lsp_method(
+                        "textDocument/documentSymbol",
+                        params,
+                    )
 
             # Verify parameters were logged
             assert "params" in caplog.text.lower() or "/test/file.py" in caplog.text
@@ -65,18 +79,25 @@ class TestRequestHandlerLogging:
                 language="python",
             )
 
-            # Mock registry method to raise exception
-            with patch.object(handler._registry, "request_document_symbols") as mock_method:
-                mock_method.side_effect = ValueError("Test error")
+            # Mock DocumentSyncContext and workspace
+            with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+                mock_context = MockContext.return_value
+                mock_context.__aenter__.return_value = "file:///test.py"
+                mock_context.__aexit__.return_value = None
 
-                with pytest.raises(ValueError):
-                    await handler._handle_lsp_method(
-                        "textDocument/documentSymbol",
-                        {"filePath": "/test.py"},
-                    )
+                with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                    mock_workspace = mock_ws.return_value
+                    mock_client = mock_workspace.ensure_initialized.return_value
+                    # Mock registry method to raise exception
+                    mock_client.request_document_symbols.side_effect = ValueError("Test error")
+
+                    with pytest.raises(ValueError):
+                        await handler._handle_lsp_method(
+                            "textDocument/documentSymbol",
+                            {"filePath": "/test.py"},
+                        )
 
             # Verify exception was logged with traceback
-            # logger.exception() should be called, which includes traceback
             assert "Test error" in caplog.text
             # Verify exception logging occurred (traceback indicator)
             assert "Traceback" in caplog.text or "error" in caplog.text.lower()
@@ -90,14 +111,21 @@ class TestRequestHandlerLogging:
                 language="python",
             )
 
-            # Mock registry method
-            with patch.object(handler._registry, "request_document_symbols") as mock_method:
-                mock_method.return_value = [{"name": "MyClass", "kind": "Class"}]
+            # Mock DocumentSyncContext and workspace
+            with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+                mock_context = MockContext.return_value
+                mock_context.__aenter__.return_value = "file:///test.py"
+                mock_context.__aexit__.return_value = None
 
-                await handler._handle_lsp_method(
-                    "textDocument/documentSymbol",
-                    {"filePath": "/test.py"},
-                )
+                with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                    mock_workspace = mock_ws.return_value
+                    mock_client = mock_workspace.ensure_initialized.return_value
+                    mock_client.request_document_symbols.return_value = [{"name": "MyClass", "kind": "Class"}]
+
+                    await handler._handle_lsp_method(
+                        "textDocument/documentSymbol",
+                        {"filePath": "/test.py"},
+                    )
 
             # Verify successful execution was logged
             assert "Registry method returned" in caplog.text or "symbols" in caplog.text.lower()
@@ -113,15 +141,23 @@ class TestRequestHandlerLogging:
                 language="python",
             )
 
-            # Mock registry method to raise with traceback
-            with patch.object(handler._registry, "request_document_symbols") as mock_method:
-                mock_method.side_effect = RuntimeError("Critical error")
+            # Mock DocumentSyncContext and workspace
+            with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+                mock_context = MockContext.return_value
+                mock_context.__aenter__.return_value = "file:///test.py"
+                mock_context.__aexit__.return_value = None
 
-                with pytest.raises(RuntimeError):
-                    await handler._handle_lsp_method(
-                        "textDocument/documentSymbol",
-                        {"filePath": "/test.py"},
-                    )
+                with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                    mock_workspace = mock_ws.return_value
+                    mock_client = mock_workspace.ensure_initialized.return_value
+                    # Mock registry method to raise with traceback
+                    mock_client.request_document_symbols.side_effect = RuntimeError("Critical error")
+
+                    with pytest.raises(RuntimeError):
+                        await handler._handle_lsp_method(
+                            "textDocument/documentSymbol",
+                            {"filePath": "/test.py"},
+                        )
 
             # Verify traceback is present (indicates logger.exception() was used)
             # logger.error() doesn't include traceback unless explicitly formatted

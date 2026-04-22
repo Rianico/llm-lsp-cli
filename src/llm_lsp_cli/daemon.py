@@ -30,6 +30,40 @@ logging.basicConfig(
 logger = logging.getLogger("llm-lsp-cli.daemon")
 
 
+def _configure_diagnostic_logger(log_path: Path) -> None:
+    """Configure the diagnostic logger with a FileHandler.
+
+    Args:
+        log_path: Path to the diagnostics.log file
+
+    This configures the 'llm_lsp_cli.lsp.diagnostic' logger to:
+    - Write to the specified file with DEBUG level
+    - Have propagate=False to prevent double-logging
+    - Use restrictive file permissions (0o600)
+    """
+    import os
+    import stat
+
+    # Ensure parent directory exists
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create file handler
+    handler = logging.FileHandler(str(log_path), mode="a")
+    handler.setLevel(logging.DEBUG)
+
+    # Configure diagnostic logger
+    diagnostic_logger = logging.getLogger("llm_lsp_cli.lsp.diagnostic")
+    diagnostic_logger.addHandler(handler)
+    diagnostic_logger.setLevel(logging.DEBUG)
+    diagnostic_logger.propagate = False
+
+    # Set restrictive file permissions (owner read/write only)
+    try:
+        os.chmod(log_path, 0o600)
+    except OSError:
+        logger.warning(f"Could not set restrictive permissions on {log_path}")
+
+
 def cleanup_runtime_files(
     socket_path: Path,
     pid_file: Path,
@@ -93,9 +127,6 @@ class DaemonManager:
         self.socket_path = ConfigManager.build_socket_path(
             workspace_path, language, lsp_server_name=self._lsp_server_name
         )
-        self.log_file = ConfigManager.build_log_file_path(
-            workspace_path, language, lsp_server_name=self._lsp_server_name
-        )
         self.daemon_log_file = ConfigManager.build_daemon_log_path(workspace_path, language)
 
     def is_running(self) -> bool:
@@ -152,8 +183,12 @@ class DaemonManager:
             os.kill(pid, signal.SIGKILL)
             logger.info(f"Sent SIGKILL to daemon (PID: {pid})")
 
-    def start(self) -> None:
-        """Start the daemon process in background."""
+    def start(self, diagnostic_log: bool = False) -> None:
+        """Start the daemon process in background.
+
+        Args:
+            diagnostic_log: If True, configure diagnostic logger to write to diagnostics.log
+        """
         if self.is_running():
             raise RuntimeError("Daemon is already running")
 
@@ -171,7 +206,6 @@ class DaemonManager:
         ConfigManager.ensure_runtime_dir()
         ConfigManager.ensure_state_dir()
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.daemon_log_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Start daemon context with exception wrapper
@@ -192,6 +226,10 @@ class DaemonManager:
                         self.lsp_conf,
                         self.debug,
                         pid_file=self.pid_file,
+                        diagnostic_log=diagnostic_log,
+                        diagnostic_log_path=ConfigManager.build_diagnostic_log_path(
+                            self.workspace_path, self.language
+                        ),
                     )
                 )
         except Exception as e:
@@ -217,6 +255,47 @@ class DaemonManager:
                 logger.warning(f"[SIGNAL] Process {pid} not found (already stopped)")
 
         self._cleanup_files()
+
+
+class DocumentSyncContext:
+    """Async context manager for document synchronization within daemon.
+
+    This context manager handles the complete didOpen → request → didClose
+    lifecycle for a single file. It ensures that:
+    - didOpen is sent when entering the context
+    - didClose is sent when exiting the context (even on exception)
+    - The file URI is returned for use in subsequent requests
+
+    Usage:
+        async with DocumentSyncContext(lsp_client, file_path) as uri:
+            # Use uri for LSP requests
+            result = await lsp_client.request_diagnostics(uri)
+        # didClose automatically sent here
+    """
+
+    def __init__(self, lsp_client: Any, file_path: Path):
+        """
+        Initialize document sync context.
+
+        Args:
+            lsp_client: LSPClient instance
+            file_path: Path to the file to synchronize
+        """
+        self.lsp_client = lsp_client
+        self.file_path = file_path
+        self.uri: str = ""
+
+    async def __aenter__(self) -> str:
+        """Open document and return URI."""
+        content = self.file_path.read_text(encoding="utf-8")
+        self.uri = await self.lsp_client.open_document(self.file_path, content)
+        return self.uri
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Close document regardless of exception."""
+        if self.uri:
+            await self.lsp_client.close_document(self.uri)
+        # Exception propagates normally
 
 
 class RequestHandler:
@@ -250,6 +329,24 @@ class RequestHandler:
         self._lsp_conf = lsp_conf
         self._registry = ServerRegistry(lsp_conf=lsp_conf)
         self._router = LspMethodRouter()
+        self._file_locks: dict[str, asyncio.Lock] = {}
+
+    def _get_file_lock(self, file_path: Path) -> asyncio.Lock:
+        """Get or create an asyncio.Lock for a specific file path.
+
+        This ensures that concurrent requests for the same file are serialized
+        to prevent interleaving of didOpen/didClose sequences.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            asyncio.Lock for the file path
+        """
+        path_str = str(file_path)
+        if path_str not in self._file_locks:
+            self._file_locks[path_str] = asyncio.Lock()
+        return self._file_locks[path_str]
 
     async def handle(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Route request to appropriate handler."""
@@ -313,7 +410,119 @@ class RequestHandler:
         # Log method entry with parameters
         logger.debug(f"Handling LSP method: {method} with params: {params}")
 
-        # Get registry method by name
+        # Check if this method requires document synchronization
+        # Methods that operate on specific files need didOpen -> request -> didClose
+        requires_doc_sync = registry_method in {
+            "request_diagnostics",
+            "request_document_symbols",
+        }
+
+        if requires_doc_sync:
+            # Extract file path from params
+            file_path = params.get("filePath")
+            if file_path is None:
+                raise ValueError("Missing 'filePath' parameter")
+
+            file_path_obj = Path(file_path)
+
+            # Get workspace path for registry call
+            workspace_path = params.get("workspacePath", ".")
+
+            # Get workspace and ensure client is initialized
+            workspace = await self._registry.get_or_create_workspace(workspace_path)
+            client = await workspace.ensure_initialized()
+
+            # Use per-file lock to serialize requests for the same file
+            lock = self._get_file_lock(file_path_obj)
+            async with lock, DocumentSyncContext(client, file_path_obj) as uri:
+                # Build params for the LSP request
+                lsp_params = {"textDocument": {"uri": uri}}
+                return await self._send_lsp_request(
+                    method,
+                    registry_method,
+                    response_key,
+                    lsp_params,
+                    client,
+                    str(file_path_obj),
+                )
+        else:
+            # Non file-specific methods (workspace symbols, workspace diagnostics)
+            # or position-based methods that use _ensure_open internally
+            return await self._handle_standard_lsp_method(
+                method, params, registry_method, response_key
+            )
+
+    async def _send_lsp_request(
+        self,
+        method: str,
+        registry_method: str,
+        response_key: str,
+        lsp_params: dict[str, Any],
+        client: Any,
+        file_path: str,
+    ) -> dict[str, Any]:
+        """Send LSP request using client directly.
+
+        When called from document sync context, we use the client directly
+        to avoid double-opening the document.
+
+        Args:
+            method: LSP method name (for logging)
+            registry_method: Name of registry method (for routing)
+            response_key: Key to use in response dict
+            lsp_params: Parameters for the LSP request (textDocument, etc.)
+            client: LSPClient instance to use
+            file_path: File path for fallback
+
+        Returns:
+            Response dict with appropriate key
+        """
+        try:
+            # Extract URI from lsp_params
+            uri = lsp_params.get("textDocument", {}).get("uri", "")
+
+            # Call client method directly with uri to avoid _ensure_open
+            if registry_method == "request_diagnostics":
+                result = await client.request_diagnostics(file_path=file_path, uri=uri)
+            elif registry_method == "request_document_symbols":
+                result = await client.request_document_symbols(file_path=file_path, uri=uri)
+            else:
+                # Fallback - should not happen for doc sync methods
+                registry_func = getattr(self._registry, registry_method)
+                result = await registry_func(workspace_path=".", file_path=file_path)
+
+            logger.debug(f"Client method {registry_method} returned for {method}")
+
+            # Wrap result with appropriate response key
+            if response_key == "hover":
+                return {response_key: result} if result else {}
+            return {response_key: result}
+
+        except Exception as e:
+            logger.exception(f"Error handling LSP method {method}: {e}")
+            raise
+
+    async def _handle_standard_lsp_method(
+        self,
+        method: str,
+        params: dict[str, Any],
+        registry_method: str,
+        response_key: str,
+    ) -> dict[str, Any]:
+        """Handle standard LSP methods that don't require document sync.
+
+        This handles workspace-level methods and position-based methods
+        that use _ensure_open internally.
+
+        Args:
+            method: LSP method name
+            params: Request parameters
+            registry_method: Name of registry method to call
+            response_key: Key to use in response dict
+
+        Returns:
+            Response dict with appropriate key
+        """
         registry_func = getattr(self._registry, registry_method)
 
         try:
@@ -331,8 +540,6 @@ class RequestHandler:
                 "request_references",
                 "request_completions",
                 "request_hover",
-                "request_document_symbols",
-                "request_diagnostics",
             }:
                 file_path = params.get("filePath")
                 if file_path is None:
@@ -377,6 +584,8 @@ async def run_daemon(
     lsp_conf: str | None = None,
     debug: bool = False,
     pid_file: Path | None = None,
+    diagnostic_log: bool = False,
+    diagnostic_log_path: Path | None = None,
 ) -> None:
     """Run the daemon main loop.
 
@@ -387,6 +596,8 @@ async def run_daemon(
         lsp_conf: Optional LSP configuration
         debug: Enable debug logging
         pid_file: Path to PID file for cleanup
+        diagnostic_log: If True, configure diagnostic logger with FileHandler
+        diagnostic_log_path: Path to diagnostics.log file
     """
     # Enable debug logging if requested
     if debug:
@@ -395,6 +606,10 @@ async def run_daemon(
         logging.getLogger("llm_lsp_cli").setLevel(logging.DEBUG)
         logging.getLogger("llm_lsp_cli.lsp").setLevel(logging.DEBUG)
         logger.debug("Debug logging enabled")
+
+    # Configure diagnostic logger if enabled
+    if diagnostic_log and diagnostic_log_path is not None:
+        _configure_diagnostic_logger(diagnostic_log_path)
 
     logger.info(f"Starting daemon with socket: {socket_path}")
     logger.info(f"Workspace: {workspace_path}, Language: {language}")

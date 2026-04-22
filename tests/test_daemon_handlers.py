@@ -7,6 +7,42 @@ import pytest
 from llm_lsp_cli.daemon import RequestHandler
 
 
+class TestDaemonManagerNoLogFile:
+    """Test DaemonManager no longer tracks log_file."""
+
+    def test_init_has_no_log_file_attribute(self) -> None:
+        """DaemonManager.__init__ does not create log_file attribute."""
+        # Arrange
+        from llm_lsp_cli.daemon import DaemonManager
+
+        # Act
+        manager = DaemonManager(
+            workspace_path="/tmp/test",
+            language="python",
+        )
+
+        # Assert
+        assert not hasattr(manager, "log_file")
+        # daemon_log_file should still exist
+        assert hasattr(manager, "daemon_log_file")
+
+    def test_log_file_property_raises_or_returns_none(self) -> None:
+        """DaemonManager.log_file should not exist or return None."""
+        # Arrange
+        from llm_lsp_cli.daemon import DaemonManager
+
+        # Act
+        manager = DaemonManager(
+            workspace_path="/tmp/test",
+            language="python",
+        )
+
+        # Assert
+        # log_file should not exist as an attribute
+        result = getattr(manager, "log_file", None)
+        assert result is None
+
+
 class TestRequestHandler:
     """Tests for RequestHandler."""
 
@@ -56,12 +92,15 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_definition") as mock_req:
             mock_req.return_value = [{"uri": "file://test.py", "range": {}}]
 
-            result = await handler.handle("textDocument/definition", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/definition",
+                {
+                    "workspacePath": "/tmp/test",
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {"locations": [{"uri": "file://test.py", "range": {}}]}
             mock_req.assert_awaited_once_with(
@@ -86,12 +125,15 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_references") as mock_req:
             mock_req.return_value = [{"uri": "file://test.py", "range": {}}]
 
-            result = await handler.handle("textDocument/references", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/references",
+                {
+                    "workspacePath": "/tmp/test",
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {"locations": [{"uri": "file://test.py", "range": {}}]}
 
@@ -110,12 +152,15 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_completions") as mock_req:
             mock_req.return_value = [{"label": "test"}]
 
-            result = await handler.handle("textDocument/completion", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/completion",
+                {
+                    "workspacePath": "/tmp/test",
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {"items": [{"label": "test"}]}
 
@@ -134,12 +179,15 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_hover") as mock_req:
             mock_req.return_value = {"contents": {"value": "test"}}
 
-            result = await handler.handle("textDocument/hover", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/hover",
+                {
+                    "workspacePath": "/tmp/test",
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {"hover": {"contents": {"value": "test"}}}
 
@@ -151,12 +199,15 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_hover") as mock_req:
             mock_req.return_value = None
 
-            result = await handler.handle("textDocument/hover", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/hover",
+                {
+                    "workspacePath": "/tmp/test",
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {}
 
@@ -172,15 +223,28 @@ class TestRequestHandler:
         """Test documentSymbol request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_document_symbols") as mock_req:
-            mock_req.return_value = [{"name": "test", "kind": 12}]
+        # Mock DocumentSyncContext as async context manager
+        mock_uri = "file:///tmp/test.py"
+        with patch("llm_lsp_cli.daemon.DocumentSyncContext") as MockContext:
+            mock_context = MockContext.return_value
+            mock_context.__aenter__.return_value = mock_uri
+            mock_context.__aexit__.return_value = None
 
-            result = await handler.handle("textDocument/documentSymbol", {
-                "workspacePath": "/tmp/test",
-                "filePath": "/tmp/test.py",
-            })
+            # Mock workspace and client
+            with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
+                mock_workspace = mock_ws.return_value
+                mock_client = mock_workspace.ensure_initialized.return_value
+                mock_client.request_document_symbols.return_value = [{"name": "test", "kind": 12}]
 
-            assert result == {"symbols": [{"name": "test", "kind": 12}]}
+                result = await handler.handle(
+                    "textDocument/documentSymbol",
+                    {
+                        "workspacePath": "/tmp/test",
+                        "filePath": "/tmp/test.py",
+                    },
+                )
+
+                assert result == {"symbols": [{"name": "test", "kind": 12}]}
 
     @pytest.mark.asyncio
     async def test_workspace_symbol_delegates_to_registry(self) -> None:
@@ -190,10 +254,13 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_workspace_symbols") as mock_req:
             mock_req.return_value = [{"name": "test", "kind": 5}]
 
-            result = await handler.handle("workspace/symbol", {
-                "workspacePath": "/tmp/test",
-                "query": "test",
-            })
+            result = await handler.handle(
+                "workspace/symbol",
+                {
+                    "workspacePath": "/tmp/test",
+                    "query": "test",
+                },
+            )
 
             assert result == {"symbols": [{"name": "test", "kind": 5}]}
 
@@ -205,9 +272,12 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_workspace_symbols") as mock_req:
             mock_req.return_value = []
 
-            result = await handler.handle("workspace/symbol", {
-                "workspacePath": "/tmp/test",
-            })
+            result = await handler.handle(
+                "workspace/symbol",
+                {
+                    "workspacePath": "/tmp/test",
+                },
+            )
 
             assert result == {"symbols": []}
             mock_req.assert_awaited_once_with(workspace_path="/tmp/test", query="")
@@ -220,10 +290,13 @@ class TestRequestHandler:
         with patch.object(handler._registry, "request_definition") as mock_req:
             mock_req.return_value = []
 
-            result = await handler.handle("textDocument/definition", {
-                "filePath": "/tmp/test.py",
-                "line": 10,
-                "column": 5,
-            })
+            result = await handler.handle(
+                "textDocument/definition",
+                {
+                    "filePath": "/tmp/test.py",
+                    "line": 10,
+                    "column": 5,
+                },
+            )
 
             assert result == {"locations": []}
