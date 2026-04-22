@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 .mypy_cache/
 .llm-lsp-cli/
+.claude/
+.full-review/
+.lsz/
+.qwen/
