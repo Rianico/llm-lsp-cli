@@ -7,6 +7,7 @@ from llm_lsp_cli.infrastructure.config.exceptions import (
     ConfigParseError,
     ConfigValidationError,
     ConfigWriteError,
+    ServerNotFoundError,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "ConfigValidationError",
     "ConfigDirectoryError",
     "ConfigWriteError",
+    "ServerNotFoundError",
 ]

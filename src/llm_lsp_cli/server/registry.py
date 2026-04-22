@@ -1,12 +1,13 @@
 """Server registry for managing multiple LSP workspaces."""
 
 import asyncio
-import shutil
 from pathlib import Path
 from typing import Any
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
+from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
+from llm_lsp_cli.infrastructure.config.exceptions import ServerNotFoundError
 
 from .workspace import WorkspaceManager
 
@@ -58,15 +59,12 @@ class ServerRegistry:
             args = lang_config.get("args", [])
 
             if command:
-                # Check if command exists in PATH
-                resolved = shutil.which(command)
-                if resolved:
+                # Use ServerPathResolver for path resolution
+                try:
+                    resolved = ServerPathResolver.resolve(command)
                     return resolved, args
-                # Command in config but not found in PATH
-                raise FileNotFoundError(
-                    f"Language server '{command}' for '{language}' not found in PATH.\n"
-                    f"Please ensure it's installed and in PATH, or update the config."
-                )
+                except ServerNotFoundError as e:
+                    raise FileNotFoundError(str(e)) from e
 
         # Try default config
         if language in DEFAULT_CONFIG.get("languages", {}):
@@ -74,9 +72,11 @@ class ServerRegistry:
             command = defaults["command"]
             args = defaults.get("args", [])
 
-            resolved = shutil.which(command)
-            if resolved:
+            try:
+                resolved = ServerPathResolver.resolve(command)
                 return resolved, args
+            except ServerNotFoundError as e:
+                raise FileNotFoundError(str(e)) from e
 
         # Not found
         available = list(languages.keys()) or list(DEFAULT_CONFIG.get("languages", {}).keys())
@@ -112,21 +112,12 @@ class ServerRegistry:
                 # Get server command from config
                 command, args = self._get_server_command(language)
 
-                # Compute LSP server log file path
-                lsp_server_name = ConfigManager.get_lsp_server_name(language)
-                log_file = ConfigManager.build_log_file_path(
-                    workspace_path=workspace_path,
-                    language=language,
-                    lsp_server_name=lsp_server_name,
-                )
-
                 manager = WorkspaceManager(
                     workspace_path=workspace_path,
                     server_command=command,
                     server_args=args,
                     language_id=language,
                     lsp_conf=self._lsp_conf,
-                    log_file=log_file,
                     trace=True,  # Enable LSP tracing for debugging
                 )
                 self._workspaces[workspace_key] = manager

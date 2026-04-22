@@ -1,12 +1,13 @@
 """Configuration manager for llm-lsp-cli - facade for configuration operations."""
 
-import shutil
+import warnings
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
+from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
 
 from .defaults import DEFAULT_CONFIG
@@ -67,7 +68,18 @@ class ConfigManager:
         cls, workspace_path: str, language: str,
         base_dir: Path | None = None, lsp_server_name: str | None = None,
     ) -> Path:
-        """Build log file path."""
+        """Build log file path.
+
+        Deprecated: LSP server log files are no longer created separately.
+        All LSP stderr output is now captured in daemon.log only.
+        """
+        warnings.warn(
+            "build_log_file_path is deprecated. "
+            "LSP server log files are no longer created separately. "
+            "Use build_daemon_log_path instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return RuntimePathBuilder().build_log_file_path(
             workspace_path, language, base_dir, lsp_server_name
         )
@@ -78,6 +90,15 @@ class ConfigManager:
     ) -> Path:
         """Build daemon log file path."""
         return RuntimePathBuilder().build_daemon_log_path(
+            workspace_path, language, base_dir
+        )
+
+    @classmethod
+    def build_diagnostic_log_path(
+        cls, workspace_path: str, language: str, base_dir: Path | None = None,
+    ) -> Path:
+        """Build diagnostic log file path."""
+        return RuntimePathBuilder().build_diagnostic_log_path(
             workspace_path, language, base_dir
         )
 
@@ -103,7 +124,9 @@ class ConfigManager:
         config_file = paths.config_dir / "config.yaml"
         if not config_file.exists():
             config_file.parent.mkdir(parents=True, exist_ok=True)
-            config_file.write_text(yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False))
+            config_file.write_text(yaml.dump(
+                DEFAULT_CONFIG, default_flow_style=False, sort_keys=False
+            ))
             return ClientConfig(**DEFAULT_CONFIG)
         data = ConfigLoader.load(config_file, defaults={})
         return ClientConfig(**data)
@@ -146,19 +169,43 @@ class ConfigManager:
     def resolve_server_command(
         cls, language: str, cli_arg: str | None = None
     ) -> tuple[str, list[str]]:
-        """Resolve server command for a language."""
+        """Resolve server command for a language.
+
+        Args:
+            language: Language identifier
+            cli_arg: Optional CLI-override command
+
+        Returns:
+            Tuple of (resolved_executable_path, args_list)
+
+        Raises:
+            FileNotFoundError: If server executable cannot be resolved
+        """
         if cli_arg:
-            return cli_arg, []
+            # CLI arg goes through path resolver
+            try:
+                resolved = ServerPathResolver.resolve(cli_arg)
+                return resolved, []
+            except Exception as e:
+                raise FileNotFoundError(str(e)) from e
+
         lang_config = cls.get_language_config(language)
         if lang_config:
-            resolved = shutil.which(lang_config.command)
-            if resolved:
+            try:
+                resolved = ServerPathResolver.resolve(lang_config.command)
                 return resolved, lang_config.args
+            except Exception as e:
+                raise FileNotFoundError(str(e)) from e
+
+        # Fall back to defaults
         if language in DEFAULT_CONFIG["languages"]:
             defaults = DEFAULT_CONFIG["languages"][language]
-            resolved = shutil.which(defaults["command"])
-            if resolved:
+            try:
+                resolved = ServerPathResolver.resolve(defaults["command"])
                 return resolved, defaults.get("args", [])
+            except Exception as e:
+                raise FileNotFoundError(str(e)) from e
+
         raise FileNotFoundError(
             f"Language server for '{language}' not found.\n"
             f"Please install the appropriate language server and ensure it's in PATH,\n"
