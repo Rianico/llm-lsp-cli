@@ -2,11 +2,12 @@
 
 import asyncio
 import contextlib
+import copy
 import inspect
 import json
 import logging
 from collections.abc import Callable
-from pathlib import Path
+from enum import Enum, auto
 from typing import Any
 
 from .constants import LSPConstants
@@ -14,7 +15,180 @@ from .constants import LSPConstants
 # Default timeouts and delays
 _STABILIZATION_DELAY = 0.05
 
+# Logger names
+_DIAGNOSTIC_LOGGER_NAME = "llm_lsp_cli.lsp.diagnostic"
+
 logger = logging.getLogger(__name__)
+_diagnostic_logger = logging.getLogger(_DIAGNOSTIC_LOGGER_NAME)
+
+
+# =============================================================================
+# Three-way log classification
+# =============================================================================
+
+
+class LogCategory(Enum):
+    """LSP method log routing category."""
+
+    SKIP = auto()   # Skip daemon.log; log full to diagnostics.log only
+    DAEMON = auto() # Log full to daemon.log only; skip diagnostics.log
+    MASK = auto()   # Log masked to daemon.log; log full to diagnostics.log
+
+
+_SKIP_METHODS = frozenset({
+    LSPConstants.PROGRESS,
+})
+
+_DAEMON_ONLY_METHODS = frozenset({
+    LSPConstants.WINDOW_LOG_MESSAGE,
+    "workspace/configuration",  # LSP request, not in LSPConstants
+    LSPConstants.CLIENT_REGISTER_CAPABILITY,
+})
+
+
+def _classify_method(method: str) -> LogCategory:
+    """Classify an LSP method into its log routing category.
+
+    Every string input returns exactly one LogCategory. Default is MASK.
+    """
+    if method in _SKIP_METHODS:
+        return LogCategory.SKIP
+    if method in _DAEMON_ONLY_METHODS:
+        return LogCategory.DAEMON
+    return LogCategory.MASK
+
+
+def _mask_array(target: dict[str, Any], key: str, mask_description: str = "array") -> None:
+    """Mask an array field in a dictionary with length metadata.
+
+    Mutates the target dictionary in place.
+
+    Args:
+        target: Dictionary to modify
+        key: Key of the array field to mask
+        mask_description: Description for the mask (used in logging)
+    """
+    if key in target and isinstance(target[key], list):
+        target[key] = f"... ({mask_description}_len: {len(target[key])})"
+
+
+def _mask_progress_items(params: dict[str, Any]) -> None:
+    """Mask items array in $/progress notification params.
+
+    Mutates params in place.
+
+    Args:
+        params: Progress notification params dictionary
+    """
+    if not isinstance(params, dict) or "value" not in params:
+        return
+
+    value = params["value"]
+    if not isinstance(value, dict) or "items" not in value:
+        return
+
+    _mask_array(value, "items", "array")
+
+
+def _mask_diagnostics_params(params: dict[str, Any]) -> None:
+    """Mask diagnostics array in textDocument/publishDiagnostics params.
+
+    Mutates params in place.
+
+    Args:
+        params: Publish diagnostics params dictionary
+    """
+    if not isinstance(params, dict) or "diagnostics" not in params:
+        return
+
+    _mask_array(params, "diagnostics", "array")
+
+
+def _mask_result_items(result_data: dict[str, Any]) -> None:
+    """Mask items array in result dictionary.
+
+    Mutates result_data in place.
+
+    Args:
+        result_data: Result dictionary from LSP response
+    """
+    if not isinstance(result_data, dict) or "items" not in result_data:
+        return
+
+    _mask_array(result_data, "items", "array")
+
+
+def _mask_text_content(params: dict[str, Any]) -> None:
+    """Mask text content fields in document synchronization params.
+
+    Mutates the params dict in place (called on deep-copied data only).
+
+    Handles:
+    - textDocument/didOpen: params.textDocument.text
+    - textDocument/didChange: params.contentChanges[].text
+    """
+    if not isinstance(params, dict):
+        return
+
+    # textDocument/didOpen: params.textDocument.text
+    text_doc = params.get("textDocument")
+    if isinstance(text_doc, dict) and "text" in text_doc:
+        text = text_doc["text"]
+        if isinstance(text, str):
+            text_doc["text"] = f"... (text_len: {len(text)})"
+
+    # textDocument/didChange: params.contentChanges[].text
+    content_changes = params.get("contentChanges")
+    if isinstance(content_changes, list):
+        for change in content_changes:
+            if isinstance(change, dict) and "text" in change:
+                text = change["text"]
+                if isinstance(text, str):
+                    change["text"] = f"... (text_len: {len(text)})"
+
+
+def _mask_diagnostics(data: dict[str, Any]) -> dict[str, Any]:
+    """Mask diagnostic arrays in LSP messages to prevent log bloat.
+
+    Creates a deep copy to avoid mutating the input data.
+    Replaces diagnostic arrays with length metadata string.
+
+    Patterns handled:
+    - $/progress notifications with params.value.items[].diagnostics
+    - textDocument/publishDiagnostics with params.diagnostics
+    - Diagnostic responses with result.items
+
+    Args:
+        data: LSP message dictionary
+
+    Returns:
+        New dictionary with diagnostic arrays masked
+    """
+    # Deep copy to preserve immutability
+    result = copy.deepcopy(data)
+
+    method = result.get("method", "")
+
+    # Handle $/progress notifications
+    if method == "$/progress":
+        _mask_progress_items(result.get("params", {}))
+
+    # Handle textDocument/publishDiagnostics notifications
+    elif method == "textDocument/publishDiagnostics":
+        _mask_diagnostics_params(result.get("params", {}))
+
+    # Handle textDocument/didOpen and didChange
+    elif method in (
+        LSPConstants.TEXT_DOCUMENT_DID_OPEN,
+        LSPConstants.TEXT_DOCUMENT_DID_CHANGE,
+    ):
+        _mask_text_content(result.get("params", {}))
+
+    # Handle diagnostic responses with result.items
+    if "result" in result:
+        _mask_result_items(result["result"])
+
+    return result
 
 
 class StdioTransport:
@@ -27,14 +201,12 @@ class StdioTransport:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         trace: bool = False,
-        log_file: Path | None = None,
     ):
         self.command = command
         self.args = args or []
         self.cwd = cwd
         self.env = env
         self.trace = trace
-        self.log_file = log_file
 
         self._process: asyncio.subprocess.Process | None = None
         self._request_id = 0
@@ -44,7 +216,6 @@ class StdioTransport:
         self._read_task: asyncio.Task[Any] | None = None
         self._stderr_task: asyncio.Task[Any] | None = None
         self._running = False
-        self._log_fh: Any = None
 
     async def start(self) -> None:
         """Start the LSP server process.
@@ -58,11 +229,6 @@ class StdioTransport:
         cmd = [self.command] + self.args
 
         logger.info(f"Starting LSP server: {' '.join(cmd)}")
-
-        # Open log file if specified
-        if self.log_file:
-            self.log_file.parent.mkdir(parents=True, exist_ok=True)
-            self._log_fh = open(self.log_file, "a")  # noqa: SIM115
 
         try:
             self._process = await asyncio.create_subprocess_exec(
@@ -141,13 +307,8 @@ class StdioTransport:
                 if not line:
                     break
 
-                # Log to file if available, otherwise to logger
-                if self._log_fh:
-                    self._log_fh.write(line.decode("utf-8", errors="replace"))
-                    self._log_fh.flush()
-                else:
-                    # Log to logger at debug level
-                    logger.debug(f"LSP stderr: {line.decode('utf-8', errors='replace').strip()}")
+                # Log to logger at debug level
+                logger.debug(f"LSP stderr: {line.decode('utf-8', errors='replace').strip()}")
 
         except asyncio.CancelledError:
             pass
@@ -223,7 +384,20 @@ class StdioTransport:
             return
 
         if self.trace:
-            logger.debug(f"<-- {data}")
+            method = data.get("method", "")
+            category = _classify_method(method)
+
+            if category == LogCategory.SKIP:
+                # Only log to diagnostics.log (full)
+                _diagnostic_logger.debug(f"<-- {data}")
+            elif category == LogCategory.DAEMON:
+                # Only log to daemon.log (full, not masked)
+                logger.debug(f"<-- {data}")
+            elif category == LogCategory.MASK:
+                # Dual-path: masked to daemon.log, full to diagnostics.log
+                masked_data = _mask_diagnostics(data)
+                logger.debug(f"<-- {masked_data}")
+                _diagnostic_logger.debug(f"<-- {data}")
 
         # Route message
         if "id" in data:
@@ -434,11 +608,6 @@ class StdioTransport:
                 # Kill if not exiting
                 self._process.kill()
                 await self._process.wait()
-
-        # Close log file handle
-        if self._log_fh:
-            self._log_fh.close()
-            self._log_fh = None
 
         # Clear pending
         for future in self._pending.values():
