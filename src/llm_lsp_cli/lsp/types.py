@@ -316,3 +316,48 @@ class WorkspaceDiagnosticReport(TypedDict):
     """Workspace-wide diagnostic report."""
 
     items: list[WorkspaceDiagnosticItem]
+
+
+# =============================================================================
+# Call Hierarchy Types (LSP 3.17)
+# =============================================================================
+
+
+class _CallHierarchyItemRequired(TypedDict):
+    """Required fields for CallHierarchyItem."""
+
+    name: str
+    kind: int
+    uri: str
+    range: Range
+    selectionRange: Range
+
+
+class CallHierarchyItem(_CallHierarchyItemRequired, total=False):
+    """Call hierarchy item returned by prepareCallHierarchy.
+
+    Required fields: name, kind, uri, range, selectionRange
+    Optional fields: tags, detail, data
+    """
+
+    tags: list[int]
+    detail: str
+    data: Any  # Server-specific data preserved across calls
+
+
+class CallHierarchyIncomingCall(TypedDict):
+    """Incoming call representation for callHierarchy/incomingCalls.
+
+    Note: Uses 'from_' instead of 'from' to avoid Python keyword conflict.
+    The 'from_' field maps to the LSP 'from' field in JSON.
+    """
+
+    from_: "CallHierarchyItem"  # Maps to LSP 'from' field
+    fromRanges: list[Range]
+
+
+class CallHierarchyOutgoingCall(TypedDict):
+    """Outgoing call representation for callHierarchy/outgoingCalls."""
+
+    to: "CallHierarchyItem"
+    fromRanges: list[Range]

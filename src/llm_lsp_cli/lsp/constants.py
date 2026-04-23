@@ -46,6 +46,8 @@ class LSPConstants:
     FOLDING_RANGE = "textDocument/foldingRange"
     SELECTION_RANGE = "textDocument/selectionRange"
     PREPARE_CALL_HIERARCHY = "textDocument/prepareCallHierarchy"
+    CALL_HIERARCHY_INCOMING_CALLS = "callHierarchy/incomingCalls"
+    CALL_HIERARCHY_OUTGOING_CALLS = "callHierarchy/outgoingCalls"
     SEMANTIC_TOKENS_FULL = "textDocument/semanticTokens/full"
     PREPARE_TYPE_HIERARCHY = "textDocument/prepareTypeHierarchy"
     INLINE_VALUE = "textDocument/inlineValue"

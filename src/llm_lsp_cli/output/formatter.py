@@ -55,6 +55,18 @@ class DiagnosticRecord:
     tags: list[int] = field(default_factory=list)
 
 
+@dataclass
+class CallHierarchyRecord:
+    """A normalized call hierarchy record for compact output."""
+
+    file: str
+    name: str
+    kind: int
+    kind_name: str
+    range: str
+    from_ranges: list[str] = field(default_factory=list)
+
+
 SEVERITY_MAP = {
     1: "Error",
     2: "Warning",
@@ -524,3 +536,96 @@ class CompactFormatter:
             writer.writerow(row)
 
         return output.getvalue()
+
+    def transform_call_hierarchy_incoming(
+        self, calls: list[dict[str, Any]]
+    ) -> list[CallHierarchyRecord]:
+        """Transform LSP incoming calls to CallHierarchyRecord list.
+
+        Args:
+            calls: List of LSP CallHierarchyIncomingCall objects
+
+        Returns:
+            List of normalized CallHierarchyRecord objects sorted by file/name
+        """
+        records: list[CallHierarchyRecord] = []
+
+        for call in calls:
+            # Get the 'from' item (may be 'from_' in Python-normalized form)
+            from_item = call.get("from_") or call.get("from", {})
+            uri = from_item.get("uri", "")
+            range_obj = from_item.get("range", {})
+
+            # Normalize URI to relative path
+            file_path = normalize_uri_to_relative(uri, self._workspace)
+
+            # Extract fields
+            name = from_item.get("name", "")
+            kind = from_item.get("kind", 0)
+            kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+            range_str = format_range_compact(range_obj)
+
+            # Extract fromRanges
+            from_ranges_raw = call.get("fromRanges", [])
+            from_ranges = [format_range_compact(r) for r in from_ranges_raw]
+
+            records.append(
+                CallHierarchyRecord(
+                    file=file_path,
+                    name=name,
+                    kind=kind,
+                    kind_name=kind_name,
+                    range=range_str,
+                    from_ranges=from_ranges,
+                )
+            )
+
+        # Sort by file then name
+        records.sort(key=lambda r: (r.file, r.name))
+        return records
+
+    def transform_call_hierarchy_outgoing(
+        self, calls: list[dict[str, Any]]
+    ) -> list[CallHierarchyRecord]:
+        """Transform LSP outgoing calls to CallHierarchyRecord list.
+
+        Args:
+            calls: List of LSP CallHierarchyOutgoingCall objects
+
+        Returns:
+            List of normalized CallHierarchyRecord objects sorted by file/name
+        """
+        records: list[CallHierarchyRecord] = []
+
+        for call in calls:
+            to_item = call.get("to", {})
+            uri = to_item.get("uri", "")
+            range_obj = to_item.get("range", {})
+
+            # Normalize URI to relative path
+            file_path = normalize_uri_to_relative(uri, self._workspace)
+
+            # Extract fields
+            name = to_item.get("name", "")
+            kind = to_item.get("kind", 0)
+            kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+            range_str = format_range_compact(range_obj)
+
+            # Extract fromRanges
+            from_ranges_raw = call.get("fromRanges", [])
+            from_ranges = [format_range_compact(r) for r in from_ranges_raw]
+
+            records.append(
+                CallHierarchyRecord(
+                    file=file_path,
+                    name=name,
+                    kind=kind,
+                    kind_name=kind_name,
+                    range=range_str,
+                    from_ranges=from_ranges,
+                )
+            )
+
+        # Sort by file then name
+        records.sort(key=lambda r: (r.file, r.name))
+        return records

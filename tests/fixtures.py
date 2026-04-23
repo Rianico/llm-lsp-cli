@@ -71,6 +71,15 @@ __all__ = [
     "WIDE_TREE_SYMBOLS",
     "MULTI_BRANCH_NESTED",
     "create_nested_symbol",
+    # Call Hierarchy Responses (LSP 3.17)
+    "CALL_HIERARCHY_PREPARE_RESPONSE",
+    "CALL_HIERARCHY_PREPARE_NULL_RESPONSE",
+    "CALL_HIERARCHY_PREPARE_EMPTY_RESPONSE",
+    "CALL_HIERARCHY_INCOMING_RESPONSE",
+    "CALL_HIERARCHY_OUTGOING_RESPONSE",
+    "CALL_HIERARCHY_EMPTY_RESPONSE",
+    "CALL_HIERARCHY_NULL_CALLS_RESPONSE",
+    "create_call_hierarchy_item_with_data",
 ]
 
 
@@ -683,4 +692,113 @@ def create_document_symbol_response_with_variables() -> dict[str, Any]:
                 },
             },
         ]
+    }
+
+
+# =============================================================================
+# Call Hierarchy Responses (LSP 3.17)
+# =============================================================================
+
+CALL_HIERARCHY_PREPARE_RESPONSE: dict[str, Any] = {
+    "items": [
+        {
+            "name": "my_function",
+            "kind": 12,  # Function
+            "uri": "file:///project/src/module.py",
+            "range": {
+                "start": {"line": 10, "character": 0},
+                "end": {"line": 20, "character": 0},
+            },
+            "selectionRange": {
+                "start": {"line": 10, "character": 4},
+                "end": {"line": 10, "character": 16},
+            },
+            "data": {"opaque": "server-data"},
+        }
+    ]
+}
+
+CALL_HIERARCHY_PREPARE_NULL_RESPONSE: dict[str, Any] = {"items": None}
+
+CALL_HIERARCHY_PREPARE_EMPTY_RESPONSE: dict[str, Any] = {"items": []}
+
+CALL_HIERARCHY_INCOMING_RESPONSE: dict[str, Any] = {
+    "calls": [
+        {
+            "from": {  # NOTE: LSP uses 'from', Python uses 'from_'
+                "name": "caller_function",
+                "kind": 12,
+                "uri": "file:///project/src/caller.py",
+                "range": {
+                    "start": {"line": 5, "character": 0},
+                    "end": {"line": 10, "character": 0},
+                },
+                "selectionRange": {
+                    "start": {"line": 5, "character": 4},
+                    "end": {"line": 5, "character": 19},
+                },
+            },
+            "fromRanges": [
+                {
+                    "start": {"line": 7, "character": 4},
+                    "end": {"line": 7, "character": 19},
+                }
+            ],
+        }
+    ]
+}
+
+CALL_HIERARCHY_OUTGOING_RESPONSE: dict[str, Any] = {
+    "calls": [
+        {
+            "to": {
+                "name": "helper_function",
+                "kind": 12,
+                "uri": "file:///project/src/helper.py",
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 5, "character": 0},
+                },
+                "selectionRange": {
+                    "start": {"line": 0, "character": 4},
+                    "end": {"line": 0, "character": 19},
+                },
+            },
+            "fromRanges": [
+                {
+                    "start": {"line": 15, "character": 8},
+                    "end": {"line": 15, "character": 23},
+                }
+            ],
+        }
+    ]
+}
+
+CALL_HIERARCHY_EMPTY_RESPONSE: dict[str, Any] = {"calls": []}
+
+CALL_HIERARCHY_NULL_CALLS_RESPONSE: dict[str, Any] = {"calls": None}
+
+
+def create_call_hierarchy_item_with_data(data: dict[str, Any]) -> dict[str, Any]:
+    """Create a CallHierarchyItem with custom data field.
+
+    Args:
+        data: Custom data field value
+
+    Returns:
+        CallHierarchyItem dict with custom data
+    """
+    return {
+        "name": "test_func",
+        "kind": 12,
+        "uri": "file:///project/test.py",
+        "range": {
+            "start": {"line": 0, "character": 0},
+            "end": {"line": 5, "character": 0},
+        },
+        "selectionRange": {
+            "start": {"line": 0, "character": 4},
+            "end": {"line": 0, "character": 12},
+        },
+        "data": data,
     }
