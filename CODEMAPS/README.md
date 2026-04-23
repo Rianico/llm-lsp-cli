@@ -1,6 +1,6 @@
 # CODEMAPS - Architecture Documentation
 
-<!-- Generated: 2026-04-23 | Files scanned: 45+ -->
+<!-- Generated: 2026-04-23 | Files scanned: 48+ | Updated: Added ADR-0009, ADR-0010 references -->
 
 This directory contains token-lean architectural codemaps for the llm-lsp-cli project.
 
@@ -15,7 +15,10 @@ This directory contains token-lean architectural codemaps for the llm-lsp-cli pr
 
 ### Architecture Decision Records (ADRs)
 
-- **ADR-001**: mtime-based cache invalidation - see `.lsz/20260422/204301_filestate_version_refactor/architect/01-architecture-decision-record.md`
+See `docs/adr/` for full ADR documents:
+- **ADR-0008**: mtime-based cache invalidation
+- **ADR-0009**: Cache HIT to INFO level, `--diagnostic-log` option
+- **ADR-0010**: `did-change` subcommand for external file change notification
 
 ### Key Components
 
@@ -43,7 +46,7 @@ src/llm_lsp_cli/
 CLI Client ──(UNIX Socket/JSON-RPC)──> Daemon ──(stdio/LSP 3.17)──> LSP Server
 ```
 
-### Cache Invalidation (ADR-001)
+### Cache Invalidation (ADR-0008)
 
 ```
 CLI Request with mtime
@@ -52,11 +55,31 @@ CLI Request with mtime
   mtime > stored?
        |
    Yes | No
-       |   --> Return cached diagnostics
+       |   --> Return cached diagnostics (INFO: cache HIT)
        v
   Refresh cache:
   1. Update mtime
   2. Increment document_version
   3. Send didChange + diagnostic request
   4. Store result
+```
+
+### External Change Notification (ADR-0010)
+
+```
+llm-lsp-cli did-change <file>
+       |
+       v
+  File open and mtime matches?
+       |
+   Yes | No
+       |   --> Send didOpen first
+       v
+  Read file from disk
+       |
+       v
+  Send didChange (full sync)
+       |
+       v
+  Return acknowledgment
 ```

@@ -6,6 +6,8 @@ Date: 2026-04-22
 
 Accepted
 
+Amended by [9. Promote cache HIT to INFO and add diagnostic log file output](0009-promote-cache-hit-to-info-and-add-diagnostic-log-file-output.md)
+
 ## Context
 
 The LSP CLI tool has verbose logging that impacts developer experience when debugging LSP communication:

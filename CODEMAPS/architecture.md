@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-<!-- Generated: 2026-04-23 | Files scanned: 45+ -->
+<!-- Generated: 2026-04-23 | Files scanned: 48+ | Updated: Added ADR-0009, ADR-0010 documentation -->
 
 ## High-Level Architecture
 
@@ -20,6 +20,12 @@ Entry point using Typer. Commands:
 - `definition/references/hover/completion` - Position-based LSP features
 - `document-symbol/workspace-symbol` - Symbol queries
 - `diagnostics/workspace-diagnostics` - Diagnostic queries
+- `did-change` - External file change notification (ADR-0010)
+
+Daemon lifecycle options:
+- `--debug` - Enable debug logging
+- `--trace` - Enable transport-level trace logging
+- `--diagnostic-log` - Write full diagnostics to diagnostics.log (ADR-0009)
 
 Key functions:
 - `_send_request()` - Routes to DaemonClient
@@ -96,7 +102,37 @@ capabilities/  - Per-server LSP initialize params (JSON)
 - Clear cache invalidation semantics
 - `previousResultId` optimization preserved
 
-See: `.lsz/20260422/204301_filestate_version_refactor/architect/01-architecture-decision-record.md`
+See: `docs/adr/0008-mtime-based-cache-invalidation-for-lsp-diagnostics.md`
+
+### ADR-0009: Cache HIT Logging and Diagnostic Log File
+
+**Problem**: Cache HIT messages invisible at default log levels; diagnostic data masked in daemon.log per ADR-0006.
+
+**Solution**:
+- Promote cache HIT to INFO level (visible at default log level)
+- Add `--diagnostic-log` CLI option for separate file output
+
+**Consequences**:
+- Cache behavior observable without debug logging
+- Full diagnostic content available for debugging without TRACE noise
+
+See: `docs/adr/0009-promote-cache-hit-to-info-and-add-diagnostic-log-file-output.md`
+
+### ADR-0010: External File Change Notification
+
+**Problem**: External tools (editors, file watchers, CI) that modify files cannot notify LSP server of changes.
+
+**Solution**: Add `did-change` CLI subcommand that:
+- Sends `didOpen` first if file not open or mtime differs
+- Sends `textDocument/didChange` with full text sync
+- Returns acknowledgment (not diagnostics)
+
+**Consequences**:
+- External tools can trigger LSP reanalysis without daemon restart
+- Clean separation: notification (didChange) vs query (diagnostics)
+- Cache coherence via mtime-based invalidation
+
+See: `docs/adr/0010-expose-didchange-subcommand-for-external-file-change-notification.md`
 
 ### Output Format (compact-output-prd.md)
 

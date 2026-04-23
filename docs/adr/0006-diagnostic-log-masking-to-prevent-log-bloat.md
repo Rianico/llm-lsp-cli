@@ -6,6 +6,8 @@ Date: 2026-04-21
 
 Accepted
 
+Extended by [9. Promote cache HIT to INFO and add diagnostic log file output](0009-promote-cache-hit-to-info-and-add-diagnostic-log-file-output.md)
+
 ## Context
 
 The `daemon.log` file grows unboundedly when LSP servers emit verbose diagnostic data. Workspace diagnostics from LSP servers (like basedpyright) can contain thousands of diagnostic entries across all project files. A single `$/progress` notification can exceed 100KB of JSON.

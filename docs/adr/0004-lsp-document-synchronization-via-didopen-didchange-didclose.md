@@ -6,6 +6,8 @@ Date: 2026-04-19
 
 Accepted
 
+amended by [10. expose-didChange-subcommand-for-external-file-change-notification](0010-expose-didchange-subcommand-for-external-file-change-notification.md)
+
 ## Context
 
 The llm-lsp-cli uses a long-running daemon process to communicate with LSP servers. When users invoke `diagnostics` or `document_symbol` subcommands, the LSP server may return stale analysis results because:

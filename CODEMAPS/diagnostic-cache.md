@@ -1,6 +1,6 @@
 # Diagnostic Cache Architecture
 
-<!-- Generated: 2026-04-23 | Files scanned: 5 -->
+<!-- Generated: 2026-04-23 | Files scanned: 5 | Updated: Added ADR-0009 cache HIT logging, diagnostic log file -->
 
 ## Overview
 
@@ -94,6 +94,32 @@ result = await client.request_diagnostics(file_path, uri, mtime)
 2. **Monotonic document_version** - Never decrements, increments on didChange
 3. **No didClose** - Files remain open for session (per ADR-001)
 4. **previousResultId optimization** - Server can return "unchanged" if nothing changed
+
+## Cache HIT Logging (ADR-0009)
+
+Cache HIT messages are logged at INFO level for observability:
+
+```
+[cache HIT] src/main.py | resultId=abc123 | mtime=1745400000.0 | v=1 | open=True | diags=5
+```
+
+Format: `[cache HIT] {rel_path} | resultId=... | mtime=... | v=... | open=... | diags=N`
+
+Location: `src/llm_lsp_cli/lsp/client.py` - `_log_cache_hit()` and `_log_cache_hit_server()`
+
+## Diagnostic Log File (ADR-0009)
+
+When started with `--diagnostic-log`, full (unmasked) LSP messages are written to `diagnostics.log`:
+
+```bash
+llm-lsp-cli start --diagnostic-log
+```
+
+Configuration:
+- Logger: `llm_lsp_cli.lsp.diagnostic`
+- File: `$PWD/.llm-lsp-cli/diagnostics.log`
+- Content: Full LSP messages for SKIP and MASK categories (per ADR-0006)
+- Propagation: Disabled (no duplicate logging to daemon.log)
 
 ## Error Handling
 

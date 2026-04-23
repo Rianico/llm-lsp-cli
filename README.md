@@ -41,7 +41,11 @@ llm-lsp-cli config init
 ### 2. Start the Daemon
 
 ```bash
+# Start with default options
 llm-lsp-cli start
+
+# Start with diagnostic log file (full LSP messages for debugging)
+llm-lsp-cli start --diagnostic-log
 ```
 
 ### 3. Use LSP Features
@@ -64,6 +68,15 @@ llm-lsp-cli document-symbol src/main.py
 
 # Search workspace symbols
 llm-lsp-cli workspace-symbol MyClass
+
+# Get diagnostics for a file
+llm-lsp-cli diagnostics src/main.py
+
+# Get diagnostics for entire workspace
+llm-lsp-cli workspace-diagnostics
+
+# Notify daemon of external file change (for file watchers, CI tools)
+llm-lsp-cli did-change src/main.py
 ```
 
 **Options:**
@@ -110,6 +123,7 @@ timeout_seconds: 30
 | PID | `$PWD/.llm-lsp-cli/{server}.pid` |
 | Socket | `$PWD/.llm-lsp-cli/{server}.sock` |
 | Daemon Log | `$PWD/.llm-lsp-cli/daemon.log` |
+| Diagnostic Log | `$PWD/.llm-lsp-cli/diagnostics.log` (only with `--diagnostic-log`) |
 
 ## Test Filtering
 
@@ -140,6 +154,34 @@ llm-lsp-cli definition src/main.py 10 5
 # Include test files
 llm-lsp-cli definition src/main.py 10 5 --include-tests
 ```
+
+## External File Change Notification
+
+The `did-change` command notifies the LSP server when files are modified externally (e.g., by editors, file watchers, or CI tools). This triggers LSP reanalysis without restarting the daemon.
+
+```bash
+# Notify daemon of external file change
+llm-lsp-cli did-change src/main.py
+
+# Then get updated diagnostics
+llm-lsp-cli diagnostics src/main.py
+```
+
+The command automatically handles:
+- Sending `didOpen` if the file is not yet open or the mtime differs
+- Sending `didChange` with full text sync
+- Cache coherence via mtime-based invalidation
+
+## Diagnostic Logging
+
+For debugging LSP server issues, enable the diagnostic log file:
+
+```bash
+llm-lsp-cli start --diagnostic-log
+# Creates: $PWD/.llm-lsp-cli/diagnostics.log
+```
+
+This writes full (unmasked) LSP diagnostic messages to a separate file. Cache HIT messages are logged at INFO level in `daemon.log` for observability.
 
 ## Language Server Requirements
 
