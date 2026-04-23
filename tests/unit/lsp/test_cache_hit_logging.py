@@ -1,6 +1,7 @@
 """Unit tests for cache hit logging.
 
 Tests for diagnostic cache hit/miss logging in the LSP client.
+Per ADR-0009, cache HIT messages should be logged at INFO level (not DEBUG).
 """
 
 import logging
@@ -11,12 +12,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # =============================================================================
-# Test Suite 4.1: Cache Hit Detection
+# Test Suite 4.1: Cache Hit Log Level (ADR-0009)
 # =============================================================================
 
 
-class TestCacheHitLogging:
-    """Tests for cache hit detection and logging."""
+class TestCacheHitLogLevel:
+    """Tests for cache HIT log level promotion to INFO per ADR-0009."""
 
     @pytest.fixture
     def log_capture(self) -> Any:
@@ -34,30 +35,34 @@ class TestCacheHitLogging:
 
         logger.removeHandler(handler)
 
-    def test_cache_hit_logs_debug(self) -> None:
-        """kind: "unchanged" triggers debug log."""
-        # This test verifies that _normalize_document_diagnostics logs
-        # a debug message when kind is "unchanged"
+    def test_server_cache_hit_logs_info_level(self) -> None:
+        """Server-reported cache HIT (kind=unchanged) should log at INFO level.
+
+        This test will FAIL before implementation - currently logs at DEBUG.
+        Per ADR-0009: Promote cache HIT to INFO for visibility at default log level.
+        """
         from llm_lsp_cli.lsp.client import LSPClient
 
-        # Check that the method handles "unchanged" kind
         client = LSPClient.__new__(LSPClient)
         client._diagnostic_cache = MagicMock()
         client._diagnostic_cache.get_cached.return_value = []
 
-        # Create a mock logger to capture calls
         with patch("llm_lsp_cli.lsp.client.logger") as mock_logger:
             client._normalize_document_diagnostics(
                 {"kind": "unchanged", "uri": "file:///test.py", "resultId": "abc123"}
             )
 
-            # Should have logged about cache hit
-            mock_logger.debug.assert_called()
-            calls = [str(c) for c in mock_logger.debug.call_args_list]
+            # Should have logged at INFO level (not DEBUG)
+            # This assertion will FAIL before the fix is applied
+            mock_logger.info.assert_called()
+            calls = [str(c) for c in mock_logger.info.call_args_list]
             assert any("unchanged" in c.lower() or "cache" in c.lower() for c in calls)
 
-    def test_cache_hit_includes_uri(self) -> None:
-        """Cache hit log includes URI."""
+    def test_server_cache_hit_not_debug(self) -> None:
+        """Server-reported cache HIT should NOT log at DEBUG level.
+
+        Per ADR-0009: Cache HIT upgraded to INFO.
+        """
         from llm_lsp_cli.lsp.client import LSPClient
 
         client = LSPClient.__new__(LSPClient)
@@ -66,19 +71,117 @@ class TestCacheHitLogging:
 
         with patch("llm_lsp_cli.lsp.client.logger") as mock_logger:
             client._normalize_document_diagnostics(
-                {"kind": "unchanged", "uri": "file:///test/sample.py", "resultId": "abc123"}
+                {"kind": "unchanged", "uri": "file:///test.py", "resultId": "abc123"}
             )
 
-            calls = [str(c) for c in mock_logger.debug.call_args_list]
-            # URI should be in the log message
-            all_calls = " ".join(calls)
-            assert (
-                "sample.py" in all_calls or "test/sample.py" in all_calls
-                or "file:" in all_calls
+            # Should NOT use debug for cache hit anymore
+            debug_calls = [str(c) for c in mock_logger.debug.call_args_list]
+            cache_hit_debug_calls = [
+                c for c in debug_calls
+                if "unchanged" in c.lower() or "cache hit" in c.lower()
+            ]
+            assert len(cache_hit_debug_calls) == 0, (
+                "Cache HIT should not log at DEBUG level - use INFO instead"
             )
+
+    def test_mtime_cache_hit_logs_info_level(self) -> None:
+        """mtime-based cache HIT should log at INFO level.
+
+        Tests _log_cache_hit() method which is called when mtime validation passes.
+        This test will FAIL before implementation - currently logs at DEBUG.
+        """
+        from llm_lsp_cli.lsp.client import LSPClient
+
+        client = LSPClient.__new__(LSPClient)
+        client._diagnostic_cache = MagicMock()
+        # Mock FileState with typical cache data
+        mock_file_state = MagicMock()
+        mock_file_state.diagnostics = [{"message": "cached error"}]
+        mock_file_state.last_result_id = "result-abc123"
+        mock_file_state.document_version = 1
+        mock_file_state.is_open = True
+
+        with patch("llm_lsp_cli.lsp.client.logger") as mock_logger:
+            client._log_cache_hit(
+                uri="file:///workspace/src/module.py",
+                file_state=mock_file_state,
+                current_mtime=12345.67,
+            )
+
+            # Should have logged at INFO level
+            mock_logger.info.assert_called()
+            calls = [str(c) for c in mock_logger.info.call_args_list]
+            assert any("cache HIT" in c for c in calls)
+
+    def test_mtime_cache_hit_not_debug(self) -> None:
+        """mtime-based cache HIT should NOT log at DEBUG level.
+
+        Per ADR-0009: Cache HIT upgraded to INFO.
+        """
+        from llm_lsp_cli.lsp.client import LSPClient
+
+        client = LSPClient.__new__(LSPClient)
+        client._diagnostic_cache = MagicMock()
+        mock_file_state = MagicMock()
+        mock_file_state.diagnostics = []
+        mock_file_state.last_result_id = "test-id"
+        mock_file_state.document_version = 1
+        mock_file_state.is_open = False
+
+        with patch("llm_lsp_cli.lsp.client.logger") as mock_logger:
+            client._log_cache_hit(
+                uri="file:///test.py",
+                file_state=mock_file_state,
+                current_mtime=100.0,
+            )
+
+            # Should NOT use debug for cache hit
+            debug_calls = [str(c) for c in mock_logger.debug.call_args_list]
+            cache_hit_debug_calls = [c for c in debug_calls if "cache HIT" in c]
+            assert len(cache_hit_debug_calls) == 0, (
+                "Cache HIT should not log at DEBUG level - use INFO instead"
+            )
+
+    def test_cache_hit_includes_structured_data(self) -> None:
+        """Cache HIT log includes structured data: resultId, mtime, version, open, diags."""
+        from llm_lsp_cli.lsp.client import LSPClient
+
+        client = LSPClient.__new__(LSPClient)
+        client._diagnostic_cache = MagicMock()
+        mock_file_state = MagicMock()
+        mock_file_state.diagnostics = [{"message": "error1"}, {"message": "error2"}]
+        mock_file_state.last_result_id = "abc123def456"
+        mock_file_state.document_version = 5
+        mock_file_state.is_open = True
+
+        with patch("llm_lsp_cli.lsp.client.logger") as mock_logger:
+            client._log_cache_hit(
+                uri="file:///workspace/src/module.py",
+                file_state=mock_file_state,
+                current_mtime=12345.67,
+            )
+
+            # Check that info was called (will fail before fix)
+            mock_logger.info.assert_called()
+            calls = [str(c) for c in mock_logger.info.call_args_list]
+            all_calls = " ".join(calls)
+
+            # Verify structured data is present
+            assert "resultId" in all_calls or "result" in all_calls.lower()
+            assert "mtime" in all_calls.lower() or "12345" in all_calls
+            assert "diags=2" in all_calls or "diags" in all_calls.lower()
+
+
+# =============================================================================
+# Test Suite 4.2: Cache Miss Logging (remains at DEBUG)
+# =============================================================================
+
+
+class TestCacheMissLogging:
+    """Tests for cache miss logging - should remain at DEBUG level."""
 
     def test_cache_miss_logs_debug(self) -> None:
-        """Fresh diagnostics triggers debug log."""
+        """Fresh diagnostics triggers debug log (not changed by ADR-0009)."""
         from llm_lsp_cli.lsp.client import LSPClient
 
         client = LSPClient.__new__(LSPClient)
@@ -89,7 +192,7 @@ class TestCacheHitLogging:
                 {"kind": "full", "items": [{"message": "error1"}, {"message": "error2"}]}
             )
 
-            # Should have logged about fresh diagnostics
+            # Fresh diagnostics should still log at DEBUG
             mock_logger.debug.assert_called()
             calls = [str(c) for c in mock_logger.debug.call_args_list]
             assert any("fresh" in c.lower() or "diagnostic" in c.lower() for c in calls)
@@ -120,7 +223,7 @@ class TestCacheHitLogging:
 
 
 # =============================================================================
-# Test Suite 4.2: _normalize_document_diagnostics Behavior
+# Test Suite 4.3: _normalize_document_diagnostics Behavior
 # =============================================================================
 
 
@@ -152,7 +255,11 @@ class TestNormalizeDocumentDiagnostics:
         client._diagnostic_cache = MagicMock()
 
         diagnostics, result_id = client._normalize_document_diagnostics(
-            {"kind": "full", "items": [{"message": "error1"}, {"message": "error2"}], "resultId": "xyz"}
+            {
+                "kind": "full",
+                "items": [{"message": "error1"}, {"message": "error2"}],
+                "resultId": "xyz",
+            }
         )
 
         assert diagnostics == [{"message": "error1"}, {"message": "error2"}]
@@ -186,7 +293,7 @@ class TestNormalizeDocumentDiagnostics:
 
 
 # =============================================================================
-# Test Suite 4.3: Integration Tests
+# Test Suite 4.4: Integration Tests
 # =============================================================================
 
 
@@ -194,23 +301,29 @@ class TestDiagnosticCacheLoggingIntegration:
     """Integration tests for cache hit/miss logging."""
 
     @pytest.mark.asyncio
-    async def test_cache_hit_visible_in_debug_output(self) -> None:
-        """Full diagnostic request flow shows cache hit."""
-        # This test would require a full LSP client setup
-        # For now, we verify the logging pattern exists in the code
+    async def test_cache_hit_visible_at_default_log_level(self) -> None:
+        """Cache HIT should be visible at default (INFO) log level.
+
+        Per ADR-0009: Cache behavior should be observable at default log levels.
+        """
         import inspect
 
         from llm_lsp_cli.lsp import client
 
-        source = inspect.getsource(client.LSPClient._normalize_document_diagnostics)
-        assert "unchanged" in source or "debug" in source
+        # Verify _log_cache_hit and _log_cache_hit_server use logger.info
+        source = inspect.getsource(client.LSPClient._log_cache_hit)
+        assert "logger.info" in source, "_log_cache_hit should use logger.info"
+
+        source = inspect.getsource(client.LSPClient._log_cache_hit_server)
+        assert "logger.info" in source, "_log_cache_hit_server should use logger.info"
 
     @pytest.mark.asyncio
-    async def test_cache_miss_visible_in_debug_output(self) -> None:
-        """First diagnostic request shows cache miss."""
+    async def test_cache_miss_still_debug(self) -> None:
+        """Cache miss should remain at DEBUG level (not changed by ADR-0009)."""
         import inspect
 
         from llm_lsp_cli.lsp import client
 
         source = inspect.getsource(client.LSPClient._normalize_document_diagnostics)
-        assert "full" in source or "items" in source
+        # Fresh diagnostic logging should remain at debug
+        assert "debug" in source or "fresh" in source.lower()

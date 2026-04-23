@@ -13,7 +13,7 @@ from llm_lsp_cli.infrastructure.lsp.progress_handler import ProgressHandler
 from . import types as lsp
 from .cache import DiagnosticCache
 from .constants import LSPConstants
-from .transport import StdioTransport
+from .transport import LSPError, StdioTransport
 
 logger = logging.getLogger(__name__)
 
@@ -537,7 +537,7 @@ class LSPClient:
         rel_path = self._uri_to_relative_path(uri)
         diag_count = len(file_state.diagnostics)
 
-        logger.debug(
+        logger.info(
             f"[cache HIT] {rel_path} | "
             f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}... "
             f"| mtime={current_mtime:.2f} | v={file_state.document_version} | "
@@ -560,7 +560,7 @@ class LSPClient:
         rel_path = self._uri_to_relative_path(uri)
         diag_count = len(file_state.diagnostics)
 
-        logger.debug(
+        logger.info(
             f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
             f"resultId={result_id[:8] if result_id else 'None'}... | "
             f"diags={diag_count}"
@@ -720,6 +720,42 @@ class LSPClient:
             {"textDocument": {"uri": uri}},
         )
 
+    async def send_did_change(self, file_path: Path, content: str) -> str:
+        """
+        Send textDocument/didChange notification with full text sync.
+
+        This method sends the file's current content to the LSP server.
+        It increments the document version in the cache.
+
+        Args:
+            file_path: Path to the file
+            content: Current file content
+
+        Returns:
+            File URI
+        """
+        uri = file_path.as_uri()
+
+        # Increment version for this change
+        await self._diagnostic_cache.increment_version(uri)
+        state = await self._diagnostic_cache.get_file_state(uri)
+        version = state.document_version
+
+        assert self._transport is not None
+        await self._transport.send_notification(
+            LSPConstants.TEXT_DOCUMENT_DID_CHANGE,
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "version": version,
+                },
+                "contentChanges": [
+                    {"text": content}
+                ],
+            },
+        )
+        return uri
+
     def _normalize_locations(self, result: Any) -> list[lsp.Location]:
         """Normalize definition/references response to Location[]."""
         if result is None:
@@ -781,3 +817,208 @@ class LSPClient:
             message = value.get("message", "")
             if message:
                 logger.debug(f"Progress [{token}]: {message}")
+
+    async def request_call_hierarchy_incoming(
+        self,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> list[dict[str, Any]]:
+        """Request incoming calls at position.
+
+        Follows the two-step call hierarchy protocol:
+        1. Call prepareCallHierarchy to get items at position
+        2. Call callHierarchy/incomingCalls for each item
+
+        Args:
+            file_path: Path to the file
+            line: Line number (0-based)
+            column: Column number (0-based)
+
+        Returns:
+            List of CallHierarchyIncomingCall dictionaries, or empty list
+        """
+        uri = await self._ensure_open(file_path)
+
+        # Step 1: Prepare call hierarchy
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": column},
+        }
+
+        assert self._transport is not None
+        prepare_result = await self._transport.send_request(
+            LSPConstants.PREPARE_CALL_HIERARCHY,
+            params,
+            timeout=self.timeout,
+        )
+
+        # Handle null or empty prepare result
+        items = self._normalize_call_hierarchy_items(prepare_result)
+        if not items:
+            return []
+
+        # Step 2: Request incoming calls for each item
+        # Use the first item (most relevant at position)
+        item = items[0]
+        incoming_params: dict[str, Any] = {"item": item}
+
+        try:
+            result = await self._transport.send_request(
+                LSPConstants.CALL_HIERARCHY_INCOMING_CALLS,
+                incoming_params,
+                timeout=self.timeout,
+            )
+            return self._normalize_call_hierarchy_calls(result, is_incoming=True)
+        except Exception as e:
+            # Check for MethodNotFound error
+            if self._is_method_not_found_error(e):
+                logger.warning("callHierarchy/incomingCalls not supported by server")
+                return []
+            raise
+
+    async def request_call_hierarchy_outgoing(
+        self,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> list[dict[str, Any]]:
+        """Request outgoing calls at position.
+
+        Follows the two-step call hierarchy protocol:
+        1. Call prepareCallHierarchy to get items at position
+        2. Call callHierarchy/outgoingCalls for each item
+
+        Args:
+            file_path: Path to the file
+            line: Line number (0-based)
+            column: Column number (0-based)
+
+        Returns:
+            List of CallHierarchyOutgoingCall dictionaries, or empty list
+        """
+        uri = await self._ensure_open(file_path)
+
+        # Step 1: Prepare call hierarchy
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": column},
+        }
+
+        assert self._transport is not None
+        prepare_result = await self._transport.send_request(
+            LSPConstants.PREPARE_CALL_HIERARCHY,
+            params,
+            timeout=self.timeout,
+        )
+
+        # Handle null or empty prepare result
+        items = self._normalize_call_hierarchy_items(prepare_result)
+        if not items:
+            return []
+
+        # Step 2: Request outgoing calls for each item
+        # Use the first item (most relevant at position)
+        item = items[0]
+        outgoing_params: dict[str, Any] = {"item": item}
+
+        try:
+            result = await self._transport.send_request(
+                LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS,
+                outgoing_params,
+                timeout=self.timeout,
+            )
+            return self._normalize_call_hierarchy_calls(result, is_incoming=False)
+        except Exception as e:
+            # Check for MethodNotFound error
+            if self._is_method_not_found_error(e):
+                logger.warning("callHierarchy/outgoingCalls not supported by server")
+                return []
+            raise
+
+    def _normalize_call_hierarchy_items(self, result: Any) -> list[dict[str, Any]]:
+        """Normalize prepareCallHierarchy response to list of items.
+
+        Args:
+            result: Raw response from prepareCallHierarchy
+
+        Returns:
+            List of CallHierarchyItem dictionaries
+        """
+        if result is None:
+            return []
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict) and "items" in result:
+            items = result.get("items")
+            if items is None:
+                return []
+            return items if isinstance(items, list) else []
+        return []
+
+    def _normalize_call_hierarchy_calls(
+        self,
+        result: Any,
+        is_incoming: bool,
+    ) -> list[dict[str, Any]]:
+        """Normalize incomingCalls/outgoingCalls response.
+
+        Converts LSP 'from' field to Python 'from_' for incoming calls.
+
+        Args:
+            result: Raw response from incomingCalls/outgoingCalls
+            is_incoming: True for incoming calls, False for outgoing
+
+        Returns:
+            List of call dictionaries with normalized field names
+        """
+        if result is None:
+            return []
+        if isinstance(result, list):
+            calls = result
+        elif isinstance(result, dict) and "calls" in result:
+            calls_result = result.get("calls")
+            if calls_result is None:
+                return []
+            calls = calls_result if isinstance(calls_result, list) else []
+        else:
+            return []
+
+        # Normalize 'from' -> 'from_' for incoming calls
+        if is_incoming:
+            normalized_calls = []
+            for call in calls:
+                normalized_call = dict(call)
+                if "from" in call:
+                    normalized_call["from_"] = call["from"]
+                    del normalized_call["from"]
+                normalized_calls.append(normalized_call)
+            return normalized_calls
+
+        return calls
+
+    def _is_method_not_found_error(self, error: Any) -> bool:
+        """Check if error is a MethodNotFound (-32601) error.
+
+        Args:
+            error: Exception or error response
+
+        Returns:
+            True if error indicates method not found
+        """
+        # Check for LSPError from transport
+        if isinstance(error, LSPError):
+            return error.code == LSPConstants.ERROR_METHOD_NOT_FOUND
+
+        # Check for error response dict
+        if isinstance(error, dict):
+            error_info = error.get("error", {})
+            return error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND
+
+        # Check for exception with error response
+        if hasattr(error, "response"):
+            response = getattr(error, "response", {})
+            error_info = response.get("error", {})
+            return error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND
+
+        return False
