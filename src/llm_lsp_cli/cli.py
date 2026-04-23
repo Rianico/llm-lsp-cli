@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -914,6 +915,170 @@ def references(
 
 
 @app.command()
+def incoming_calls(
+    ctx: typer.Context,
+    file: str = typer.Argument(..., help="File path"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
+        "--format",
+        "-o",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include results from test files (excluded by default)",
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Output in legacy verbose format",
+    ),
+) -> None:
+    """Get incoming calls (callers) for symbol at position.
+
+    By default, filters out results from test files. Use --include-tests to include them.
+    """
+    context = _build_request_context(
+        ctx, workspace, language, output_format, file, line, column, include_tests=include_tests
+    )
+
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
+
+    try:
+        response = _send_request(
+            "callHierarchy/incomingCalls",
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
+
+        calls = response.get("calls", [])
+
+        if raw:
+            # Legacy verbose format
+            if context.output_format == OutputFormat.TEXT:
+                typer.echo(str(calls))
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(format_output(calls, OutputFormat.YAML), nl=False)
+            else:  # JSON (default)
+                typer.echo(format_output(calls, OutputFormat.JSON))
+        else:
+            # Compact format (default)
+            formatter = CompactFormatter(context.workspace_path)
+            records = formatter.transform_call_hierarchy_incoming(calls)
+
+            if not records:
+                typer.echo("No calls found.")
+            elif context.output_format == OutputFormat.TEXT:
+                for rec in records:
+                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range}]")
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(yaml.dump([r.__dict__ for r in records], default_flow_style=False))
+            else:  # JSON (default)
+                typer.echo(json.dumps([r.__dict__ for r in records], indent=2))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def outgoing_calls(
+    ctx: typer.Context,
+    file: str = typer.Argument(..., help="File path"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
+        "--format",
+        "-o",
+        help="Output format (overrides global)",
+    ),
+    include_tests: bool = typer.Option(
+        False,
+        "--include-tests",
+        help="Include results from test files (excluded by default)",
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Output in legacy verbose format",
+    ),
+) -> None:
+    """Get outgoing calls (callees) for symbol at position.
+
+    By default, filters out results from test files. Use --include-tests to include them.
+    """
+    context = _build_request_context(
+        ctx, workspace, language, output_format, file, line, column, include_tests=include_tests
+    )
+
+    line_index = context.line - 1 if context.line else 0
+    column_index = context.column - 1 if context.column else 0
+
+    try:
+        response = _send_request(
+            "callHierarchy/outgoingCalls",
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
+
+        calls = response.get("calls", [])
+
+        if raw:
+            # Legacy verbose format
+            if context.output_format == OutputFormat.TEXT:
+                typer.echo(str(calls))
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(format_output(calls, OutputFormat.YAML), nl=False)
+            else:  # JSON (default)
+                typer.echo(format_output(calls, OutputFormat.JSON))
+        else:
+            # Compact format (default)
+            formatter = CompactFormatter(context.workspace_path)
+            records = formatter.transform_call_hierarchy_outgoing(calls)
+
+            if not records:
+                typer.echo("No calls found.")
+            elif context.output_format == OutputFormat.TEXT:
+                for rec in records:
+                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range}]")
+            elif context.output_format == OutputFormat.YAML:
+                typer.echo(yaml.dump([r.__dict__ for r in records], default_flow_style=False))
+            else:  # JSON (default)
+                typer.echo(json.dumps([r.__dict__ for r in records], indent=2))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+@app.command()
 def completion(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
@@ -1316,6 +1481,128 @@ def workspace_diagnostics(
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
+
+
+@app.command("did-change")
+def did_change(
+    file: str = typer.Argument(..., help="File path"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+) -> None:
+    """Notify the LSP server of an external file change.
+
+    This command sends a textDocument/didChange notification to the LSP server
+    for externally-modified files (e.g., by editors, file watchers, or CI tools).
+
+    The file content is read from disk and sent with full text sync.
+    The command returns an acknowledgment, not diagnostics.
+    Use 'llm-lsp-cli diagnostics <file>' to get updated diagnostics after changes.
+
+    Per ADR-0010, this command:
+    - Sends didOpen first if the file is not open or the mtime differs
+    - Sends didChange with full text sync
+    - Returns acknowledgment only
+    """
+    workspace_path = workspace or str(Path.cwd())
+
+    # Auto-detect language from file if not provided
+    if language is None:
+        language = detect_language_from_file(file)
+
+    # Validate file exists and is within workspace
+    file_path = _validate_file_in_workspace(file, workspace)
+
+    try:
+        _send_notification(
+            "textDocument/didChange",
+            {
+                "workspacePath": workspace_path,
+                "filePath": str(file_path),
+            },
+            language=language or "python",
+        )
+        typer.echo("Change acknowledged.")
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
+def _send_notification(
+    method: str,
+    params: dict[str, Any],
+    language: str | None = None,
+) -> None:
+    """Send a notification to the daemon.
+
+    Similar to _send_request but for fire-and-forget notifications.
+
+    Args:
+        method: Notification method name
+        params: Notification parameters
+        language: Language identifier (auto-detected from filePath if not provided)
+
+    Raises:
+        CLIError: If notification fails or daemon cannot be started
+    """
+    from llm_lsp_cli.daemon_client import DaemonClient
+
+    workspace_path = params.get("workspacePath", str(Path.cwd()))
+
+    # Detect language from file if not provided
+    if language is None:
+        file_path = params.get("filePath")
+        language = detect_language_from_file(file_path) if file_path else "python"
+
+    # Use DaemonClient for transparent auto-start
+    client = DaemonClient(
+        workspace_path=workspace_path,
+        language=language,
+    )
+
+    async def send() -> None:
+        from llm_lsp_cli.exceptions import DaemonCrashedError, DaemonStartupError
+
+        try:
+            await client.send_notification(method, params)
+        except DaemonStartupError as e:
+            # Use log_file from exception if available
+            log_path = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(workspace_path, language)
+            )
+            raise CLIError(
+                f"Failed to start daemon: {e}\n"
+                f"Check logs at: {log_path}"
+            ) from e
+        except DaemonCrashedError as e:
+            # Use log_file from exception if available
+            log_path = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(workspace_path, language)
+            )
+            raise CLIError(
+                f"Daemon crashed: {e}\n"
+                f"Check logs at: {log_path}"
+            ) from e
+        except FileNotFoundError:
+            raise CLIError(
+                "Cannot connect to daemon. Socket not found.\n"
+                "Ensure the daemon is running: llm-lsp-cli status"
+            ) from None
+        except OSError as e:
+            raise CLIError(
+                f"Cannot connect to daemon: {e}\nEnsure the daemon is running: llm-lsp-cli start"
+            ) from e
+        finally:
+            await client.close()
+
+    asyncio.run(send())
 
 
 # Configuration Commands

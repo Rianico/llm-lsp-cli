@@ -78,6 +78,12 @@ class LspMethodRouter:
             LSPConstants.WORKSPACE_DIAGNOSTIC: _create_method_config(
                 "request_workspace_diagnostics", [], uri_mapping=False
             ),
+            LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: _create_method_config(
+                "request_call_hierarchy_incoming", ["textDocument", "position"]
+            ),
+            LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: _create_method_config(
+                "request_call_hierarchy_outgoing", ["textDocument", "position"]
+            ),
         }
 
     def get_config(self, method: str) -> LspMethodConfig | None:

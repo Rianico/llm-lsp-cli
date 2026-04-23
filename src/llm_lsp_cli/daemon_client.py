@@ -145,6 +145,53 @@ class DaemonClient:
             await self._client.close()
             self._client = None
 
+    async def send_notification(self, method: str, params: dict[str, Any]) -> None:
+        """Send a notification to the daemon with error handling.
+
+        This is a convenience wrapper around notify() with consistent error handling
+        similar to the request() method.
+
+        Args:
+            method: Notification method name
+            params: Notification parameters
+
+        Raises:
+            CLIError: For connection errors
+        """
+        from llm_lsp_cli.exceptions import CLIError
+
+        try:
+            await self.notify(method, params)
+        except DaemonStartupError as e:
+            log_file = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
+            )
+            raise CLIError(
+                f"Failed to start daemon: {e}\n"
+                f"Check logs at: {log_file}"
+            ) from e
+        except DaemonCrashedError as e:
+            log_file = (
+                e.log_file
+                if hasattr(e, 'log_file') and e.log_file
+                else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
+            )
+            raise CLIError(
+                f"Daemon crashed: {e}\n"
+                f"Check logs at: {log_file}"
+            ) from e
+        except FileNotFoundError:
+            raise CLIError(
+                "Cannot connect to daemon. Socket not found.\n"
+                "Ensure the daemon is running: llm-lsp-cli status"
+            ) from None
+        except OSError as e:
+            raise CLIError(
+                f"Cannot connect to daemon: {e}\nEnsure the daemon is running: llm-lsp-cli start"
+            ) from e
+
     async def _ensure_daemon_ready(self) -> None:
         """Ensure daemon is running and socket is ready.
 

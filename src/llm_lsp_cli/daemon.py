@@ -331,7 +331,7 @@ class DocumentSyncContext:
 
     async def __aexit__(
         self,
-        exc_type: type[BaseException] | None,
+        _exc_type: type[BaseException] | None,
         _exc_val: BaseException | None,
         _exc_tb: object,
     ) -> None:
@@ -357,6 +357,8 @@ class RequestHandler:
         LSPConstants.DIAGNOSTIC: "diagnostics",
         LSPConstants.WORKSPACE_SYMBOL: "symbols",
         LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
+        LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: "calls",
+        LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: "calls",
     }
 
     # Default values for common params
@@ -426,8 +428,14 @@ class RequestHandler:
             LSPConstants.DIAGNOSTIC,
             LSPConstants.WORKSPACE_SYMBOL,
             LSPConstants.WORKSPACE_DIAGNOSTIC,
+            LSPConstants.CALL_HIERARCHY_INCOMING_CALLS,
+            LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS,
         }:
             return await self._handle_lsp_method(method, params)
+
+        # textDocument/didChange - external file change notification
+        elif method == LSPConstants.TEXT_DOCUMENT_DID_CHANGE:
+            return await self._handle_did_change(params)
 
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -597,6 +605,8 @@ class RequestHandler:
                 "request_references",
                 "request_completions",
                 "request_hover",
+                "request_call_hierarchy_incoming",
+                "request_call_hierarchy_outgoing",
             }:
                 file_path = params.get("filePath")
                 if file_path is None:
@@ -609,6 +619,8 @@ class RequestHandler:
                 "request_references",
                 "request_completions",
                 "request_hover",
+                "request_call_hierarchy_incoming",
+                "request_call_hierarchy_outgoing",
             }:
                 kwargs["line"] = params.get("line", self.DEFAULTS["line"])
                 kwargs["column"] = params.get("column", self.DEFAULTS["column"])
@@ -632,6 +644,74 @@ class RequestHandler:
         except Exception as e:
             logger.exception(f"Error handling LSP method {method}: {e}")
             raise
+
+    async def _handle_did_change(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Handle textDocument/didChange for external file change notification.
+
+        Per ADR-0010, this method:
+        1. Checks cache state and mtime to decide if didOpen is needed
+        2. Sends didOpen if file is not open or mtime differs (stale)
+        3. Sends didChange with full text sync
+        4. Returns acknowledgment (not diagnostics)
+        5. Does NOT mutate cache mtime
+
+        Args:
+            params: Request parameters with filePath and optional mtime
+
+        Returns:
+            {"status": "acknowledged"}
+
+        Raises:
+            ValueError: If filePath parameter is missing
+            FileNotFoundError: If file does not exist
+        """
+        # Extract and validate file path
+        file_path_str = params.get("filePath")
+        if file_path_str is None:
+            raise ValueError("Missing 'filePath' parameter")
+
+        file_path = Path(file_path_str)
+
+        # Verify file exists
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Get current mtime
+        current_mtime = os.stat(file_path).st_mtime
+
+        # Get workspace and client
+        workspace_path = params.get("workspacePath", self._workspace_path)
+        workspace = await self._registry.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+
+        # Get file URI and cache state
+        uri = file_path.as_uri()
+        cache = client._diagnostic_cache
+        file_state = await cache.get_file_state(uri)
+
+        # Decide if didOpen is needed:
+        # - File not open (is_open=False) -> send didOpen
+        # - mtime differs (stale) -> send didOpen
+        # - mtime matches and is_open -> skip didOpen (optimization)
+        needs_didopen = not file_state.is_open
+        if not needs_didopen and file_state.mtime > 0:
+            is_stale = await cache.is_stale(uri, current_mtime)
+            needs_didopen = is_stale
+
+        if needs_didopen:
+            # Send didOpen with current content
+            content = file_path.read_text(encoding="utf-8")
+            await client.open_document(file_path, content)
+            # Mark as open in cache WITHOUT updating mtime
+            # Per ADR-0010: rely on existing mtime-based invalidation
+            await cache.on_did_open(uri)
+
+        # Read current content and send didChange
+        content = file_path.read_text(encoding="utf-8")
+        await client.send_did_change(file_path, content)
+
+        # Return acknowledgment (not diagnostics)
+        return {"status": "acknowledged"}
 
 
 async def run_daemon(

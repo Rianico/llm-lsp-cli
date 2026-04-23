@@ -6,8 +6,8 @@ from typing import Any
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
-from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 from llm_lsp_cli.infrastructure.config.exceptions import ServerNotFoundError
+from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 
 from .workspace import WorkspaceManager
 
@@ -212,6 +212,30 @@ class ServerRegistry:
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
         return await client.request_workspace_diagnostics()
+
+    async def request_call_hierarchy_incoming(
+        self,
+        workspace_path: str,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> list[Any]:
+        """Request incoming calls at position."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_call_hierarchy_incoming(file_path, line, column)
+
+    async def request_call_hierarchy_outgoing(
+        self,
+        workspace_path: str,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> list[Any]:
+        """Request outgoing calls at position."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_call_hierarchy_outgoing(file_path, line, column)
 
     async def shutdown_all(self) -> None:
         """Shutdown all workspaces."""
