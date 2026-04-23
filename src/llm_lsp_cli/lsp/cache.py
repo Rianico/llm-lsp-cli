@@ -174,6 +174,21 @@ class DiagnosticCache:
             key = self._uri_to_relative_path(uri)
             return self._cache.get(key, FileState())
 
+    def get_file_state_sync(self, uri: str) -> FileState:
+        """Get the full FileState for a file (synchronous fallback).
+
+        This is a synchronous version for use in contexts where await
+        is not available (e.g., type conversion helpers).
+
+        Args:
+            uri: File URI to query
+
+        Returns:
+            FileState object for the file (with defaults if not cached)
+        """
+        key = self._uri_to_relative_path(uri)
+        return self._cache.get(key, FileState())
+
     async def on_did_open(self, uri: str, mtime: float | None = None) -> None:
         """Handle textDocument/didOpen notification.
 

@@ -453,10 +453,8 @@ class LSPClient:
         if file_state.last_result_id is not None and mtime is not None:
             is_stale = await self._diagnostic_cache.is_stale(uri, mtime)
             if not is_stale:
-                logger.debug(
-                    f"Returning cached diagnostics for {uri} "
-                    f"(resultId={file_state.last_result_id}, mtime={mtime})"
-                )
+                # Structured cache hit log with FileState info
+                self._log_cache_hit(uri, file_state, mtime)
                 return list(file_state.diagnostics)
 
         params: lsp.DocumentDiagnosticParams = {
@@ -506,23 +504,93 @@ class LSPClient:
             return ([], None)
 
         if isinstance(result, dict):
-            # Handle DocumentDiagnosticReport format
             if result.get("kind") == "unchanged":
-                # No changes since last request - return cached
                 uri = result.get("uri", "")
-                logger.debug(f"Cache hit for diagnostics (unchanged) for {uri}")
-                # Use synchronous fallback since we're in a type conversion helper
+                file_state = self._diagnostic_cache.get_file_state_sync(uri)
+                self._log_cache_hit_server(uri, file_state, result.get("resultId"))
                 return (self._diagnostic_cache.get_cached(uri), None)
             items = result.get("items", [])
             result_id = result.get("resultId")
-            logger.debug(f"Fresh diagnostics received: {len(items)} items")
+            logger.debug(f"[← res textDocument/diagnostic] fresh: {len(items)} diagnostics")
             return (list(items), result_id)
 
         if isinstance(result, list):
-            logger.debug(f"Fresh diagnostics received: {len(result)} items")
+            logger.debug(f"[← res textDocument/diagnostic] fresh: {len(result)} diagnostics")
             return (list(result), None)
 
         return ([], None)
+
+    def _log_cache_hit(
+        self,
+        uri: str,
+        file_state: Any,
+        current_mtime: float,
+    ) -> None:
+        """Log a cache hit with structured FileState information.
+
+        Args:
+            uri: File URI
+            file_state: FileState object from cache
+            current_mtime: Current file modification time
+        """
+        # Extract relative path for cleaner log output
+        rel_path = self._uri_to_relative_path(uri)
+        diag_count = len(file_state.diagnostics)
+
+        logger.debug(
+            f"[cache HIT] {rel_path} | "
+            f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}... "
+            f"| mtime={current_mtime:.2f} | v={file_state.document_version} | "
+            f"open={file_state.is_open} | diags={diag_count}"
+        )
+
+    def _log_cache_hit_server(
+        self,
+        uri: str,
+        file_state: Any,
+        result_id: str | None,
+    ) -> None:
+        """Log a server-reported cache hit (kind=unchanged).
+
+        Args:
+            uri: File URI
+            file_state: FileState object from cache
+            result_id: Result ID from server response
+        """
+        rel_path = self._uri_to_relative_path(uri)
+        diag_count = len(file_state.diagnostics)
+
+        logger.debug(
+            f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
+            f"resultId={result_id[:8] if result_id else 'None'}... | "
+            f"diags={diag_count}"
+        )
+
+    def _uri_to_relative_path(self, uri: str) -> str:
+        """Convert URI to relative path for cleaner log output.
+
+        Args:
+            uri: File URI
+
+        Returns:
+            Relative path string within workspace
+        """
+        from urllib.parse import urlparse
+
+        parsed = urlparse(uri)
+        if parsed.scheme != "file":
+            return uri
+
+        file_path = Path(parsed.path)
+
+        # Handle case where workspace_path is not set (mock clients in tests)
+        if not hasattr(self, "workspace_path") or self.workspace_path is None:
+            return str(file_path)
+
+        try:
+            return str(file_path.relative_to(self.workspace_path))
+        except ValueError:
+            return str(file_path)
 
     async def request_workspace_diagnostics(
         self,

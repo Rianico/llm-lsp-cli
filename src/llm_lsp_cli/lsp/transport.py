@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import copy
 import inspect
 import json
 import logging
@@ -41,6 +40,36 @@ _diagnostic_logger = logging.getLogger(_DIAGNOSTIC_LOGGER_NAME)
 
 
 # =============================================================================
+# Structured LSP Message Logging Helpers
+# =============================================================================
+
+
+def _format_log_prefix(
+    direction: str,
+    msg_type: str,
+    method: str = "",
+    msg_id: int | None = None,
+) -> str:
+    """Format a structured log prefix for LSP messages.
+
+    Args:
+        direction: Arrow (→ for outgoing, ← for incoming)
+        msg_type: Message type (req, res, notif)
+        method: LSP method name
+        msg_id: Request/response ID (optional)
+
+    Returns:
+        Formatted prefix string like "[→ req#1 textDocument/definition]"
+    """
+    parts = [direction, msg_type]
+    if msg_id is not None:
+        parts.append(f"#{msg_id}")
+    if method:
+        parts.append(method)
+    return f"[{' '.join(parts)}]"
+
+
+# =============================================================================
 # Three-way log classification
 # =============================================================================
 
@@ -59,7 +88,7 @@ _SKIP_METHODS = frozenset({
 
 _DAEMON_ONLY_METHODS = frozenset({
     LSPConstants.WINDOW_LOG_MESSAGE,
-    "workspace/configuration",  # LSP request, not in LSPConstants
+    LSPConstants.WORKSPACE_CONFIGURATION,
     LSPConstants.CLIENT_REGISTER_CAPABILITY,
 })
 
@@ -139,7 +168,7 @@ def _mask_result_items(result_data: dict[str, Any]) -> None:
 def _mask_text_content(params: dict[str, Any]) -> None:
     """Mask text content fields in document synchronization params.
 
-    Mutates the params dict in place (called on deep-copied data only).
+    Mutates the params dict in place (called on shallow-copied data only).
 
     Handles:
     - textDocument/didOpen: params.textDocument.text
@@ -148,14 +177,12 @@ def _mask_text_content(params: dict[str, Any]) -> None:
     if not isinstance(params, dict):
         return
 
-    # textDocument/didOpen: params.textDocument.text
     text_doc = params.get("textDocument")
     if isinstance(text_doc, dict) and "text" in text_doc:
         text = text_doc["text"]
         if isinstance(text, str):
             text_doc["text"] = f"... (text_len: {len(text)})"
 
-    # textDocument/didChange: params.contentChanges[].text
     content_changes = params.get("contentChanges")
     if isinstance(content_changes, list):
         for change in content_changes:
@@ -168,13 +195,14 @@ def _mask_text_content(params: dict[str, Any]) -> None:
 def _mask_diagnostics(data: dict[str, Any]) -> dict[str, Any]:
     """Mask diagnostic arrays in LSP messages to prevent log bloat.
 
-    Creates a deep copy to avoid mutating the input data.
-    Replaces diagnostic arrays with length metadata string.
+    Creates a shallow copy with selective deep copying only for fields
+    that need modification. Replaces diagnostic arrays with length metadata.
 
     Patterns handled:
     - $/progress notifications with params.value.items[].diagnostics
     - textDocument/publishDiagnostics with params.diagnostics
     - Diagnostic responses with result.items
+    - textDocument/didOpen/didChange with text content
 
     Args:
         data: LSP message dictionary
@@ -182,28 +210,38 @@ def _mask_diagnostics(data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         New dictionary with diagnostic arrays masked
     """
-    # Deep copy to preserve immutability
-    result = copy.deepcopy(data)
-
+    # Shallow copy at top level - cheaper than deepcopy
+    result = dict(data)
     method = result.get("method", "")
 
-    # Handle $/progress notifications
-    if method == "$/progress":
-        _mask_progress_items(result.get("params", {}))
+    # Copy and mask params if present
+    if "params" in result:
+        params = dict(result["params"])
+        result["params"] = params
 
-    # Handle textDocument/publishDiagnostics notifications
-    elif method == "textDocument/publishDiagnostics":
-        _mask_diagnostics_params(result.get("params", {}))
+        if method == LSPConstants.PROGRESS:
+            if "value" in params and isinstance(params["value"], dict):
+                params["value"] = dict(params["value"])
+                _mask_progress_items(params)
 
-    # Handle textDocument/didOpen and didChange
-    elif method in (
-        LSPConstants.TEXT_DOCUMENT_DID_OPEN,
-        LSPConstants.TEXT_DOCUMENT_DID_CHANGE,
-    ):
-        _mask_text_content(result.get("params", {}))
+        elif method == "textDocument/publishDiagnostics":
+            _mask_diagnostics_params(params)
 
-    # Handle diagnostic responses with result.items
-    if "result" in result:
+        elif method in (LSPConstants.TEXT_DOCUMENT_DID_OPEN, LSPConstants.TEXT_DOCUMENT_DID_CHANGE):
+            # Shallow copy textDocument if present
+            if "textDocument" in params and isinstance(params["textDocument"], dict):
+                params["textDocument"] = dict(params["textDocument"])
+            # Shallow copy contentChanges if present
+            if "contentChanges" in params and isinstance(params["contentChanges"], list):
+                params["contentChanges"] = [
+                    dict(change) if isinstance(change, dict) else change
+                    for change in params["contentChanges"]
+                ]
+            _mask_text_content(params)
+
+    # Copy and mask result if present
+    if "result" in result and isinstance(result["result"], dict):
+        result["result"] = dict(result["result"])
         _mask_result_items(result["result"])
 
     return result
@@ -401,23 +439,7 @@ class StdioTransport:
             logger.error(f"Failed to parse message: {e}")
             return
 
-        if self.trace:
-            method = data.get("method", "")
-            category = _classify_method(method)
-
-            if category == LogCategory.SKIP:
-                # Only log to diagnostics.log (full)
-                _diagnostic_logger.debug(f"<-- {data}")
-            elif category == LogCategory.DAEMON:
-                # Only log to daemon.log (full, not masked)
-                logger.debug(f"<-- {data}")
-            elif category == LogCategory.MASK:
-                # Dual-path: masked to daemon.log, full to diagnostics.log
-                masked_data = _mask_diagnostics(data)
-                logger.debug(f"<-- {masked_data}")
-                _diagnostic_logger.debug(f"<-- {data}")
-
-        # Route message
+        # Route message first, then log (separation of concerns)
         if "id" in data:
             if "method" in data:
                 # Request from server
@@ -428,6 +450,35 @@ class StdioTransport:
         elif "method" in data:
             # Notification from server
             await self._handle_notification(data)
+
+        # Log after routing - check level first to avoid expensive formatting
+        if self.trace and logger.isEnabledFor(logging.DEBUG):
+            self._log_incoming_message(data)
+
+    def _log_incoming_message(self, data: dict[str, Any]) -> None:
+        """Log an incoming LSP message with structured formatting.
+
+        Only called when trace is enabled and DEBUG level is active.
+        """
+        method = data.get("method", "")
+        msg_id = data.get("id")
+        category = _classify_method(method)
+
+        # Determine message type for structured prefix
+        msg_type = ("req" if "method" in data else "res") if "id" in data else "notif"
+        prefix = _format_log_prefix("←", msg_type, method, msg_id)
+
+        if category == LogCategory.SKIP:
+            # Only log to diagnostics.log (full)
+            _diagnostic_logger.debug(f"{prefix} {data}")
+        elif category == LogCategory.DAEMON:
+            # Only log to daemon.log (full, not masked)
+            logger.debug(f"{prefix} {data}")
+        elif category == LogCategory.MASK:
+            # Dual-path: masked to daemon.log, full to diagnostics.log
+            masked_data = _mask_diagnostics(data)
+            logger.debug(f"{prefix} {masked_data}")
+            _diagnostic_logger.debug(f"{prefix} {data}")
 
     async def _handle_response(self, data: dict[str, Any]) -> None:
         """Handle a response to our request."""
@@ -592,12 +643,29 @@ class StdioTransport:
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         header = f"Content-Length: {len(body)}\r\n\r\n".encode()
 
-        if self.trace:
-            masked_payload = _mask_diagnostics(payload)
-            logger.debug(f"--> {masked_payload}")
+        # Log after sending - check level first to avoid expensive formatting
+        if self.trace and logger.isEnabledFor(logging.DEBUG):
+            self._log_outgoing_message(payload)
 
         self._process.stdin.write(header + body)
         await self._process.stdin.drain()
+
+    def _log_outgoing_message(self, payload: dict[str, Any]) -> None:
+        """Log an outgoing LSP message with structured formatting.
+
+        Only called when trace is enabled and DEBUG level is active.
+        """
+        method = payload.get("method", "")
+        msg_id = payload.get("id")
+
+        # Determine message type for structured prefix
+        msg_type = "req" if "method" in payload and "id" in payload else "notif"
+
+        prefix = _format_log_prefix("→", msg_type, method, msg_id)
+
+        # Always mask outgoing messages (they contain file content, etc.)
+        masked_payload = _mask_diagnostics(payload)
+        logger.debug(f"{prefix} {masked_payload}")
 
     async def stop(self) -> None:
         """Stop the transport and kill the process."""

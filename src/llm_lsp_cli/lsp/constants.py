@@ -74,6 +74,9 @@ class LSPConstants:
     CLIENT_REGISTER_CAPABILITY = "client/registerCapability"
     CLIENT_UNREGISTER_CAPABILITY = "client/unregisterCapability"
 
+    # Workspace configuration
+    WORKSPACE_CONFIGURATION = "workspace/configuration"
+
     # Progress notifications
     PROGRESS = "$/progress"
     SET_TRACE = "$/setTrace"

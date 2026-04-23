@@ -393,8 +393,8 @@ class TestDualLoggingInHandleMessage:
         # Assert - no debug log output about the message content
         # (warning about unknown request is expected from routing logic)
         log_output = handler.stream.getvalue()
-        # The key assertion: no "<--" debug log about message content
-        assert "<--" not in log_output
+        # The key assertion: no "[←" debug log about message content
+        assert "[←" not in log_output
 
     @pytest.mark.asyncio
     async def test_handle_message_routing_unaffected_by_masking(
@@ -1006,9 +1006,9 @@ class TestThreeWayRouting:
         body = json.dumps(message).encode()
         await transport_with_trace._handle_message(body)
         daemon_calls = [str(c) for c in mock_daemon.debug.call_args_list]
-        assert any("<--" in c for c in daemon_calls), f"Expected daemon log missing: {daemon_calls}"
+        assert any("[← notif" in c for c in daemon_calls), f"Expected daemon log missing: {daemon_calls}"
         diag_calls = [str(c) for c in mock_diag.debug.call_args_list]
-        assert not any("<--" in c for c in diag_calls), f"Unexpected diag log: {diag_calls}"
+        assert not any("[← notif" in c for c in diag_calls), f"Unexpected diag log: {diag_calls}"
 
     @pytest.mark.asyncio
     async def test_daemon_workspace_configuration_only_daemon_logger(
@@ -1024,9 +1024,9 @@ class TestThreeWayRouting:
         body = json.dumps(message).encode()
         await transport_with_trace._handle_message(body)
         daemon_calls = [str(c) for c in mock_daemon.debug.call_args_list]
-        assert any("<--" in c for c in daemon_calls), f"Expected daemon log missing: {daemon_calls}"
+        assert any("[← notif" in c for c in daemon_calls), f"Expected daemon log missing: {daemon_calls}"
         diag_calls = [str(c) for c in mock_diag.debug.call_args_list]
-        assert not any("<--" in c for c in diag_calls), f"Unexpected diag log: {diag_calls}"
+        assert not any("[← notif" in c for c in diag_calls), f"Unexpected diag log: {diag_calls}"
 
     @pytest.mark.asyncio
     async def test_mask_didchange_both_loggers_masked_text(
