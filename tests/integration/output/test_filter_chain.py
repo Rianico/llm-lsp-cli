@@ -13,11 +13,11 @@ runner = CliRunner()
 class TestFilterChainIntegration:
     """Tests for test_filter and symbol_filter working together."""
 
-    def test_test_filter_then_symbol_filter(self) -> None:
-        """Verify both filters are applied: test files excluded, then variables excluded."""
+    def test_test_filter_excludes_test_files(self) -> None:
+        """Verify test files are excluded by default."""
         from llm_lsp_cli.cli import app
 
-        # Mock response with test file symbols including variables
+        # Mock response with test file symbols
         mock_response = {
             "symbols": [
                 {
@@ -80,7 +80,7 @@ class TestFilterChainIntegration:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            # Default: exclude test files AND exclude variables
+            # Default: exclude test files (variable-kind filtering no longer at CLI level)
             result = runner.invoke(
                 app,
                 ["workspace-symbol", "MyClass", "-w", "/project", "-o", "json"],
@@ -89,20 +89,18 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            # Should exclude test file (TestMyClass, test_variable)
+            # Should exclude test file symbols (TestMyClass, test_variable)
             names = [item["name"] for item in parsed]
             assert "TestMyClass" not in names
             assert "test_variable" not in names
 
-            # Should exclude variable from source file
-            assert "my_variable" not in names
+            # Should include source file symbols
+            assert "MyClass" in names
+            assert "my_variable" in names
+            assert len(parsed) == 2
 
-            # Should only include MyClass
-            assert len(parsed) == 1
-            assert parsed[0]["name"] == "MyClass"
-
-    def test_source_file_with_variables(self) -> None:
-        """Verify source files: only symbol filter applied (variables excluded by default)."""
+    def test_source_file_with_all_symbols(self) -> None:
+        """Verify source files return all symbols (no variable filtering at CLI level)."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -153,9 +151,9 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            # Should exclude variable but include class
+            # Should include both class and variable (no variable filtering at CLI level)
             names = [item["name"] for item in parsed]
-            assert "my_variable" not in names
+            assert "my_variable" in names
             assert "MyClass" in names
 
     def test_test_file_with_classes(self) -> None:
@@ -213,7 +211,7 @@ class TestFilterChainIntegration:
             assert "TestMyClass" in names
 
     def test_filter_order_preserves_semantics(self) -> None:
-        """Verify filter order: test_filter first, then symbol_filter."""
+        """Verify filter order: test_filter first."""
         from llm_lsp_cli.cli import app
 
         # Complex scenario: test files with variables, source files with variables
@@ -281,7 +279,7 @@ class TestFilterChainIntegration:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            # Default: exclude test files AND exclude variables
+            # Default: exclude test files (no variable filtering at CLI level)
             result = runner.invoke(
                 app,
                 ["workspace-symbol", "Class", "-w", "/project", "-o", "json"],
@@ -290,12 +288,12 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            # Only SourceClass should remain
+            # SourceClass and source_var should remain (test symbols filtered)
             names = [item["name"] for item in parsed]
-            assert names == ["SourceClass"]
+            assert set(names) == {"SourceClass", "source_var"}
 
-    def test_verbose_overrides_symbol_filter(self) -> None:
-        """Verify -v flag: symbol filter disabled, all symbols included."""
+    def test_include_tests_includes_all_source_files(self) -> None:
+        """Verify --include-tests includes all symbols from both source and test files."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -349,10 +347,10 @@ class TestFilterChainIntegration:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            # With -v, all symbols should be included
+            # All symbols should be included (no variable filtering at CLI level)
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "MyClass", "-w", "/project", "-v", "-o", "json"],
+                ["workspace-symbol", "MyClass", "-w", "/project", "-o", "json"],
             )
 
             assert result.exit_code == 0

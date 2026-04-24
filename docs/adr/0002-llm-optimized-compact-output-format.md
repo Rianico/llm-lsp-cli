@@ -6,6 +6,8 @@ Date: 2026-04-12
 
 Accepted
 
+Amended by [13. Hierarchical symbol output with depth-controlled traversal](0013-hierarchical-symbol-output-with-depth-controlled-traversal.md)
+
 ## Context
 
 The llm-lsp-cli serves LLM consumers (via RTK token optimization). Current output is human-readable but verbose, causing:

@@ -1,4 +1,4 @@
-"""Edge case and performance tests for verbosity filtering."""
+"""Edge case and performance tests for depth-controlled symbol output."""
 
 import json
 import time
@@ -22,8 +22,8 @@ from tests.fixtures import (
 runner = CliRunner()
 
 
-class TestVerbosityEdgeCases:
-    """Edge case tests for verbosity filtering."""
+class TestDepthEdgeCases:
+    """Edge case tests for depth-controlled symbol output."""
 
     def test_filter_preserves_symbol_order(self) -> None:
         """Verify filtering preserves original symbol order."""
@@ -104,8 +104,8 @@ class TestVerbosityEdgeCases:
         assert result is symbols
 
 
-class TestVerbosityPerformance:
-    """Performance tests for verbosity filtering."""
+class TestDepthPerformance:
+    """Performance tests for depth-controlled symbol output."""
 
     def test_filter_performance_large_list(self) -> None:
         """Verify filter handles large symbol lists efficiently."""
@@ -154,11 +154,11 @@ class TestVerbosityPerformance:
         assert elapsed < 0.5
 
 
-class TestVerbosityCLIEdgeCases:
-    """CLI edge case tests for verbosity filtering."""
+class TestDepthCLIEdgeCases:
+    """CLI edge case tests for depth-controlled symbol output."""
 
-    def test_verbose_with_zero_symbols(self) -> None:
-        """Verify -v flag handles empty symbol list gracefully."""
+    def test_depth_with_zero_symbols(self) -> None:
+        """Verify --depth option handles empty symbol list gracefully."""
         from llm_lsp_cli.cli import app
 
         mock_response = {"symbols": []}
@@ -178,15 +178,15 @@ class TestVerbosityCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "-v", "-o", "json"],
+                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "-o", "json"],
             )
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
             assert parsed == []
 
-    def test_triple_verbose_flag(self) -> None:
-        """Verify -vvv flag (capped at DEBUG) works correctly."""
+    def test_depth_unlimited(self) -> None:
+        """Verify --depth -1 (unlimited) works correctly."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -211,16 +211,49 @@ class TestVerbosityCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "-vvv", "-o", "json"],
+                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "-1", "-o", "json"],
             )
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            # Should include all symbols (verbosity capped at DEBUG)
+            # Should include all symbols
             assert len(parsed) == 2
 
-    def test_verbose_combined_with_all_options(self) -> None:
-        """Verify -v works when combined with all available options."""
+    def test_depth_zero(self) -> None:
+        """Verify --depth 0 (top-level only) works correctly."""
+        from llm_lsp_cli.cli import app
+
+        mock_response = {
+            "symbols": [
+                {"name": "var", "kind": SYMBOL_KIND_VARIABLE},
+                {"name": "class", "kind": SYMBOL_KIND_CLASS},
+            ]
+        }
+
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
+            mock_instance = MagicMock()
+            mock_instance.is_running.return_value = True
+            mock_manager.return_value = mock_instance
+
+            mock_client = AsyncMock()
+            mock_client.request = AsyncMock(return_value=mock_response)
+            mock_client.close = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "0", "-o", "json"],
+            )
+
+            assert result.exit_code == 0
+            parsed = json.loads(result.output)
+            assert len(parsed) == 2
+
+    def test_depth_combined_with_all_options(self) -> None:
+        """Verify --depth works when combined with all available options."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -265,19 +298,19 @@ class TestVerbosityCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "-v", "--include-tests", "-o", "json"],
+                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "--include-tests", "-o", "json"],
             )
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            # Both filters should work - variables included with -v
+            # Should include all symbols
             assert len(parsed) == 2
             names = [item["name"] for item in parsed]
             assert "var" in names
             assert "class" in names
 
-    def test_document_symbol_verbose_with_deep_nesting(self, tmp_path: Path) -> None:
-        """Verify -v handles deeply nested document symbols."""
+    def test_document_symbol_depth_with_deep_nesting(self, tmp_path: Path) -> None:
+        """Verify --depth handles deeply nested document symbols."""
         from llm_lsp_cli.cli import app
 
         # Create a test file
@@ -351,7 +384,7 @@ class TestVerbosityCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-v", "-o", "json"],
+                ["document-symbol", str(test_file), "-w", str(tmp_path), "--depth", "1", "-o", "json"],
             )
 
             assert result.exit_code == 0

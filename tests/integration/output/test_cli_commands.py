@@ -102,7 +102,7 @@ class TestWorkspaceSymbolCommand:
             assert len(parsed) == 2
             assert "file" in parsed[0]
             assert "name" in parsed[0]
-            assert "kind" in parsed[0]
+            assert "kind_name" in parsed[0]  # kind_name, not numeric kind
             assert "range" in parsed[0]
 
     def test_workspace_symbol_yaml_format(self, mock_symbols_response: list[dict]) -> None:
@@ -133,7 +133,7 @@ class TestWorkspaceSymbolCommand:
             assert len(parsed) == 2
             assert "file" in parsed[0]
             assert "name" in parsed[0]
-            assert "kind" in parsed[0]
+            assert "kind_name" in parsed[0]  # kind_name, not numeric kind
             assert "range" in parsed[0]
 
     def test_workspace_symbol_csv_format(self, mock_symbols_response: list[dict]) -> None:

@@ -77,10 +77,10 @@ class TestWorkspaceSymbolWorkflow:
         assert "src/utils.py:" in output
         assert "tests/test_models.py:" in output
 
-        # Verify symbol formatting
-        assert "MyClass (5) [1:1-51:1]" in output
-        assert "my_function (12) [11:1-31:1] -> def my_function(x: int) -> str" in output
-        assert "TestClass (5) [6:1-26:1]" in output
+        # Verify symbol formatting (using kind_name, not numeric kind)
+        assert "MyClass (Class) [1:1-51:1]" in output
+        assert "my_function (Function) [11:1-31:1] -> def my_function(x: int) -> str" in output
+        assert "TestClass (Class) [6:1-26:1]" in output
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
@@ -93,11 +93,11 @@ class TestWorkspaceSymbolWorkflow:
         assert isinstance(parsed, list)
         assert len(parsed) == 3
 
-        # Verify structure
+        # Verify structure (kind_name, not numeric kind)
         for item in parsed:
             assert "file" in item
             assert "name" in item
-            assert "kind" in item
+            assert "kind_name" in item
             assert "range" in item
 
         # Verify null omission
@@ -131,12 +131,12 @@ class TestWorkspaceSymbolWorkflow:
         # Header + 3 data rows
         assert len(lines) == 4
 
-        # Verify header
-        assert lines[0] == "file,name,kind,range,detail,container,tags"
+        # Verify header (new schema with kind_name, selection_range, parent)
+        assert lines[0] == "file,name,kind_name,range,selection_range,detail,tags,parent"
 
         # Verify data rows have correct column count
         for line in lines[1:]:
-            assert len(line.split(",")) == 7
+            assert len(line.split(",")) == 8
 
     def test_workflow_filter_test_symbols(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
@@ -226,8 +226,8 @@ class TestDocumentSymbolWorkflow:
         records = formatter.transform_symbols(document_symbols_response)
         output = formatter.symbols_to_text(records)
 
-        assert "MyClass (5) [1:1-51:1]" in output
-        assert "helper_function (12) [53:1-71:1] -> def helper_function(x: int) -> int" in output
+        assert "MyClass (Class) [1:1-51:1]" in output
+        assert "helper_function (Function) [53:1-71:1] -> def helper_function(x: int) -> int" in output
 
     def test_workflow_json_with_nested_children(
         self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
@@ -447,8 +447,8 @@ class TestEdgeCases:
         ]
         records = formatter.transform_symbols(symbols)
 
-        # Should use defaults (1:1-1:1)
-        assert records[0].range == "1:1-1:1"
+        # Should use defaults (1:1-1:1) - range is now Range object
+        assert records[0].range.to_compact() == "1:1-1:1"
 
     def test_unicode_in_symbol_names(self, formatter: CompactFormatter) -> None:
         """Test handling unicode characters in symbol names."""
@@ -609,8 +609,8 @@ class TestTokenEfficiency:
         records = formatter.transform_symbols(sample_symbols)
 
         # Range should be compact: "1:1-51:1" not verbose like "line 1, column 1 to line 51, column 1"
-        assert records[0].range == "1:1-51:1"
-        assert records[1].range == "11:1-31:1"
+        assert records[0].range.to_compact() == "1:1-51:1"
+        assert records[1].range.to_compact() == "11:1-31:1"
 
     def test_relative_paths(
         self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]

@@ -354,8 +354,8 @@ class TestE2ECsvDocumentSymbol:
             rows = parse_csv_output(result.output)
             assert len(rows) == 1
             assert rows[0]["name"] == "MyClass"
-            # Compact CSV uses numeric kind (LLMs know the mapping)
-            assert rows[0]["kind"] == "5"
+            # New schema uses kind_name instead of kind
+            assert rows[0]["kind_name"] == "Class"
 
 
 class TestE2ECsvWorkspaceSymbol:
@@ -1235,7 +1235,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["file", "name", "kind", "range", "detail", "container", "tags"]
+            # New schema: kind_name instead of kind, selection_range and parent added
+            expected_columns = ["file", "name", "kind_name", "range", "selection_range", "detail", "tags", "parent"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_workspace_symbol_columns(self, temp_dir: Path) -> None:
@@ -1271,7 +1272,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["file", "name", "kind", "range", "detail", "container", "tags"]
+            # New schema: kind_name instead of kind, selection_range and parent added
+            expected_columns = ["file", "name", "kind_name", "range", "selection_range", "detail", "tags", "parent"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_hover_columns(self, temp_file: Path) -> None:

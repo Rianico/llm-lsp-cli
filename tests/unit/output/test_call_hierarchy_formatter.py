@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_lsp_cli.output.formatter import CallHierarchyRecord, CompactFormatter
+from llm_lsp_cli.output.formatter import CallHierarchyRecord, CompactFormatter, Position, Range
 from tests.fixtures import (
     CALL_HIERARCHY_INCOMING_RESPONSE,
     CALL_HIERARCHY_OUTGOING_RESPONSE,
@@ -254,30 +254,33 @@ class TestCallHierarchyRecord:
 
     def test_call_hierarchy_record_has_required_fields(self) -> None:
         """CallHierarchyRecord must have required fields."""
+        rng = Range(start=Position(line=9, character=0), end=Position(line=19, character=0))
+        from_rng = Range(start=Position(line=4, character=4), end=Position(line=4, character=15))
         record = CallHierarchyRecord(
             file="src/module.py",
             name="my_function",
             kind=12,
             kind_name="Function",
-            range="L10-20",
-            from_ranges=["L5:4-5:15"],
+            range=rng,
+            from_ranges=[from_rng],
         )
 
         assert record.file == "src/module.py"
         assert record.name == "my_function"
         assert record.kind == 12
         assert record.kind_name == "Function"
-        assert record.range == "L10-20"
-        assert record.from_ranges == ["L5:4-5:15"]
+        assert record.range == rng
+        assert record.from_ranges == [from_rng]
 
     def test_call_hierarchy_record_from_ranges_defaults_to_empty_list(self) -> None:
         """CallHierarchyRecord from_ranges defaults to empty list."""
+        rng = Range(start=Position(line=9, character=0), end=Position(line=19, character=0))
         record = CallHierarchyRecord(
             file="src/module.py",
             name="my_function",
             kind=12,
             kind_name="Function",
-            range="L10-20",
+            range=rng,
         )
 
         assert record.from_ranges == []

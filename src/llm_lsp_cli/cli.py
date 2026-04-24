@@ -15,8 +15,7 @@ import yaml
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.output.formatter import CompactFormatter
-from llm_lsp_cli.output.symbol_filter import filter_symbols
-from llm_lsp_cli.output.verbosity import VerbosityLevel
+from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.test_filter import (
     _filter_test_diagnostic_items,
     _filter_test_locations,
@@ -25,11 +24,9 @@ from llm_lsp_cli.test_filter import (
 from llm_lsp_cli.utils import (
     OutputFormat,
     format_completions_csv,
-    format_document_symbols_csv,
     format_hover_csv,
     format_locations_csv,
     format_output,
-    format_workspace_symbols_csv,
     get_symbol_kind_name,
 )
 from llm_lsp_cli.utils.language_detector import (
@@ -238,22 +235,6 @@ def _format_workspace_symbols_text(symbols: list[dict[str, Any]]) -> None:
             typer.echo(f"{name} ({kind_name}) in {uri}{range_info}")
     else:
         typer.echo("No symbols found.")
-
-
-def _apply_verbosity_filter(symbols: list[dict[str, Any]], verbose: int) -> list[dict[str, Any]]:
-    """Apply verbosity-based filtering to symbols.
-
-    Caps verbosity at DEBUG level (2) and filters symbols accordingly.
-
-    Args:
-        symbols: List of symbol dictionaries
-        verbose: Verbosity count from CLI option
-
-    Returns:
-        Filtered list of symbols
-    """
-    verbosity = VerbosityLevel(min(verbose, 2))  # Cap at DEBUG level
-    return filter_symbols(symbols, verbosity)
 
 
 def _resolve_language(workspace: str | None, language: str | None) -> tuple[str, str]:
@@ -856,7 +837,7 @@ def references(
     raw: bool = typer.Option(
         False,
         "--raw",
-        help="Output in legacy verbose format (one location per line, full columns)",
+        help="original LSP server response",
     ),
 ) -> None:
     """Get references to symbol at position.
@@ -886,15 +867,16 @@ def references(
         filtered = _filter_test_locations(locations, include_tests=include_tests)
 
         if raw:
-            # Legacy verbose format
+            # Raw LSP response passthrough
+            raw_formatter = RawFormatter(context.workspace_path)
             if context.output_format == OutputFormat.TEXT:
-                _format_locations_text(filtered)
+                typer.echo(raw_formatter.format_text(response))
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(format_output(filtered, OutputFormat.YAML), nl=False)
+                typer.echo(raw_formatter.format_yaml(response), nl=False)
             elif context.output_format == OutputFormat.CSV:
-                typer.echo(format_locations_csv(filtered), nl=False)
+                typer.echo(raw_formatter.format_csv(response))
             else:  # JSON (default)
-                typer.echo(format_output(filtered, OutputFormat.JSON))
+                typer.echo(raw_formatter.format_json(response))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
@@ -940,7 +922,7 @@ def incoming_calls(
     raw: bool = typer.Option(
         False,
         "--raw",
-        help="Output in legacy verbose format",
+        help="original LSP server response",
     ),
 ) -> None:
     """Get incoming calls (callers) for symbol at position.
@@ -969,13 +951,16 @@ def incoming_calls(
         calls = response.get("calls", [])
 
         if raw:
-            # Legacy verbose format
+            # Raw LSP response passthrough
+            raw_formatter = RawFormatter(context.workspace_path)
             if context.output_format == OutputFormat.TEXT:
-                typer.echo(str(calls))
+                typer.echo(raw_formatter.format_text(response))
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(format_output(calls, OutputFormat.YAML), nl=False)
+                typer.echo(raw_formatter.format_yaml(response), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(raw_formatter.format_csv(response))
             else:  # JSON (default)
-                typer.echo(format_output(calls, OutputFormat.JSON))
+                typer.echo(raw_formatter.format_json(response))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
@@ -985,11 +970,11 @@ def incoming_calls(
                 typer.echo("No calls found.")
             elif context.output_format == OutputFormat.TEXT:
                 for rec in records:
-                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range}]")
+                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range.to_compact()}]")
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(yaml.dump([r.__dict__ for r in records], default_flow_style=False))
+                typer.echo(yaml.dump([r.to_dict() for r in records], default_flow_style=False))
             else:  # JSON (default)
-                typer.echo(json.dumps([r.__dict__ for r in records], indent=2))
+                typer.echo(json.dumps([r.to_dict() for r in records], indent=2))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1022,7 +1007,7 @@ def outgoing_calls(
     raw: bool = typer.Option(
         False,
         "--raw",
-        help="Output in legacy verbose format",
+        help="original LSP server response",
     ),
 ) -> None:
     """Get outgoing calls (callees) for symbol at position.
@@ -1051,13 +1036,16 @@ def outgoing_calls(
         calls = response.get("calls", [])
 
         if raw:
-            # Legacy verbose format
+            # Raw LSP response passthrough
+            raw_formatter = RawFormatter(context.workspace_path)
             if context.output_format == OutputFormat.TEXT:
-                typer.echo(str(calls))
+                typer.echo(raw_formatter.format_text(response))
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(format_output(calls, OutputFormat.YAML), nl=False)
+                typer.echo(raw_formatter.format_yaml(response), nl=False)
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(raw_formatter.format_csv(response))
             else:  # JSON (default)
-                typer.echo(format_output(calls, OutputFormat.JSON))
+                typer.echo(raw_formatter.format_json(response))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
@@ -1067,11 +1055,11 @@ def outgoing_calls(
                 typer.echo("No calls found.")
             elif context.output_format == OutputFormat.TEXT:
                 for rec in records:
-                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range}]")
+                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range.to_compact()}]")
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(yaml.dump([r.__dict__ for r in records], default_flow_style=False))
+                typer.echo(yaml.dump([r.to_dict() for r in records], default_flow_style=False))
             else:  # JSON (default)
-                typer.echo(json.dumps([r.__dict__ for r in records], indent=2))
+                typer.echo(json.dumps([r.to_dict() for r in records], indent=2))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1190,22 +1178,22 @@ def document_symbol(
         "-o",
         help="Output format (overrides global)",
     ),
-    verbose: int = typer.Option(
-        0,
-        "--verbose",
-        "-v",
-        count=True,
-        help="Include variable-level symbols (e.g., -v for verbose, -vv for debug)",
+    depth: int = typer.Option(
+        1,
+        "--depth",
+        "-d",
+        help="Hierarchy depth: 0=top-only, N=N levels, -1=unlimited",
     ),
     raw: bool = typer.Option(
         False,
         "--raw",
-        help="Output in legacy verbose format (one symbol per line, full columns)",
+        help="original LSP server response",
     ),
 ) -> None:
     """Get document symbols.
 
-    By default, excludes variable-level symbols (variables, fields). Use -v to include them.
+    By default, shows classes and their direct children (methods, nested functions).
+    Use --depth to control hierarchy traversal.
     """
     context = _build_request_context(ctx, workspace, language, output_format, file)
 
@@ -1221,32 +1209,42 @@ def document_symbol(
 
         symbols = response.get("symbols", [])
 
-        # Apply symbol filter based on verbosity level
-        filtered_symbols = _apply_verbosity_filter(symbols, verbose)
-
         if raw:
-            # Legacy verbose format
+            # Raw LSP response passthrough
+            raw_formatter = RawFormatter(context.workspace_path)
             if context.output_format == OutputFormat.TEXT:
-                _format_symbols_text(filtered_symbols)
+                typer.echo(raw_formatter.format_text(response))
             elif context.output_format == OutputFormat.YAML:
-                typer.echo(format_output(filtered_symbols, OutputFormat.YAML), nl=False)
+                typer.echo(raw_formatter.format_yaml(response), nl=False)
             elif context.output_format == OutputFormat.CSV:
-                typer.echo(format_document_symbols_csv(filtered_symbols), nl=False)
+                typer.echo(raw_formatter.format_csv(response))
             else:  # JSON (default)
-                typer.echo(format_output(filtered_symbols, OutputFormat.JSON))
+                typer.echo(raw_formatter.format_json(response))
         else:
             # Compact format (default)
-            formatter = CompactFormatter(context.workspace_path)
-            records = formatter.transform_symbols(filtered_symbols)
-
             if context.output_format == OutputFormat.TEXT:
-                typer.echo(formatter.symbols_to_text(records))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(formatter.symbols_to_yaml(records), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(formatter.symbols_to_csv(records), nl=False)
-            else:  # JSON (default)
-                typer.echo(formatter.symbols_to_json(records))
+                # TEXT format uses new tree renderer per ADR-0014
+                from llm_lsp_cli.output.symbol_transformer import transform_symbols
+                from llm_lsp_cli.output.text_renderer import render_text
+
+                nodes = transform_symbols(
+                    symbols,
+                    depth_limit=depth,
+                    workspace=Path(context.workspace_path),
+                )
+                file_header = f"{context.file_path}:" if context.file_path else None
+                typer.echo(render_text(nodes, file_header=file_header))
+            else:
+                # JSON/YAML/CSV use CompactFormatter (unchanged)
+                formatter = CompactFormatter(context.workspace_path)
+                records = formatter.transform_symbols(symbols, depth=depth)
+
+                if context.output_format == OutputFormat.YAML:
+                    typer.echo(formatter.symbols_to_yaml(records), nl=False)
+                elif context.output_format == OutputFormat.CSV:
+                    typer.echo(formatter.symbols_to_csv(records), nl=False)
+                else:  # JSON (default)
+                    typer.echo(formatter.symbols_to_json(records))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1274,23 +1272,22 @@ def workspace_symbol(
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
-    verbose: int = typer.Option(
-        0,
-        "--verbose",
-        "-v",
-        count=True,
-        help="Include variable-level symbols (e.g., -v for verbose, -vv for debug)",
+    depth: int = typer.Option(
+        1,
+        "--depth",
+        "-d",
+        help="Hierarchy depth: 0=top-only, N=N levels, -1=unlimited",
     ),
     raw: bool = typer.Option(
         False,
         "--raw",
-        help="Output in legacy verbose format (one symbol per line, full columns)",
+        help="original LSP server response",
     ),
 ) -> None:
     """Search workspace symbols.
 
     By default, filters out symbols from test files. Use --include-tests to include them.
-    By default, excludes variable-level symbols (variables, fields). Use -v to include them.
+    Note: Workspace symbols are flat (no hierarchy), so --depth has no effect.
     """
     global_opts: GlobalOptions = ctx.obj
     effective_workspace, effective_language, effective_format = _resolve_effective_options(
@@ -1310,23 +1307,21 @@ def workspace_symbol(
         symbols = response.get("symbols", [])
         filtered = _filter_test_symbols(symbols, include_tests=include_tests)
 
-        # Apply symbol filter based on verbosity level
-        filtered = _apply_verbosity_filter(filtered, verbose)
-
         if raw:
-            # Legacy verbose format
+            # Raw LSP response passthrough
+            raw_formatter = RawFormatter(workspace_path)
             if effective_format == OutputFormat.TEXT:
-                _format_workspace_symbols_text(filtered)
+                typer.echo(raw_formatter.format_text(response))
             elif effective_format == OutputFormat.YAML:
-                typer.echo(format_output(filtered, OutputFormat.YAML), nl=False)
+                typer.echo(raw_formatter.format_yaml(response), nl=False)
             elif effective_format == OutputFormat.CSV:
-                typer.echo(format_workspace_symbols_csv(filtered), nl=False)
+                typer.echo(raw_formatter.format_csv(response))
             else:  # JSON (default)
-                typer.echo(format_output(filtered, OutputFormat.JSON))
+                typer.echo(raw_formatter.format_json(response))
         else:
             # Compact format (default)
             formatter = CompactFormatter(workspace_path)
-            records = formatter.transform_symbols(filtered)
+            records = formatter.transform_symbols(filtered, depth=depth)
 
             if effective_format == OutputFormat.TEXT:
                 typer.echo(formatter.symbols_to_text(records))

@@ -1,7 +1,7 @@
-"""Integration tests for recursive children filtering through CLI.
+"""Integration tests for depth-controlled symbol output through CLI.
 
-These tests verify that the recursive filtering of nested symbol children
-works correctly end-to-end through the CLI, not just at the unit level.
+These tests verify that the depth-controlled traversal of nested symbol children
+works correctly end-to-end through the CLI.
 """
 
 import json
@@ -22,11 +22,11 @@ from tests.fixtures import (
 runner = CliRunner()
 
 
-class TestDocumentSymbolRecursiveFiltering:
-    """Integration tests for recursive filtering with document-symbol command."""
+class TestDocumentSymbolDepthControl:
+    """Integration tests for depth control with document-symbol command."""
 
-    def test_nested_class_fields_filtered_at_normal_verbosity(self, tmp_path: Path) -> None:
-        """Verify document-symbol: nested class fields are filtered at NORMAL verbosity."""
+    def test_nested_class_with_default_depth(self, tmp_path: Path) -> None:
+        """Verify document-symbol: default depth=1 shows class + direct children."""
         from llm_lsp_cli.cli import app
 
         # Create a test file within the workspace boundary
@@ -49,7 +49,7 @@ class TestDocumentSymbolRecursiveFiltering:
                         {"name": "another_field", "kind": SYMBOL_KIND_FIELD},
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -67,7 +67,7 @@ class TestDocumentSymbolRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-o", "json", "--raw"],
+                ["document-symbol", str(test_file), "-w", str(tmp_path), "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -78,16 +78,16 @@ class TestDocumentSymbolRecursiveFiltering:
             assert class_symbol["name"] == "MyClass"
             assert "children" in class_symbol
 
-            # Should only have methods, not fields
+            # Should have all 4 children (no variable filtering at CLI level)
             children_names = [c["name"] for c in class_symbol["children"]]
             assert "__init__" in children_names
             assert "my_method" in children_names
-            assert "instance_field" not in children_names
-            assert "another_field" not in children_names
-            assert len(class_symbol["children"]) == 2
+            assert "instance_field" in children_names
+            assert "another_field" in children_names
+            assert len(class_symbol["children"]) == 4
 
-    def test_nested_class_fields_included_at_verbose_verbosity(self, tmp_path: Path) -> None:
-        """Verify document-symbol: -v includes all nested class fields."""
+    def test_depth_zero_shows_top_level_only(self, tmp_path: Path) -> None:
+        """Verify document-symbol: --depth 0 shows only top-level symbols."""
         from llm_lsp_cli.cli import app
 
         test_file = tmp_path / "test.py"
@@ -105,10 +105,9 @@ class TestDocumentSymbolRecursiveFiltering:
                     "children": [
                         {"name": "__init__", "kind": SYMBOL_KIND_METHOD},
                         {"name": "instance_field", "kind": SYMBOL_KIND_FIELD},
-                        {"name": "my_method", "kind": SYMBOL_KIND_METHOD},
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -131,10 +130,10 @@ class TestDocumentSymbolRecursiveFiltering:
                     str(test_file),
                     "-w",
                     str(tmp_path),
-                    "-v",
+                    "--depth",
+                    "0",
                     "-o",
                     "json",
-                    "--raw",
                 ],
             )
 
@@ -144,26 +143,107 @@ class TestDocumentSymbolRecursiveFiltering:
             assert len(parsed) == 1
             class_symbol = parsed[0]
             assert class_symbol["name"] == "MyClass"
-            assert len(class_symbol["children"]) == 3
+            # No children with depth 0
+            assert len(class_symbol["children"]) == 0
 
-            children_names = [c["name"] for c in class_symbol["children"]]
-            assert "__init__" in children_names
-            assert "instance_field" in children_names
-            assert "my_method" in children_names
+    def test_depth_unlimited_shows_all_levels(self, tmp_path: Path) -> None:
+        """Verify document-symbol: --depth -1 shows all nested levels."""
+        from llm_lsp_cli.cli import app
+
+        test_file = tmp_path / "test.py"
+        test_file.write_text("# Test file\n")
+
+        mock_response = {
+            "symbols": [
+                {
+                    "name": "mymodule",
+                    "kind": SYMBOL_KIND_MODULE,
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 100, "character": 0},
+                    },
+                    "children": [
+                        {
+                            "name": "MyClass",
+                            "kind": SYMBOL_KIND_CLASS,
+                            "range": {
+                                "start": {"line": 5, "character": 0},
+                                "end": {"line": 50, "character": 0},
+                            },
+                            "children": [
+                                {
+                                    "name": "my_method",
+                                    "kind": SYMBOL_KIND_METHOD,
+                                    "range": {
+                                        "start": {"line": 10, "character": 4},
+                                        "end": {"line": 30, "character": 0},
+                                    },
+                                    "children": [
+                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ]
+        }
+
+        with (
+            patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
+            patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
+        ):
+            mock_instance = MagicMock()
+            mock_instance.is_running.return_value = True
+            mock_manager.return_value = mock_instance
+
+            mock_client = AsyncMock()
+            mock_client.request = AsyncMock(return_value=mock_response)
+            mock_client.close = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            result = runner.invoke(
+                app,
+                [
+                    "document-symbol",
+                    str(test_file),
+                    "-w",
+                    str(tmp_path),
+                    "--depth",
+                    "-1",
+                    "-o",
+                    "json",
+                ],
+            )
+
+            assert result.exit_code == 0
+            parsed = json.loads(result.output)
+
+            assert len(parsed) == 1
+            module = parsed[0]
+            assert module["name"] == "mymodule"
+
+            my_class = module["children"][0]
+            assert my_class["name"] == "MyClass"
+
+            method = my_class["children"][0]
+            assert method["name"] == "my_method"
+            assert len(method["children"]) == 1  # local_var included
+            assert method["children"][0]["name"] == "local_var"
 
 
-class TestDeepNestedRecursiveFiltering:
-    """Integration tests for deeply nested recursive filtering."""
+class TestDeepNestedDepthControl:
+    """Integration tests for deeply nested depth control."""
 
-    def test_three_level_nesting_filters_at_all_levels(self, tmp_path: Path) -> None:
-        """Verify document-symbol: 3-level nesting filters variables at all levels."""
+    def test_three_level_nesting_with_depth_2(self, tmp_path: Path) -> None:
+        """Verify document-symbol: --depth 2 shows 3 levels but not 4th level (method children)."""
         from llm_lsp_cli.cli import app
 
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file\n")
 
         # Module -> Class -> Method -> Local Variable
-        # At NORMAL: Module, Class, Method should remain; Local Variable filtered
+        # depth=2 means: Module (depth=2) -> Class (depth=1) -> Method (depth=0, no children)
         mock_response = {
             "symbols": [
                 {
@@ -206,7 +286,7 @@ class TestDeepNestedRecursiveFiltering:
                         },
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -224,7 +304,7 @@ class TestDeepNestedRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-o", "json", "--raw"],
+                ["document-symbol", str(test_file), "-w", str(tmp_path), "--depth", "2", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -237,19 +317,22 @@ class TestDeepNestedRecursiveFiltering:
 
             my_class = module["children"][0]
             assert my_class["name"] == "MyClass"
-            assert len(my_class["children"]) == 1  # Only method, field filtered
+            assert len(my_class["children"]) == 2  # method and field
 
             method = my_class["children"][0]
             assert method["name"] == "my_method"
-            assert len(method["children"]) == 0  # Both local vars filtered
+            # With depth 2, method's children are NOT traversed (depth becomes 0 at method level)
+            assert len(method["children"]) == 0
 
-    def test_deep_nesting_verbose_includes_all(self, tmp_path: Path) -> None:
-        """Verify document-symbol: -v includes all 3-level nested symbols."""
+    def test_four_level_nesting_with_depth_3(self, tmp_path: Path) -> None:
+        """Verify document-symbol: --depth 3 shows 4 levels including method children."""
         from llm_lsp_cli.cli import app
 
         test_file = tmp_path / "test.py"
         test_file.write_text("# Test file\n")
 
+        # Module -> Class -> Method -> Local Variable
+        # depth=3 means: Module (depth=3) -> Class (depth=2) -> Method (depth=1) -> Local (depth=0)
         mock_response = {
             "symbols": [
                 {
@@ -277,13 +360,14 @@ class TestDeepNestedRecursiveFiltering:
                                     },
                                     "children": [
                                         {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
+                                        {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE},
                                     ],
                                 },
                             ],
                         },
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -301,16 +385,7 @@ class TestDeepNestedRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                [
-                    "document-symbol",
-                    str(test_file),
-                    "-w",
-                    str(tmp_path),
-                    "-v",
-                    "-o",
-                    "json",
-                    "--raw",
-                ],
+                ["document-symbol", str(test_file), "-w", str(tmp_path), "--depth", "3", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -325,15 +400,16 @@ class TestDeepNestedRecursiveFiltering:
 
             method = my_class["children"][0]
             assert method["name"] == "my_method"
-            assert len(method["children"]) == 1  # local_var included
+            # With depth 3, method's children ARE traversed
+            assert len(method["children"]) == 2
             assert method["children"][0]["name"] == "local_var"
 
 
-class TestMultiBranchRecursiveFiltering:
-    """Integration tests for recursive filtering with multiple branches."""
+class TestMultiBranchDepthControl:
+    """Integration tests for depth control with multiple branches."""
 
-    def test_multiple_children_branches_filtered_correctly(self, tmp_path: Path) -> None:
-        """Verify document-symbol: multiple children branches all filtered correctly."""
+    def test_multiple_children_branches_with_depth_control(self, tmp_path: Path) -> None:
+        """Verify document-symbol: multiple children branches all traverse correctly."""
         from llm_lsp_cli.cli import app
 
         test_file = tmp_path / "test.py"
@@ -370,7 +446,7 @@ class TestMultiBranchRecursiveFiltering:
                         },
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -388,7 +464,7 @@ class TestMultiBranchRecursiveFiltering:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "-o", "json", "--raw"],
+                ["document-symbol", str(test_file), "-w", str(tmp_path), "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -397,28 +473,28 @@ class TestMultiBranchRecursiveFiltering:
             assert len(parsed) == 1
             my_class = parsed[0]
             assert my_class["name"] == "MyClass"
-            assert len(my_class["children"]) == 2  # method_a, method_b; field_c filtered
+            # All 3 children at depth 1
+            assert len(my_class["children"]) == 3
 
             children_names = [c["name"] for c in my_class["children"]]
             assert "method_a" in children_names
             assert "method_b" in children_names
-            assert "field_c" not in children_names
+            assert "field_c" in children_names
 
-            # method_a's children should be filtered (var_a removed)
+            # method_a's children should be included at depth 2 (default is 1, so no grandchildren)
             method_a = [c for c in my_class["children"] if c["name"] == "method_a"][0]
-            assert len(method_a["children"]) == 0
+            assert len(method_a["children"]) == 0  # No grandchildren at depth 1
 
-            # method_b's children should pass through (func_b is FUNCTION, not VARIABLE)
+            # method_b's children same
             method_b = [c for c in my_class["children"] if c["name"] == "method_b"][0]
-            assert len(method_b["children"]) == 1
-            assert method_b["children"][0]["name"] == "func_b"
+            assert len(method_b["children"]) == 0  # No grandchildren at depth 1
 
 
-class TestWorkspaceSymbolRecursiveFiltering:
-    """Integration tests for recursive filtering with workspace-symbol command."""
+class TestWorkspaceSymbolDepthControl:
+    """Integration tests for depth control with workspace-symbol command."""
 
     def test_workspace_symbol_flat_no_children(self) -> None:
-        """Verify workspace-symbol: flat symbols (no children) filter correctly."""
+        """Verify workspace-symbol: flat symbols (no children) work with --depth."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -447,7 +523,7 @@ class TestWorkspaceSymbolRecursiveFiltering:
                         "range": {"start": {"line": 5}, "end": {"line": 5}},
                     },
                 },
-            ],
+            ]
         }
 
         with (
@@ -474,15 +550,15 @@ class TestWorkspaceSymbolRecursiveFiltering:
             names = [item["name"] for item in parsed]
             assert "MyClass" in names
             assert "my_function" in names
-            assert "module_var" not in names  # Filtered out
-            assert len(parsed) == 2
+            assert "module_var" in names  # Included (no variable filtering at CLI level)
+            assert len(parsed) == 3
 
 
-class TestRecursiveFilteringWithTestData:
-    """Integration tests for recursive filtering with test files."""
+class TestDepthControlWithTestData:
+    """Integration tests for depth control with test files."""
 
-    def test_include_tests_with_nested_variables(self) -> None:
-        """Verify --include-tests with nested symbols: test files included, nested vars still filtered."""
+    def test_include_tests_with_nested_symbols(self) -> None:
+        """Verify --include-tests with nested symbols includes both source and test."""
         from llm_lsp_cli.cli import app
 
         mock_response = {
@@ -511,7 +587,7 @@ class TestRecursiveFilteringWithTestData:
                         {"name": "test_method", "kind": SYMBOL_KIND_METHOD},
                     ],
                 },
-            ],
+            ]
         }
 
         with (
@@ -527,7 +603,6 @@ class TestRecursiveFilteringWithTestData:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            # With --include-tests but without -v
             result = runner.invoke(
                 app,
                 [
@@ -538,7 +613,6 @@ class TestRecursiveFilteringWithTestData:
                     "--include-tests",
                     "-o",
                     "json",
-                    "--raw",
                 ],
             )
 
@@ -547,12 +621,16 @@ class TestRecursiveFilteringWithTestData:
 
             assert len(parsed) == 2
 
-            # MyClass children filtered (field removed)
+            # MyClass children included
             my_class = [s for s in parsed if s["name"] == "MyClass"][0]
-            assert len(my_class["children"]) == 1
-            assert my_class["children"][0]["name"] == "method"
+            assert len(my_class["children"]) == 2
+            children_names = [c["name"] for c in my_class["children"]]
+            assert "field" in children_names
+            assert "method" in children_names
 
-            # TestMyClass children also filtered (test_field removed)
+            # TestMyClass children included
             test_class = [s for s in parsed if s["name"] == "TestMyClass"][0]
-            assert len(test_class["children"]) == 1
-            assert test_class["children"][0]["name"] == "test_method"
+            assert len(test_class["children"]) == 2
+            test_children_names = [c["name"] for c in test_class["children"]]
+            assert "test_field" in test_children_names
+            assert "test_method" in test_children_names

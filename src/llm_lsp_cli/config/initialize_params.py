@@ -74,6 +74,9 @@ def _get_standard_capabilities() -> dict[str, Any]:
                 "codeDescriptionSupport": True,
                 "dataSupport": True,
             },
+            "documentSymbol": {
+                "hierarchicalDocumentSymbolSupport": True,
+            },
         },
     }
 
