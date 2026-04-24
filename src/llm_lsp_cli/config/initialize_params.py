@@ -8,17 +8,20 @@ from pathlib import Path
 from typing import Any
 
 from llm_lsp_cli import __version__
+from llm_lsp_cli.config.capabilities import get_capabilities_for_server_path
 
 
 def build_initialize_params(
-    _server_command: str,
+    server_command: str,
     workspace_path: str,
     _custom_conf_path: str | None = None,
 ) -> dict[str, Any]:
     """Build LSP initialize parameters dynamically.
 
+    Loads server-specific capabilities from JSON files.
+
     Args:
-        server_command: The server command (used for logging, not for loading config)
+        server_command: The server command (used to determine which capabilities to load)
         workspace_path: The workspace directory path
         custom_conf_path: Deprecated, kept for API compatibility
 
@@ -27,7 +30,11 @@ def build_initialize_params(
     """
     workspace_uri = f"file://{Path(workspace_path).resolve()}"
 
-    return {
+    # Load capabilities from JSON file
+    caps_data = get_capabilities_for_server_path(server_command)
+
+    # Build params with dynamic overrides
+    result: dict[str, Any] = {
         "processId": os.getpid(),
         "clientInfo": {
             "name": "llm-lsp-cli",
@@ -40,45 +47,17 @@ def build_initialize_params(
                 "name": Path(workspace_path).name,
             }
         ],
-        "capabilities": _get_standard_capabilities(),
     }
 
+    # Copy capabilities from loaded JSON
+    if "capabilities" in caps_data:
+        result["capabilities"] = caps_data["capabilities"]
 
-def _get_standard_capabilities() -> dict[str, Any]:
-    """Return standard LSP client capabilities.
+    # Include initializationOptions if present
+    if "initializationOptions" in caps_data:
+        result["initializationOptions"] = caps_data["initializationOptions"]
 
-    These capabilities are standardized across all supported LSP servers:
-    - workspaceFolders: True (required for multi-root workspace support)
-    - configuration: True (required for server to request settings)
-    - diagnostics with refreshSupport: True
-    - workDoneProgress: True (for progress notifications)
-    - textDocument.diagnostic with dynamicRegistration: True
-    - publishDiagnostics with full support
-    """
-    return {
-        "workspace": {
-            "workspaceFolders": True,
-            "configuration": True,
-            "diagnostics": {"refreshSupport": True},
-            "workDoneProgress": True,
-        },
-        "window": {
-            "workDoneProgress": True,
-        },
-        "textDocument": {
-            "diagnostic": {"dynamicRegistration": True},
-            "publishDiagnostics": {
-                "relatedInformation": True,
-                "versionSupport": False,
-                "tagSupport": {"valueSet": [1, 2]},
-                "codeDescriptionSupport": True,
-                "dataSupport": True,
-            },
-            "documentSymbol": {
-                "hierarchicalDocumentSymbolSupport": True,
-            },
-        },
-    }
+    return result
 
 
 # Backward compatibility alias

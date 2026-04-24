@@ -26,6 +26,9 @@
         "versionSupport": true,
         "codeDescriptionSupport": true,
         "dataSupport": true
+      },
+      "documentSymbol": {
+        "hierarchicalDocumentSymbolSupport": true
       }
     }
   },

@@ -7,10 +7,27 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
+
+# Module-level cache for capabilities, keyed by server name
+_capabilities_cache: dict[str, dict[str, Any]] = {}
+
+# Server name to filename mapping (shared constant)
+_SERVERS: dict[str, str] = {
+    "pyright": "pyright-langserver.json",
+    "basedpyright": "basedpyright-langserver.json",
+    "typescript": "typescript-language-server.json",
+    "rust-analyzer": "rust-analyzer.json",
+    "gopls": "gopls.json",
+    "jdtls": "jdtls.json",
+}
 
 
 def _load_server_capability(
@@ -72,9 +89,83 @@ def _match_server_filter(
 
     # Substring match for custom paths (e.g., "custom-pyright" contains "pyright")
     # Use regex to match word boundaries - server_name must be preceded by hyphen or at start
-    import re
     pattern = rf"(^|-){re.escape(server_name)}(-|$)"
     return bool(re.search(pattern, server_filter.lower()))
+
+
+def get_capabilities_dir() -> Path:
+    """Get the path to the capabilities directory.
+
+    Returns:
+        Path to the capabilities directory containing JSON files.
+    """
+    return Path(__file__).parent
+
+
+def _extract_server_name_from_path(server_path: str) -> str:
+    """Extract the server name (basename) from a server path.
+
+    Args:
+        server_path: Full path, relative path, or basename of server executable.
+
+    Returns:
+        The basename of the server (e.g., "basedpyright-langserver").
+    """
+    return Path(server_path).name
+
+
+def get_capabilities_for_server_path(server_path: str) -> dict[str, Any]:
+    """Get capabilities for a specific server path.
+
+    Loads server-specific capabilities JSON file if available,
+    otherwise falls back to default.json.
+
+    Args:
+        server_path: Path or name of the LSP server executable.
+
+    Returns:
+        Dictionary with 'capabilities' and 'initializationOptions' keys.
+
+    Raises:
+        FileNotFoundError: If default.json is missing.
+        json.JSONDecodeError: If JSON file is invalid.
+    """
+    capabilities_dir = get_capabilities_dir()
+    server_name = _extract_server_name_from_path(server_path)
+
+    # Return cached result if available for this specific server
+    if server_name in _capabilities_cache:
+        return _capabilities_cache[server_name]
+
+    # Try to match a known server
+    capabilities: dict[str, Any] | None = None
+    for s_name, server_file in _SERVERS.items():
+        if _match_server_filter(server_name, s_name, server_file):
+            capabilities = _load_server_capability(capabilities_dir, server_file)
+            break
+
+    # Fallback to default.json if no match or load failed
+    if capabilities is None:
+        logger.warning(
+            "No server-specific capabilities found for '%s', falling back to default.json",
+            server_name,
+        )
+        default_path = capabilities_dir / "default.json"
+        if not default_path.exists():
+            raise FileNotFoundError(
+                f"Capabilities file not found for server '{server_name}' "
+                "and default.json is missing"
+            )
+        # Load default.json directly to propagate JSONDecodeError
+        content = default_path.read_text()
+        loaded = json.loads(content)
+        # Type narrow: json.loads returns Any, but we expect dict for valid config
+        assert isinstance(loaded, dict)
+        capabilities = loaded
+
+    # Cache the result keyed by server name
+    _capabilities_cache[server_name] = capabilities
+    return capabilities
 
 
 def get_server_capabilities(
@@ -93,20 +184,11 @@ def get_server_capabilities(
     """
     capabilities_dir = Path(__file__).parent
 
-    servers = {
-        "pyright": "pyright-langserver.json",
-        "basedpyright": "basedpyright-langserver.json",
-        "typescript": "typescript-language-server.json",
-        "rust-analyzer": "rust-analyzer.json",
-        "gopls": "gopls.json",
-        "jdtls": "jdtls.json",
-    }
-
     result: dict[str, dict[str, Any]] = {}
 
     # If server_filter provided, only load that server
     if server_filter:
-        for server_name, server_file in servers.items():
+        for server_name, server_file in _SERVERS.items():
             if _match_server_filter(server_filter, server_name, server_file):
                 capabilities = _load_server_capability(capabilities_dir, server_file)
                 if capabilities is not None:
@@ -115,7 +197,7 @@ def get_server_capabilities(
         return result
 
     # Load all servers
-    for server_name, filename in servers.items():
+    for server_name, filename in _SERVERS.items():
         capabilities = _load_server_capability(capabilities_dir, filename)
         if capabilities is not None:
             result[server_name] = capabilities
