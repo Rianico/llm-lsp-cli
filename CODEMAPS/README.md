@@ -1,6 +1,6 @@
 # CODEMAPS - Architecture Documentation
 
-<!-- Generated: 2026-04-23 | Files scanned: 48+ | Updated: Added ADR-0009, ADR-0010 references -->
+<!-- Generated: 2026-04-25 | Files scanned: 48+ | Updated: Added ADR-0016 reference -->
 
 This directory contains token-lean architectural codemaps for the llm-lsp-cli project.
 
@@ -19,6 +19,7 @@ See `docs/adr/` for full ADR documents:
 - **ADR-0008**: mtime-based cache invalidation
 - **ADR-0009**: Cache HIT to INFO level, `--diagnostic-log` option
 - **ADR-0010**: `did-change` subcommand for external file change notification
+- **ADR-0016**: Server-specific LSP client capabilities loading
 
 ### Key Components
 

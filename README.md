@@ -18,6 +18,7 @@ See [CODEMAPS/architecture.md](CODEMAPS/architecture.md) for system architecture
 - **CLI <-> Daemon**: UNIX domain sockets with JSON-RPC 2.0 protocol
 - **Daemon <-> LSP**: stdio transport with LSP 3.17 protocol
 - **Configuration**: XDG Base Directory specification
+- **Capabilities**: Server-specific JSON files loaded by server basename (see `config/capabilities/`)
 
 ## Installation
 

@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-<!-- Generated: 2026-04-23 | Files scanned: 48+ | Updated: Added ADR-0009, ADR-0010 documentation -->
+<!-- Generated: 2026-04-25 | Files scanned: 48+ | Updated: Added ADR-0016 for server-specific capabilities loading -->
 
 ## High-Level Architecture
 
@@ -67,7 +67,7 @@ transport.py   - StdioTransport: Process spawn, notification routing
 ```
 manager.py     - ConfigManager: XDG paths, server resolution
 schema.py      - Pydantic models for config validation
-capabilities/  - Per-server LSP initialize params (JSON)
+capabilities/  - Server-specific LSP init params (JSON), auto-loaded by basename
 ```
 
 ## Data Flow: Diagnostic Request
@@ -134,6 +134,24 @@ See: `docs/adr/0009-promote-cache-hit-to-info-and-add-diagnostic-log-file-output
 
 See: `docs/adr/0010-expose-didchange-subcommand-for-external-file-change-notification.md`
 
+### ADR-0016: Server-Specific LSP Client Capabilities
+
+**Problem**: Hardcoded capabilities in `_get_standard_capabilities()` made the CLI inflexible for different LSP servers.
+
+**Solution**: Load capabilities from server-specific JSON files at initialization:
+- `get_capabilities_for_server_path(server_path)` - main entry point
+- Server name extracted from command path basename
+- Fallback to `default.json` for unknown servers
+- In-memory caching for process lifetime
+- Warning logged when falling back to default
+
+**Consequences**:
+- Add new server support by adding JSON file only (no code changes)
+- Clear separation: static JSON config vs dynamic runtime values
+- Fail fast if `default.json` missing
+
+See: `docs/adr/0016-load-lsp-client-capabilities-from-server-specific-json-files.md`
+
 ### Output Format (compact-output-prd.md)
 
 LLM-optimized output:
@@ -166,7 +184,7 @@ src/llm_lsp_cli/
   config/
     manager.py        # ConfigManager
     schema.py         # Pydantic models
-    capabilities/     # LSP init params JSON files
+    capabilities/     # Server-specific LSP init params (auto-loaded by basename)
 
   output/
     formatter.py      # CompactFormatter
@@ -183,7 +201,11 @@ src/llm_lsp_cli/
 
 ## Extension Points
 
-1. **New LSP server**: Add JSON to `config/capabilities/`, update `config/defaults.py`
+1. **New LSP server**:
+   - Add JSON to `config/capabilities/` (e.g., `my-lsp.json`)
+   - Register server in `_SERVERS` dict in `config/capabilities/__init__.py`
+   - `_match_server_filter()` will then match the server name against the registered entry
+   - JSON structure: `capabilities` (required), `initializationOptions` (optional for server-specific config)
 2. **New LSP method**: Add to `LSPConstants`, `RequestHandler.RESPONSE_KEYS`, `LspMethodRouter`
 3. **New output format**: Extend `CompactFormatter` or add to `_output_result()`
 4. **Test filter patterns**: Update `test_filter/language_registry.py`
