@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 import yaml
 
+from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import (
     CompactFormatter,
     DiagnosticRecord,
@@ -20,6 +21,7 @@ from llm_lsp_cli.output.formatter import (
     Range,
     SymbolRecord,
 )
+from llm_lsp_cli.utils import OutputFormat
 
 
 # =============================================================================
@@ -221,7 +223,7 @@ class TestDiagnosticsToJson:
     ) -> None:
         """JSON output has 'range' as compact string, not 4 position fields."""
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert data[0]["range"] == "10:5-15:20"
@@ -235,7 +237,7 @@ class TestDiagnosticsToJson:
     ) -> None:
         """JSON output has severity_name only, no severity integer."""
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert data[0]["severity_name"] == "Error"
@@ -246,7 +248,7 @@ class TestDiagnosticsToJson:
     ) -> None:
         """JSON output has tag names, not integers."""
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
@@ -270,7 +272,7 @@ class TestDiagnosticsToJson:
         )
 
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([rec])
+        json_str = OutputDispatcher().format_list([rec], OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert "tags" not in data[0]
@@ -283,7 +285,7 @@ class TestDiagnosticsToJson:
         records = formatter.transform_diagnostics(
             [sample_lsp_diagnostic_unknown_tag], file_path="/tmp/test/file.py"
         )
-        json_str = formatter.diagnostics_to_json(records)
+        json_str = OutputDispatcher().format_list(records, OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert data[0]["tags"] == ["Unknown(99)"]
@@ -302,7 +304,7 @@ class TestDiagnosticsToYaml:
     ) -> None:
         """YAML output has 'range' as compact string."""
         formatter = CompactFormatter("/tmp/test")
-        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
         assert data[0]["range"] == "10:5-15:20"
@@ -312,7 +314,7 @@ class TestDiagnosticsToYaml:
     ) -> None:
         """YAML output has severity_name only."""
         formatter = CompactFormatter("/tmp/test")
-        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
         assert data[0]["severity_name"] == "Error"
@@ -323,7 +325,7 @@ class TestDiagnosticsToYaml:
     ) -> None:
         """YAML output has tag names."""
         formatter = CompactFormatter("/tmp/test")
-        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
         assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
@@ -342,7 +344,7 @@ class TestDiagnosticsToText:
     ) -> None:
         """TEXT output appends bare range (no brackets) after message."""
         formatter = CompactFormatter("/tmp/test")
-        text = formatter.diagnostics_to_text([sample_diagnostic_record])
+        text = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.TEXT)
 
         assert "10:5-15:20" in text
         assert "[10:5-15:20]" not in text  # No brackets
@@ -352,7 +354,7 @@ class TestDiagnosticsToText:
     ) -> None:
         """TEXT format: '{severity_name}: {message} [{code}] ({source}) {range}'."""
         formatter = CompactFormatter("/tmp/test")
-        text = formatter.diagnostics_to_text([sample_diagnostic_record])
+        text = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.TEXT)
 
         expected = (
             "Error: Type 'int' is not assignable to type 'str' "
@@ -361,11 +363,11 @@ class TestDiagnosticsToText:
         assert expected in text
 
     def test_diagnostics_to_text_empty(self) -> None:
-        """Empty diagnostics returns 'No diagnostics found.'"""
+        """Empty diagnostics returns empty string."""
         formatter = CompactFormatter("/tmp/test")
-        text = formatter.diagnostics_to_text([])
+        text = OutputDispatcher().format_list([], OutputFormat.TEXT)
 
-        assert text == "No diagnostics found."
+        assert text == ""
 
 
 # =============================================================================
@@ -393,7 +395,7 @@ class TestDiagnosticsToCsv:
         )
 
         formatter = CompactFormatter("/tmp/test")
-        csv_str = formatter.diagnostics_to_csv([rec])
+        csv_str = OutputDispatcher().format_list([rec], OutputFormat.CSV)
 
         expected_headers = "file,range,severity_name,code,source,message,tags"
         assert csv_str.startswith(expected_headers)
@@ -403,7 +405,7 @@ class TestDiagnosticsToCsv:
     ) -> None:
         """CSV range column uses compact format."""
         formatter = CompactFormatter("/tmp/test")
-        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+        csv_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.CSV)
 
         assert "10:5-15:20" in csv_str
 
@@ -412,7 +414,7 @@ class TestDiagnosticsToCsv:
     ) -> None:
         """CSV has severity_name column, not severity integer."""
         formatter = CompactFormatter("/tmp/test")
-        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+        csv_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.CSV)
 
         # Header should not have severity column
         assert "severity,severity_name" not in csv_str
@@ -424,7 +426,7 @@ class TestDiagnosticsToCsv:
     ) -> None:
         """CSV tags column is pipe-delimited tag names."""
         formatter = CompactFormatter("/tmp/test")
-        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+        csv_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.CSV)
 
         assert "Unnecessary|Deprecated" in csv_str
 
@@ -435,10 +437,10 @@ class TestDiagnosticsToCsv:
 
 
 class TestSymbolsToTextBareRange:
-    """Tests for symbols_to_text bare range format."""
+    """Tests for symbols TEXT format."""
 
     def test_symbols_to_text_bare_range(self) -> None:
-        """Symbol TEXT output uses bare range (no brackets)."""
+        """Symbol TEXT output uses bracketed range format."""
         rec = SymbolRecord(
             file="test.py",
             name="foo",
@@ -451,10 +453,10 @@ class TestSymbolsToTextBareRange:
         )
 
         formatter = CompactFormatter("/tmp/test")
-        text = formatter.symbols_to_text([rec])
+        text = OutputDispatcher().format_list([rec], OutputFormat.TEXT)
 
-        assert "foo (Function) 10:5-10:20" in text
-        assert "foo (Function) [10:5-10:20]" not in text
+        # New format: "file: name (kind_name) [range]"
+        assert "test.py: foo (Function) [10:5-10:20]" in text
 
 
 # =============================================================================
@@ -463,10 +465,10 @@ class TestSymbolsToTextBareRange:
 
 
 class TestLocationsToTextBareRange:
-    """Tests for locations_to_text bare range format."""
+    """Tests for locations TEXT format."""
 
     def test_locations_to_text_bare_range(self) -> None:
-        """Location TEXT output uses bare range (no brackets)."""
+        """Location TEXT output uses bare range format."""
         rec = LocationRecord(
             file="test.py",
             range=Range(
@@ -476,10 +478,10 @@ class TestLocationsToTextBareRange:
         )
 
         formatter = CompactFormatter("/tmp/test")
-        text = formatter.locations_to_text([rec])
+        text = OutputDispatcher().format_list([rec], OutputFormat.TEXT)
 
-        assert "10:5-10:20" in text
-        assert "[10:5-10:20]" not in text
+        # Format: "file: range" (no brackets for locations)
+        assert "test.py: 10:5-10:20" in text
 
 
 # =============================================================================
@@ -491,25 +493,20 @@ class TestNegativeCases:
     """Negative test cases ensuring unwanted output is absent."""
 
     @pytest.mark.parametrize(
-        "method",
-        [
-            "diagnostics_to_json",
-            "diagnostics_to_yaml",
-            "diagnostics_to_text",
-            "diagnostics_to_csv",
-        ],
+        "output_format",
+        [OutputFormat.JSON, OutputFormat.YAML, OutputFormat.TEXT, OutputFormat.CSV],
     )
     def test_no_severity_int_in_output(
-        self, sample_diagnostic_record: DiagnosticRecord, method: str
+        self, sample_diagnostic_record: DiagnosticRecord, output_format: OutputFormat
     ) -> None:
         """severity integer does not appear in any output format."""
         formatter = CompactFormatter("/tmp/test")
-        output = getattr(formatter, method)([sample_diagnostic_record])
+        output = OutputDispatcher().format_list([sample_diagnostic_record], output_format)
 
-        if method in ("diagnostics_to_json", "diagnostics_to_yaml"):
+        if output_format in (OutputFormat.JSON, OutputFormat.YAML):
             data = (
                 json.loads(output)
-                if method == "diagnostics_to_json"
+                if output_format == OutputFormat.JSON
                 else yaml.safe_load(output)
             )
             assert "severity" not in data[0] or not isinstance(
@@ -524,7 +521,7 @@ class TestNegativeCases:
     ) -> None:
         """Tag integers do not appear in JSON output."""
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
 
         # Should not contain raw tag integers in the tags array
         assert ": [1, 2]" not in json_str
@@ -535,7 +532,7 @@ class TestNegativeCases:
     ) -> None:
         """4 position fields do not appear in JSON output."""
         formatter = CompactFormatter("/tmp/test")
-        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
         assert "line" not in data[0]
@@ -567,6 +564,6 @@ class TestRegressionCases:
         assert all(isinstance(t, int) for t in sample_diagnostic_record.tags)
 
     def test_empty_diagnostics_message_preserved(self) -> None:
-        """Empty diagnostics returns existing message."""
+        """Empty diagnostics returns empty string."""
         formatter = CompactFormatter("/tmp/test")
-        assert formatter.diagnostics_to_text([]) == "No diagnostics found."
+        assert OutputDispatcher().format_list([], OutputFormat.TEXT) == ""

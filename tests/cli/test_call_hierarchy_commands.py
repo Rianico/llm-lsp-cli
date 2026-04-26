@@ -198,6 +198,37 @@ class TestIncomingCallsCommand:
 
         assert result.exit_code == 0
 
+    def test_incoming_calls_csv_format(
+        self, mock_daemon_client: MagicMock, tmp_path: Path
+    ) -> None:
+        """Incoming-calls with -o csv outputs CSV format, not JSON."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text("def my_func(): pass")
+
+        with _patch_daemon_client(mock_daemon_client):
+            from llm_lsp_cli.cli import app
+
+            result = runner.invoke(
+                app,
+                [
+                    "incoming-calls",
+                    str(test_file),
+                    "0",
+                    "4",
+                    "-w",
+                    str(tmp_path),
+                    "-o",
+                    "csv",
+                ],
+            )
+
+        assert result.exit_code == 0
+        # CSV output should start with headers, not JSON array
+        output = result.output.strip()
+        assert output.startswith("file,name,kind_name,range"), f"Expected CSV headers, got: {output[:100]}"
+        # Should NOT be JSON
+        assert not output.startswith("["), f"Got JSON instead of CSV: {output[:100]}"
+
 
 class TestOutgoingCallsCommand:
     """Tests for the outgoing-calls CLI command."""
@@ -314,6 +345,37 @@ class TestOutgoingCallsCommand:
 
         assert result.exit_code == 0
         assert "No calls found" in result.output or result.output == "[]"
+
+    def test_outgoing_calls_csv_format(
+        self, mock_daemon_client: MagicMock, tmp_path: Path
+    ) -> None:
+        """Outgoing-calls with -o csv outputs CSV format, not JSON."""
+        test_file = tmp_path / "test.py"
+        test_file.write_text("def my_func(): pass")
+
+        with _patch_daemon_client(mock_daemon_client):
+            from llm_lsp_cli.cli import app
+
+            result = runner.invoke(
+                app,
+                [
+                    "outgoing-calls",
+                    str(test_file),
+                    "0",
+                    "4",
+                    "-w",
+                    str(tmp_path),
+                    "-o",
+                    "csv",
+                ],
+            )
+
+        assert result.exit_code == 0
+        # CSV output should start with headers, not JSON array
+        output = result.output.strip()
+        assert output.startswith("file,name,kind_name,range"), f"Expected CSV headers, got: {output[:100]}"
+        # Should NOT be JSON
+        assert not output.startswith("["), f"Got JSON instead of CSV: {output[:100]}"
 
 
 class TestCallHierarchyCommandsPosition:

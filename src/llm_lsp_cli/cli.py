@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +13,7 @@ import yaml
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
+from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import CompactFormatter
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.test_filter import (
@@ -191,28 +191,6 @@ def _format_hover_text(hover: dict[str, Any] | None) -> None:
             typer.echo(value)
     else:
         typer.echo("No hover information available.")
-
-
-def _format_symbols_text(symbols: list[dict[str, Any]], include_location: bool = True) -> None:
-    """Format and print symbol list in text format.
-
-    Args:
-        symbols: List of LSP symbol objects
-        include_location: Whether to include location info in output
-    """
-    if symbols:
-        for sym in symbols:
-            name = sym.get("name", "")
-            kind = sym.get("kind", 0)
-            kind_name = get_symbol_kind_name(kind)
-            if include_location:
-                range_obj = sym.get("range", {})
-                range_str = _format_location_range(range_obj)
-                typer.echo(f"{name} ({kind_name}) at {range_str}")
-            else:
-                typer.echo(f"{name} ({kind_name})")
-    else:
-        typer.echo("No symbols found.")
 
 
 def _format_workspace_symbols_text(symbols: list[dict[str, Any]]) -> None:
@@ -869,27 +847,15 @@ def references(
         if raw:
             # Raw LSP response passthrough
             raw_formatter = RawFormatter(context.workspace_path)
-            if context.output_format == OutputFormat.TEXT:
-                typer.echo(raw_formatter.format_text(response))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(raw_formatter.format_yaml(response), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(raw_formatter.format_csv(response))
-            else:  # JSON (default)
-                typer.echo(raw_formatter.format_json(response))
+            typer.echo(raw_formatter.format(response, context.output_format))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
             records = formatter.transform_locations(filtered)
 
-            if context.output_format == OutputFormat.TEXT:
-                typer.echo(formatter.locations_to_text(records))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(formatter.locations_to_yaml(records), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(formatter.locations_to_csv(records), nl=False)
-            else:  # JSON (default)
-                typer.echo(formatter.locations_to_json(records))
+            # Use dispatcher for all output formats
+            dispatcher = OutputDispatcher()
+            typer.echo(dispatcher.format_list(records, context.output_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -953,14 +919,7 @@ def incoming_calls(
         if raw:
             # Raw LSP response passthrough
             raw_formatter = RawFormatter(context.workspace_path)
-            if context.output_format == OutputFormat.TEXT:
-                typer.echo(raw_formatter.format_text(response))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(raw_formatter.format_yaml(response), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(raw_formatter.format_csv(response))
-            else:  # JSON (default)
-                typer.echo(raw_formatter.format_json(response))
+            typer.echo(raw_formatter.format(response, context.output_format))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
@@ -968,13 +927,9 @@ def incoming_calls(
 
             if not records:
                 typer.echo("No calls found.")
-            elif context.output_format == OutputFormat.TEXT:
-                for rec in records:
-                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range.to_compact()}]")
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(yaml.dump([r.to_dict() for r in records], default_flow_style=False))
-            else:  # JSON (default)
-                typer.echo(json.dumps([r.to_dict() for r in records], indent=2))
+            else:
+                dispatcher = OutputDispatcher()
+                typer.echo(dispatcher.format_list(records, context.output_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1038,14 +993,7 @@ def outgoing_calls(
         if raw:
             # Raw LSP response passthrough
             raw_formatter = RawFormatter(context.workspace_path)
-            if context.output_format == OutputFormat.TEXT:
-                typer.echo(raw_formatter.format_text(response))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(raw_formatter.format_yaml(response), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(raw_formatter.format_csv(response))
-            else:  # JSON (default)
-                typer.echo(raw_formatter.format_json(response))
+            typer.echo(raw_formatter.format(response, context.output_format))
         else:
             # Compact format (default)
             formatter = CompactFormatter(context.workspace_path)
@@ -1053,13 +1001,9 @@ def outgoing_calls(
 
             if not records:
                 typer.echo("No calls found.")
-            elif context.output_format == OutputFormat.TEXT:
-                for rec in records:
-                    typer.echo(f"{rec.file}: {rec.name} ({rec.kind_name}) [{rec.range.to_compact()}]")
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(yaml.dump([r.to_dict() for r in records], default_flow_style=False))
-            else:  # JSON (default)
-                typer.echo(json.dumps([r.to_dict() for r in records], indent=2))
+            else:
+                dispatcher = OutputDispatcher()
+                typer.echo(dispatcher.format_list(records, context.output_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1212,14 +1156,7 @@ def document_symbol(
         if raw:
             # Raw LSP response passthrough
             raw_formatter = RawFormatter(context.workspace_path)
-            if context.output_format == OutputFormat.TEXT:
-                typer.echo(raw_formatter.format_text(response))
-            elif context.output_format == OutputFormat.YAML:
-                typer.echo(raw_formatter.format_yaml(response), nl=False)
-            elif context.output_format == OutputFormat.CSV:
-                typer.echo(raw_formatter.format_csv(response))
-            else:  # JSON (default)
-                typer.echo(raw_formatter.format_json(response))
+            typer.echo(raw_formatter.format(response, context.output_format))
         else:
             # Compact format (default)
             if context.output_format == OutputFormat.TEXT:
@@ -1235,16 +1172,11 @@ def document_symbol(
                 file_header = f"{context.file_path}:" if context.file_path else None
                 typer.echo(render_text(nodes, file_header=file_header))
             else:
-                # JSON/YAML/CSV use CompactFormatter (unchanged)
+                # JSON/YAML/CSV use dispatcher
                 formatter = CompactFormatter(context.workspace_path)
                 records = formatter.transform_symbols(symbols, depth=depth)
-
-                if context.output_format == OutputFormat.YAML:
-                    typer.echo(formatter.symbols_to_yaml(records), nl=False)
-                elif context.output_format == OutputFormat.CSV:
-                    typer.echo(formatter.symbols_to_csv(records), nl=False)
-                else:  # JSON (default)
-                    typer.echo(formatter.symbols_to_json(records))
+                dispatcher = OutputDispatcher()
+                typer.echo(dispatcher.format_list(records, context.output_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1310,27 +1242,15 @@ def workspace_symbol(
         if raw:
             # Raw LSP response passthrough
             raw_formatter = RawFormatter(workspace_path)
-            if effective_format == OutputFormat.TEXT:
-                typer.echo(raw_formatter.format_text(response))
-            elif effective_format == OutputFormat.YAML:
-                typer.echo(raw_formatter.format_yaml(response), nl=False)
-            elif effective_format == OutputFormat.CSV:
-                typer.echo(raw_formatter.format_csv(response))
-            else:  # JSON (default)
-                typer.echo(raw_formatter.format_json(response))
+            typer.echo(raw_formatter.format(response, effective_format))
         else:
             # Compact format (default)
             formatter = CompactFormatter(workspace_path)
             records = formatter.transform_symbols(filtered, depth=depth)
 
-            if effective_format == OutputFormat.TEXT:
-                typer.echo(formatter.symbols_to_text(records))
-            elif effective_format == OutputFormat.YAML:
-                typer.echo(formatter.symbols_to_yaml(records), nl=False)
-            elif effective_format == OutputFormat.CSV:
-                typer.echo(formatter.symbols_to_csv(records), nl=False)
-            else:  # JSON (default)
-                typer.echo(formatter.symbols_to_json(records))
+            # Use dispatcher for all output formats
+            dispatcher = OutputDispatcher()
+            typer.echo(dispatcher.format_list(records, effective_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1384,14 +1304,9 @@ def diagnostics(
         formatter = CompactFormatter(workspace_path)
         records = formatter.transform_diagnostics(diagnostics_list, file_path=str(file_path))
 
-        if effective_format == OutputFormat.TEXT:
-            typer.echo(formatter.diagnostics_to_text(records))
-        elif effective_format == OutputFormat.YAML:
-            typer.echo(formatter.diagnostics_to_yaml(records), nl=False)
-        elif effective_format == OutputFormat.CSV:
-            typer.echo(formatter.diagnostics_to_csv(records), nl=False)
-        else:  # JSON (default)
-            typer.echo(formatter.diagnostics_to_json(records))
+        # Use dispatcher for all output formats
+        dispatcher = OutputDispatcher()
+        typer.echo(dispatcher.format_list(records, effective_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1464,14 +1379,9 @@ def workspace_diagnostics(
             records = formatter.transform_diagnostics(file_diagnostics, file_path=file_path)
             all_records.extend(records)
 
-        if effective_format == OutputFormat.TEXT:
-            typer.echo(formatter.diagnostics_to_text(all_records))
-        elif effective_format == OutputFormat.YAML:
-            typer.echo(formatter.diagnostics_to_yaml(all_records), nl=False)
-        elif effective_format == OutputFormat.CSV:
-            typer.echo(formatter.diagnostics_to_csv(all_records), nl=False)
-        else:  # JSON (default)
-            typer.echo(formatter.diagnostics_to_json(all_records))
+        # Use dispatcher for all output formats
+        dispatcher = OutputDispatcher()
+        typer.echo(dispatcher.format_list(all_records, effective_format))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)

@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative
 from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
@@ -84,6 +79,34 @@ class SymbolRecord:
     parent: str | None = None
     children: list[SymbolRecord] = field(default_factory=list)
 
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format, omitting null/empty fields."""
+        return CompactFormatter._symbol_to_dict(self)
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for symbol records."""
+        return ["file", "name", "kind_name", "range", "selection_range", "detail", "tags", "parent"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this symbol."""
+        return {
+            "file": self.file,
+            "name": self.name,
+            "kind_name": self.kind_name,
+            "range": self.range.to_compact(),
+            "selection_range": self.selection_range.to_compact() if self.selection_range else "",
+            "detail": self.detail or "",
+            "tags": "|".join(str(t) for t in self.tags) if self.tags else "",
+            "parent": self.parent or "",
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        line = f"{self.file}: {self.name} ({self.kind_name}) [{self.range.to_compact()}]"
+        if self.detail:
+            line += f" -> {self.detail}"
+        return line
+
 
 @dataclass
 class LocationRecord:
@@ -91,6 +114,25 @@ class LocationRecord:
 
     file: str
     range: Range
+
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format."""
+        return {"file": self.file, "range": self.range.to_compact()}
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for location records."""
+        return ["file", "range"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this location."""
+        return {
+            "file": self.file,
+            "range": self.range.to_compact(),
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        return f"{self.file}: {self.range.to_compact()}"
 
 
 @dataclass
@@ -107,6 +149,32 @@ class DiagnosticRecord:
     tags: list[int] = field(default_factory=list)
     data: dict[str, Any] | None = None
 
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format, omitting null/empty fields."""
+        return CompactFormatter._diagnostic_to_dict(self)
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for diagnostic records."""
+        return ["file", "range", "severity_name", "code", "source", "message", "tags"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this diagnostic."""
+        return {
+            "file": self.file,
+            "range": self.range.to_compact(),
+            "severity_name": self.severity_name,
+            "code": str(self.code) if self.code is not None else "",
+            "source": self.source,
+            "message": self.message,
+            "tags": "|".join(get_diagnostic_tag_name(t) for t in self.tags) if self.tags else "",
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        code_str = f" [{self.code}]" if self.code else ""
+        source_str = f" ({self.source})" if self.source else ""
+        return f"{self.severity_name}: {self.message}{code_str}{source_str} {self.range.to_compact()}"
+
 
 @dataclass
 class CallHierarchyRecord:
@@ -120,7 +188,7 @@ class CallHierarchyRecord:
     selection_range: Range | None = None
     from_ranges: list[Range] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, Any]:
         """Convert to dict with compact range format.
 
         Omits 'kind' int field for token efficiency (kind_name provides human-readable value).
@@ -137,6 +205,25 @@ class CallHierarchyRecord:
         if self.from_ranges:
             obj["from_ranges"] = [r.to_compact() for r in self.from_ranges]
         return obj
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for call hierarchy records."""
+        return ["file", "name", "kind_name", "range", "selection_range", "from_ranges"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this call hierarchy record."""
+        return {
+            "file": self.file,
+            "name": self.name,
+            "kind_name": self.kind_name,
+            "range": self.range.to_compact(),
+            "selection_range": self.selection_range.to_compact() if self.selection_range else "",
+            "from_ranges": "|".join(r.to_compact() for r in self.from_ranges) if self.from_ranges else "",
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        return f"{self.file}: {self.name} ({self.kind_name}) [{self.range.to_compact()}]"
 
 
 SEVERITY_MAP = {
@@ -283,45 +370,6 @@ class CompactFormatter:
 
         return records
 
-    def symbols_to_text(self, records: list[SymbolRecord]) -> str:
-        """Format SymbolRecord list as compact text.
-
-        Groups symbols by file with two-space indentation.
-        Files are sorted alphabetically for deterministic output.
-
-        Args:
-            records: List of SymbolRecord objects
-
-        Returns:
-            Formatted text string
-        """
-        if not records:
-            return "No symbols found."
-
-        # Group by file
-        by_file: dict[str, list[SymbolRecord]] = {}
-        for rec in records:
-            by_file.setdefault(rec.file, []).append(rec)
-
-        # Sort files alphabetically
-        sorted_files = sorted(by_file.keys())
-
-        lines: list[str] = []
-        for file_path in sorted_files:
-            lines.append(f"{file_path}:")
-            for rec in by_file[file_path]:
-                line = f"  {rec.name} ({rec.kind_name}) {rec.range.to_compact()}"
-                if rec.detail:
-                    line += f" -> {rec.detail}"
-                lines.append(line)
-            lines.append("")  # Blank line between files
-
-        # Remove trailing blank line
-        if lines and lines[-1] == "":
-            lines.pop()
-
-        return "\n".join(lines)
-
     @staticmethod
     def _symbol_to_dict(rec: SymbolRecord) -> dict[str, Any]:
         """Convert SymbolRecord to dict, omitting null/empty fields.
@@ -355,161 +403,6 @@ class CompactFormatter:
         # Always include children (empty list if no children)
         obj["children"] = [CompactFormatter._symbol_to_dict(child) for child in rec.children]
         return obj
-
-    def symbols_to_json(self, records: list[SymbolRecord]) -> str:
-        """Format SymbolRecord list as compact JSON.
-
-        Omits null fields for token efficiency.
-
-        Args:
-            records: List of SymbolRecord objects
-
-        Returns:
-            JSON string
-        """
-        result = [self._symbol_to_dict(rec) for rec in records]
-        return json.dumps(result, indent=2)
-
-    def symbols_to_yaml(self, records: list[SymbolRecord]) -> str:
-        """Format SymbolRecord list as compact YAML.
-
-        Omits null fields for token efficiency.
-
-        Args:
-            records: List of SymbolRecord objects
-
-        Returns:
-            YAML string
-        """
-        result = [self._symbol_to_dict(rec) for rec in records]
-        return yaml.safe_dump(result, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-    def symbols_to_csv(self, records: list[SymbolRecord]) -> str:
-        """Format SymbolRecord list as flat CSV with parent column.
-
-        Flattens hierarchical symbols - each symbol becomes one row
-        with parent name in parent column.
-
-        Args:
-            records: List of SymbolRecord objects
-
-        Returns:
-            CSV string with headers
-        """
-        if not records:
-            return ""
-
-        output = io.StringIO()
-        fieldnames = [
-            "file", "name", "kind_name", "range", "selection_range", "detail", "tags", "parent"
-        ]
-        writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-
-        # Flatten all records (including nested children)
-        def flatten_records(recs: list[SymbolRecord]) -> list[SymbolRecord]:
-            flat: list[SymbolRecord] = []
-            for rec in recs:
-                flat.append(rec)
-                if rec.children:
-                    flat.extend(flatten_records(rec.children))
-            return flat
-
-        flat_records = flatten_records(records)
-
-        for rec in flat_records:
-            row = {
-                "file": rec.file,
-                "name": rec.name,
-                "kind_name": rec.kind_name,
-                "range": rec.range.to_compact(),
-                "selection_range": rec.selection_range.to_compact() if rec.selection_range else "",
-                "detail": rec.detail or "",
-                "tags": "|".join(str(t) for t in rec.tags) if rec.tags else "",
-                "parent": rec.parent or "",
-            }
-            writer.writerow(row)
-
-        return output.getvalue()
-
-    def locations_to_text(self, records: list[LocationRecord]) -> str:
-        """Format LocationRecord list as compact text.
-
-        Groups locations by file with two-space indentation.
-
-        Args:
-            records: List of LocationRecord objects
-
-        Returns:
-            Formatted text string
-        """
-        if not records:
-            return "No locations found."
-
-        # Group by file
-        by_file: dict[str, list[LocationRecord]] = {}
-        for rec in records:
-            by_file.setdefault(rec.file, []).append(rec)
-
-        # Sort files alphabetically
-        sorted_files = sorted(by_file.keys())
-
-        lines: list[str] = []
-        for i, file_path in enumerate(sorted_files):
-            lines.append(f"{file_path}:")
-            for rec in by_file[file_path]:
-                lines.append(f"  {rec.range.to_compact()}")
-            # Add blank line between files (but not after last)
-            if i < len(sorted_files) - 1:
-                lines.append("")
-
-        return "\n".join(lines)
-
-    def locations_to_json(self, records: list[LocationRecord]) -> str:
-        """Format LocationRecord list as compact JSON.
-
-        Args:
-            records: List of LocationRecord objects
-
-        Returns:
-            JSON string
-        """
-        result = [{"file": rec.file, "range": rec.range.to_compact()} for rec in records]
-        return json.dumps(result, indent=2)
-
-    def locations_to_yaml(self, records: list[LocationRecord]) -> str:
-        """Format LocationRecord list as compact YAML.
-
-        Args:
-            records: List of LocationRecord objects
-
-        Returns:
-            YAML string
-        """
-        result = [{"file": rec.file, "range": rec.range.to_compact()} for rec in records]
-        return yaml.safe_dump(result, default_flow_style=False, sort_keys=False)
-
-    def locations_to_csv(self, records: list[LocationRecord]) -> str:
-        """Format LocationRecord list as CSV.
-
-        Args:
-            records: List of LocationRecord objects
-
-        Returns:
-            CSV string with headers
-        """
-        if not records:
-            return ""
-
-        output = io.StringIO()
-        fieldnames = ["file", "range"]
-        writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-
-        for rec in records:
-            writer.writerow({"file": rec.file, "range": rec.range.to_compact()})
-
-        return output.getvalue()
 
     def transform_diagnostics(
         self,
@@ -546,30 +439,6 @@ class CompactFormatter:
 
         return records
 
-    def diagnostics_to_text(self, records: list[DiagnosticRecord]) -> str:
-        """Format DiagnosticRecord list as compact text.
-
-        Args:
-            records: List of DiagnosticRecord objects
-
-        Returns:
-            Formatted text string
-        """
-        if not records:
-            return "No diagnostics found."
-
-        lines: list[str] = []
-        for rec in records:
-            code_str = f" [{rec.code}]" if rec.code else ""
-            source_str = f" ({rec.source})" if rec.source else ""
-            line = (
-                f"{rec.severity_name}: {rec.message}{code_str}{source_str} "
-                f"{rec.range.to_compact()}"
-            )
-            lines.append(line)
-
-        return "\n".join(lines)
-
     @staticmethod
     def _diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, Any]:
         """Convert DiagnosticRecord to dict, omitting null/empty fields.
@@ -596,61 +465,6 @@ class CompactFormatter:
         if rec.tags:
             obj["tags"] = [get_diagnostic_tag_name(t) for t in rec.tags]
         return obj
-
-    def diagnostics_to_json(self, records: list[DiagnosticRecord]) -> str:
-        """Format DiagnosticRecord list as compact JSON.
-
-        Args:
-            records: List of DiagnosticRecord objects
-
-        Returns:
-            JSON string
-        """
-        result = [self._diagnostic_to_dict(rec) for rec in records]
-        return json.dumps(result, indent=2)
-
-    def diagnostics_to_yaml(self, records: list[DiagnosticRecord]) -> str:
-        """Format DiagnosticRecord list as compact YAML.
-
-        Args:
-            records: List of DiagnosticRecord objects
-
-        Returns:
-            YAML string
-        """
-        result = [self._diagnostic_to_dict(rec) for rec in records]
-        return yaml.safe_dump(result, default_flow_style=False, sort_keys=False)
-
-    def diagnostics_to_csv(self, records: list[DiagnosticRecord]) -> str:
-        """Format DiagnosticRecord list as CSV.
-
-        Args:
-            records: List of DiagnosticRecord objects
-
-        Returns:
-            CSV string with headers
-        """
-        if not records:
-            return ""
-
-        output = io.StringIO()
-        fieldnames = ["file", "range", "severity_name", "code", "source", "message", "tags"]
-        writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-
-        for rec in records:
-            row = {
-                "file": rec.file,
-                "range": rec.range.to_compact(),
-                "severity_name": rec.severity_name,
-                "code": str(rec.code) if rec.code is not None else "",
-                "source": rec.source,
-                "message": rec.message,
-                "tags": "|".join(get_diagnostic_tag_name(t) for t in rec.tags) if rec.tags else "",
-            }
-            writer.writerow(row)
-
-        return output.getvalue()
 
     def _transform_call_hierarchy_item(
         self, call: dict[str, Any], item: dict[str, Any]

@@ -8,6 +8,8 @@ Accepted
 
 Amended by [13. Hierarchical symbol output with depth-controlled traversal](0013-hierarchical-symbol-output-with-depth-controlled-traversal.md)
 
+Amended by [18. Unified output formatter with protocol-based dispatch](0018-unified-output-formatter-with-protocol-based-dispatch.md)
+
 ## Context
 
 ADR-0002 introduced compact output format for LLM token efficiency, but introduced three issues:

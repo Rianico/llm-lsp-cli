@@ -7,7 +7,9 @@ from typing import Any
 import pytest
 import yaml
 
+from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import CompactFormatter
+from llm_lsp_cli.utils import OutputFormat
 
 
 class TestWorkspaceSymbolWorkflow:
@@ -70,25 +72,19 @@ class TestWorkspaceSymbolWorkflow:
     ) -> None:
         """Test complete text output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
-        output = formatter.symbols_to_text(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
-        # Verify file grouping
-        assert "src/models.py:" in output
-        assert "src/utils.py:" in output
-        assert "tests/test_models.py:" in output
-
-        # Verify symbol formatting (using kind_name, not numeric kind)
-        # Bare format (no brackets)
-        assert "MyClass (Class) 1:1-51:1" in output
-        assert "my_function (Function) 11:1-31:1 -> def my_function(x: int) -> str" in output
-        assert "TestClass (Class) 6:1-26:1" in output
+        # Verify symbols are present with new format: "file: name (kind_name) [range] -> detail"
+        assert "src/models.py: MyClass (Class) [1:1-51:1] -> class MyClass" in output
+        assert "src/utils.py: my_function (Function) [11:1-31:1] -> def my_function(x: int) -> str" in output
+        assert "tests/test_models.py: TestClass (Class) [6:1-26:1] -> class TestClass" in output
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
     ) -> None:
         """Test complete JSON output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
-        output = formatter.symbols_to_json(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
         assert isinstance(parsed, list)
@@ -110,7 +106,7 @@ class TestWorkspaceSymbolWorkflow:
     ) -> None:
         """Test complete YAML output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
-        output = formatter.symbols_to_yaml(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
         assert isinstance(parsed, list)
@@ -126,7 +122,7 @@ class TestWorkspaceSymbolWorkflow:
     ) -> None:
         """Test complete CSV output workflow."""
         records = formatter.transform_symbols(workspace_symbols_response)
-        output = formatter.symbols_to_csv(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.CSV)
         lines = output.strip().split("\n")
 
         # Header + 3 data rows
@@ -225,18 +221,18 @@ class TestDocumentSymbolWorkflow:
     ) -> None:
         """Test document symbol text output."""
         records = formatter.transform_symbols(document_symbols_response)
-        output = formatter.symbols_to_text(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
-        # Bare format (no brackets)
-        assert "MyClass (Class) 1:1-51:1" in output
-        assert "helper_function (Function) 53:1-71:1 -> def helper_function(x: int) -> int" in output
+        # New format: "file: name (kind_name) [range] -> detail"
+        assert "MyClass (Class) [1:1-51:1] -> class MyClass" in output
+        assert "helper_function (Function) [53:1-71:1] -> def helper_function(x: int) -> int" in output
 
     def test_workflow_json_with_nested_children(
         self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
     ) -> None:
         """Test JSON output preserves detail field."""
         records = formatter.transform_symbols(document_symbols_response)
-        output = formatter.symbols_to_json(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
         # Both symbols have detail
@@ -283,30 +279,25 @@ class TestReferencesWorkflow:
     def test_workflow_text_output(
         self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
     ) -> None:
-        """Test references text output with file grouping."""
+        """Test references text output."""
         records = formatter.transform_locations(references_response)
-        output = formatter.locations_to_text(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
-        # Verify file grouping - main.py should have 2 locations
+        # New format: "file: range" - one line per location
+        # Verify files are present
         assert "src/main.py:" in output
         assert "src/utils.py:" in output
 
-        # Verify location count in output (bare format, count lines with ranges)
-        main_section = (
-            output.split("src/main.py:")[1].split("src/utils.py:")[0]
-            if "src/utils.py:" in output
-            else output.split("src/main.py:")[1]
-        )
-        # Count lines with ranges (format: "  6:1-6:21")
-        range_count = sum(1 for line in main_section.strip().split("\n") if ":" in line and "-" in line)
-        assert range_count == 2  # Two locations in main.py
+        # Verify we have 3 locations (2 in main.py, 1 in utils.py)
+        lines = output.strip().split("\n")
+        assert len(lines) == 3
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
     ) -> None:
         """Test references JSON output."""
         records = formatter.transform_locations(references_response)
-        output = formatter.locations_to_json(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
         assert isinstance(parsed, list)
@@ -323,7 +314,7 @@ class TestReferencesWorkflow:
     ) -> None:
         """Test references YAML output."""
         records = formatter.transform_locations(references_response)
-        output = formatter.locations_to_yaml(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
         assert isinstance(parsed, list)
@@ -334,7 +325,7 @@ class TestReferencesWorkflow:
     ) -> None:
         """Test references CSV output."""
         records = formatter.transform_locations(references_response)
-        output = formatter.locations_to_csv(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.CSV)
         lines = output.strip().split("\n")
 
         # Header + 3 data rows
@@ -375,24 +366,24 @@ class TestEdgeCases:
 
     def test_empty_symbols_list(self, formatter: CompactFormatter) -> None:
         """Test handling empty symbol list."""
-        output_text = formatter.symbols_to_text([])
-        output_json = formatter.symbols_to_json([])
-        output_yaml = formatter.symbols_to_yaml([])
-        output_csv = formatter.symbols_to_csv([])
+        output_text = OutputDispatcher().format_list([], OutputFormat.TEXT)
+        output_json = OutputDispatcher().format_list([], OutputFormat.JSON)
+        output_yaml = OutputDispatcher().format_list([], OutputFormat.YAML)
+        output_csv = OutputDispatcher().format_list([], OutputFormat.CSV)
 
-        assert output_text == "No symbols found."
+        assert output_text == ""
         assert json.loads(output_json) == []
         assert yaml.safe_load(output_yaml) == []
         assert output_csv == ""
 
     def test_empty_locations_list(self, formatter: CompactFormatter) -> None:
         """Test handling empty location list."""
-        output_text = formatter.locations_to_text([])
-        output_json = formatter.locations_to_json([])
-        output_yaml = formatter.locations_to_yaml([])
-        output_csv = formatter.locations_to_csv([])
+        output_text = OutputDispatcher().format_list([], OutputFormat.TEXT)
+        output_json = OutputDispatcher().format_list([], OutputFormat.JSON)
+        output_yaml = OutputDispatcher().format_list([], OutputFormat.YAML)
+        output_csv = OutputDispatcher().format_list([], OutputFormat.CSV)
 
-        assert output_text == "No locations found."
+        assert output_text == ""
         assert json.loads(output_json) == []
         assert yaml.safe_load(output_yaml) == []
         assert output_csv == ""
@@ -473,11 +464,11 @@ class TestEdgeCases:
         records = formatter.transform_symbols(symbols)
 
         # Text output
-        output_text = formatter.symbols_to_text(records)
+        output_text = OutputDispatcher().format_list(records, OutputFormat.TEXT)
         assert "\u03b1\u03b2\u03b3_func" in output_text
 
         # YAML output should preserve unicode
-        output_yaml = formatter.symbols_to_yaml(records)
+        output_yaml = OutputDispatcher().format_list(records, OutputFormat.YAML)
         assert "\u03b1\u03b2\u03b3_func" in output_yaml
 
     def test_special_characters_in_detail(self, formatter: CompactFormatter) -> None:
@@ -497,7 +488,7 @@ class TestEdgeCases:
             },
         ]
         records = formatter.transform_symbols(symbols)
-        output_csv = formatter.symbols_to_csv(records)
+        output_csv = OutputDispatcher().format_list(records, OutputFormat.CSV)
 
         # CSV should handle commas in detail field
         lines = output_csv.strip().split("\n")
@@ -528,12 +519,12 @@ class TestEdgeCases:
         assert len(records) == 100
 
         # Text output should be fast
-        output_text = formatter.symbols_to_text(records)
+        output_text = OutputDispatcher().format_list(records, OutputFormat.TEXT)
         assert "Symbol_0" in output_text
         assert "Symbol_99" in output_text
 
         # JSON output
-        output_json = formatter.symbols_to_json(records)
+        output_json = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output_json)
         assert len(parsed) == 100
 
@@ -585,7 +576,7 @@ class TestTokenEfficiency:
     ) -> None:
         """Verify JSON omits null/None fields for token savings."""
         records = formatter.transform_symbols(sample_symbols)
-        output = formatter.symbols_to_json(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
         # First symbol has no container - should be omitted
@@ -600,7 +591,7 @@ class TestTokenEfficiency:
     ) -> None:
         """Verify YAML omits null fields for token savings."""
         records = formatter.transform_symbols(sample_symbols)
-        output = formatter.symbols_to_yaml(records)
+        output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
         # First symbol has no container - should be omitted

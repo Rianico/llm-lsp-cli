@@ -17,7 +17,9 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
+from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import CompactFormatter
+from llm_lsp_cli.utils import OutputFormat
 from tests.fixtures import (
     COMPLETION_RESPONSE,
     COMPLETION_RESPONSE_EMPTY,
@@ -62,24 +64,24 @@ class TestCrossFileFixtureUsage:
         records = formatter.transform_locations(locations)
 
         # Text format
-        text_output = formatter.locations_to_text(records)
+        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
         assert "file.py" in text_output
         assert "11:5-11:21" in text_output
 
         # JSON format
-        json_output = formatter.locations_to_json(records)
+        json_output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(json_output)
         assert len(parsed) == 1
         assert parsed[0]["file"] == "/path/to/file.py"
 
         # YAML format
-        yaml_output = formatter.locations_to_yaml(records)
+        yaml_output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(yaml_output)
         assert len(parsed) == 1
         assert parsed[0]["file"] == "/path/to/file.py"
 
         # CSV format
-        csv_output = formatter.locations_to_csv(records)
+        csv_output = OutputDispatcher().format_list(records, OutputFormat.CSV)
         lines = csv_output.strip().split("\n")
         assert len(lines) == 2  # header + 1 row
 
@@ -103,11 +105,11 @@ class TestCrossFileFixtureUsage:
         assert len(records) == 2
 
         # Verify both formats work
-        text_output = formatter.symbols_to_text(records)
+        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
         assert "MyClass" in text_output
         assert "helper_function" in text_output
 
-        json_output = formatter.symbols_to_json(records)
+        json_output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(json_output)
         assert len(parsed) == 2
 
@@ -153,9 +155,9 @@ class TestLocationFixtureEdgeCases:
         assert len(records) == 0
 
         # All formats should handle empty gracefully
-        assert formatter.locations_to_text(records) == "No locations found."
-        assert formatter.locations_to_json(records) == "[]"
-        assert formatter.locations_to_csv(records) == ""
+        assert OutputDispatcher().format_list(records, OutputFormat.TEXT) == ""
+        assert OutputDispatcher().format_list(records, OutputFormat.JSON) == "[]"
+        assert OutputDispatcher().format_list(records, OutputFormat.CSV) == ""
 
     def test_location_with_commas_csv_escaping(self, temp_dir: Path) -> None:
         """Test LOCATION_RESPONSE_WITH_COMMAS CSV escaping."""
@@ -163,7 +165,7 @@ class TestLocationFixtureEdgeCases:
         locations = LOCATION_RESPONSE_WITH_COMMAS["locations"]
         records = formatter.transform_locations(records := locations)
 
-        csv_output = formatter.locations_to_csv(records)
+        csv_output = OutputDispatcher().format_list(records, OutputFormat.CSV)
         reader = csv.DictReader(io.StringIO(csv_output))
         rows = list(reader)
 
@@ -176,7 +178,7 @@ class TestLocationFixtureEdgeCases:
         locations = LOCATION_RESPONSE_WITH_QUOTES["locations"]
         records = formatter.transform_locations(locations)
 
-        csv_output = formatter.locations_to_csv(records)
+        csv_output = OutputDispatcher().format_list(records, OutputFormat.CSV)
         reader = csv.DictReader(io.StringIO(csv_output))
         rows = list(reader)
 
@@ -189,7 +191,7 @@ class TestLocationFixtureEdgeCases:
         locations = LOCATION_RESPONSE_MULTI["locations"]
         records = formatter.transform_locations(locations)
 
-        text_output = formatter.locations_to_text(records)
+        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
         # Should have all three files
         assert "file1.py" in text_output
@@ -422,14 +424,14 @@ class TestCrossFormatConsistency:
         text_count = len(
             [
                 line
-                for line in CompactFormatter(temp_dir).symbols_to_text(records).split("\n")
-                if line.strip() and not line.endswith(":")
+                for line in OutputDispatcher().format_list(records, OutputFormat.TEXT).split("\n")
+                if line.strip()
             ]
         )
-        json_count = len(json.loads(CompactFormatter(temp_dir).symbols_to_json(records)))
-        yaml_count = len(yaml.safe_load(CompactFormatter(temp_dir).symbols_to_yaml(records)))
+        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON)))
+        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML)))
         csv_count = (
-            len(CompactFormatter(temp_dir).symbols_to_csv(records).strip().split("\n")) - 1
+            len(OutputDispatcher().format_list(records, OutputFormat.CSV).strip().split("\n")) - 1
         )  # minus header
 
         assert text_count == json_count == yaml_count == csv_count == 1
@@ -444,14 +446,14 @@ class TestCrossFormatConsistency:
         text_count = len(
             [
                 line
-                for line in CompactFormatter(temp_dir).locations_to_text(records).split("\n")
-                if line.strip() and not line.endswith(":") and "No locations" not in line
+                for line in OutputDispatcher().format_list(records, OutputFormat.TEXT).split("\n")
+                if line.strip()
             ]
         )
-        json_count = len(json.loads(CompactFormatter(temp_dir).locations_to_json(records)))
-        yaml_count = len(yaml.safe_load(CompactFormatter(temp_dir).locations_to_yaml(records)))
+        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON)))
+        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML)))
         csv_count = (
-            len(CompactFormatter(temp_dir).locations_to_csv(records).strip().split("\n")) - 1
+            len(OutputDispatcher().format_list(records, OutputFormat.CSV).strip().split("\n")) - 1
         )  # minus header
 
         assert text_count == json_count == yaml_count == csv_count == 1
@@ -463,8 +465,8 @@ class TestCrossFormatConsistency:
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_symbols(sample_symbols)
 
-        json_data = json.loads(formatter.symbols_to_json(records))
-        yaml_data = yaml.safe_load(formatter.symbols_to_yaml(records))
+        json_data = json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))
+        yaml_data = yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))
 
         assert json_data == yaml_data
 
@@ -475,8 +477,8 @@ class TestCrossFormatConsistency:
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_locations(sample_locations)
 
-        json_data = json.loads(formatter.locations_to_json(records))
-        yaml_data = yaml.safe_load(formatter.locations_to_yaml(records))
+        json_data = json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))
+        yaml_data = yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))
 
         assert json_data == yaml_data
 
@@ -488,10 +490,10 @@ class TestCrossFormatConsistency:
         records = formatter.transform_symbols(sample_symbols)
 
         # Get file from each format
-        text_output = formatter.symbols_to_text(records)
-        json_data = json.loads(formatter.symbols_to_json(records))
-        yaml_data = yaml.safe_load(formatter.symbols_to_yaml(records))
-        csv_data = list(csv.DictReader(io.StringIO(formatter.symbols_to_csv(records))))
+        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        json_data = json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))
+        yaml_data = yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))
+        csv_data = list(csv.DictReader(io.StringIO(OutputDispatcher().format_list(records, OutputFormat.CSV))))
 
         expected_file = "src/test.py"
 

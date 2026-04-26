@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from llm_lsp_cli.utils import OutputFormat
+
 
 class RawFormatter:
     """Formatter that outputs LSP responses with zero transformation.
@@ -33,53 +35,24 @@ class RawFormatter:
         """Return the workspace root path."""
         return self._workspace
 
-    def format_json(self, response: dict[str, Any]) -> str:
-        """Format LSP response as JSON with zero transformation.
+    def format(self, response: dict[str, Any], fmt: OutputFormat) -> str:
+        """Format LSP response with zero transformation.
 
         Args:
             response: Original LSP server response
+            fmt: Output format (JSON, YAML, CSV, TEXT)
 
         Returns:
-            JSON string with indent=2, identical to input structure
+            Formatted string with structure preserved
         """
-        return json.dumps(response, indent=2)
-
-    def format_yaml(self, response: dict[str, Any]) -> str:
-        """Format LSP response as YAML with zero transformation.
-
-        Args:
-            response: Original LSP server response
-
-        Returns:
-            YAML string with full structure preserved
-        """
-        return yaml.safe_dump(
-            response, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
-
-    def format_text(self, response: dict[str, Any]) -> str:
-        """Format LSP response as text (JSON passthrough).
-
-        LSP has no standard text format, so this outputs JSON for consistency.
-
-        Args:
-            response: Original LSP server response
-
-        Returns:
-            JSON string (same as format_json)
-        """
-        return json.dumps(response, indent=2)
-
-    def format_csv(self, response: dict[str, Any]) -> str:
-        """Format LSP response as CSV (JSON passthrough).
-
-        CSV is not suitable for raw LSP response structure,
-        so this outputs JSON for consistency.
-
-        Args:
-            response: Original LSP server response
-
-        Returns:
-            JSON string (same as format_json)
-        """
-        return json.dumps(response, indent=2)
+        match fmt:
+            case OutputFormat.JSON:
+                return json.dumps(response, indent=2)
+            case OutputFormat.YAML:
+                return yaml.safe_dump(
+                    response, default_flow_style=False, sort_keys=False, allow_unicode=True
+                )
+            case OutputFormat.CSV | OutputFormat.TEXT:
+                # CSV and TEXT not suitable for raw LSP response structure,
+                # so output JSON for consistency
+                return json.dumps(response, indent=2)

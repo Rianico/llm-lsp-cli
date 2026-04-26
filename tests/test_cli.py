@@ -1598,13 +1598,10 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
         assert result.exit_code == 0
 
         output = result.output.strip()
-        # Compact format uses kind names and file-grouped output
-        assert ".py:" in output  # File headers
+        # New format: "file: name (kind_name) [range]"
         assert "MyClass (Class)" in output  # Kind name
         assert "helper_function (Function)" in output
         assert "CONFIG_VALUE (Constant)" in output
-        # Output should be file-grouped with indentation
-        assert "  " in output  # Indented symbols
 
 
 def test_all_lsp_symbol_kinds_are_mapped() -> None:

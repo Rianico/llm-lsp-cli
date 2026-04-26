@@ -6,18 +6,20 @@ from typing import Any
 
 import yaml
 
+from llm_lsp_cli.utils import OutputFormat
+
 
 class TestRawFormatterExists:
-    """RED: Tests for RawFormatter class existence."""
+    """Tests for RawFormatter class existence."""
 
     def test_raw_formatter_importable(self) -> None:
-        """RED: RawFormatter class must be importable."""
+        """RawFormatter class must be importable."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         assert RawFormatter is not None
 
     def test_raw_formatter_init_with_workspace(self, tmp_path: Path) -> None:
-        """RED: RawFormatter must be initializable with workspace path."""
+        """RawFormatter must be initializable with workspace path."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -25,10 +27,10 @@ class TestRawFormatterExists:
 
 
 class TestRawFormatterFormatJson:
-    """RED: Tests for RawFormatter.format_json passthrough."""
+    """Tests for RawFormatter.format with JSON output."""
 
     def test_format_json_returns_identical_json(self, tmp_path: Path) -> None:
-        """RED: format_json must return identical JSON to input."""
+        """format with JSON must return identical JSON to input."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -47,14 +49,14 @@ class TestRawFormatterFormatJson:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # Must be identical to original response
         assert parsed == lsp_response
 
     def test_format_json_preserves_all_fields(self, tmp_path: Path) -> None:
-        """RED: format_json must preserve all LSP fields including data, tags, selectionRange."""
+        """format with JSON must preserve all LSP fields including data, tags, selectionRange."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -79,7 +81,7 @@ class TestRawFormatterFormatJson:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # All fields must be preserved
@@ -88,7 +90,7 @@ class TestRawFormatterFormatJson:
         assert parsed["symbols"][0]["data"] == {"serverId": "pyright"}
 
     def test_format_json_no_path_normalization(self, tmp_path: Path) -> None:
-        """RED: format_json must NOT normalize URIs."""
+        """format with JSON must NOT normalize URIs."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -103,14 +105,14 @@ class TestRawFormatterFormatJson:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # URI must remain unchanged (not normalized to relative)
         assert parsed["locations"][0]["uri"] == "file:///absolute/path/to/file.py"
 
     def test_format_json_no_filtering(self, tmp_path: Path) -> None:
-        """RED: format_json must NOT filter test files."""
+        """format with JSON must NOT filter test files."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -132,40 +134,40 @@ class TestRawFormatterFormatJson:
                 },
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # Both locations must be present (test file not filtered)
         assert len(parsed["locations"]) == 2
 
     def test_format_json_empty_response(self, tmp_path: Path) -> None:
-        """RED: format_json must handle empty response correctly."""
+        """format with JSON must handle empty response correctly."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
         lsp_response: dict[str, Any] = {"locations": []}
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == {"locations": []}
 
     def test_format_json_null_in_response(self, tmp_path: Path) -> None:
-        """RED: format_json must preserve null values."""
+        """format with JSON must preserve null values."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
         lsp_response: dict[str, Any] = {"locations": None}
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == {"locations": None}
 
 
 class TestRawFormatterFormatYaml:
-    """RED: Tests for RawFormatter.format_yaml passthrough."""
+    """Tests for RawFormatter.format with YAML output."""
 
     def test_format_yaml_returns_full_yaml(self, tmp_path: Path) -> None:
-        """RED: format_yaml must return full YAML structure."""
+        """format with YAML must return full YAML structure."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -184,20 +186,20 @@ class TestRawFormatterFormatYaml:
                 }
             ]
         }
-        result = formatter.format_yaml(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.YAML)
         parsed = yaml.safe_load(result)
 
         assert parsed == lsp_response
 
     def test_format_yaml_preserves_unicode(self, tmp_path: Path) -> None:
-        """RED: format_yaml must preserve unicode characters."""
+        """format with YAML must preserve unicode characters."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
         lsp_response: dict[str, Any] = {
             "symbols": [
                 {
-                    "name": "αβγ_Class",
+                    "name": "alpha_beta_gamma_Class",
                     "kind": 5,
                     "location": {
                         "uri": "file:///project/src/models.py",
@@ -209,15 +211,16 @@ class TestRawFormatterFormatYaml:
                 }
             ]
         }
-        result = formatter.format_yaml(lsp_response)
-        assert "αβγ_Class" in result
+        result = formatter.format(lsp_response, OutputFormat.YAML)
+        parsed = yaml.safe_load(result)
+        assert parsed["symbols"][0]["name"] == "alpha_beta_gamma_Class"
 
 
 class TestRawFormatterFormatText:
-    """RED: Tests for RawFormatter.format_text behavior."""
+    """Tests for RawFormatter.format with TEXT output."""
 
     def test_format_text_outputs_json(self, tmp_path: Path) -> None:
-        """RED: format_text should output JSON for raw LSP response (no standard text format)."""
+        """format with TEXT should output JSON for raw LSP response (no standard text format)."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -229,7 +232,7 @@ class TestRawFormatterFormatText:
                 }
             ]
         }
-        result = formatter.format_text(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.TEXT)
 
         # For raw mode with text format, output JSON (LSP has no standard text format)
         parsed = json.loads(result)
@@ -237,10 +240,10 @@ class TestRawFormatterFormatText:
 
 
 class TestRawFormatterFormatCsv:
-    """RED: Tests for RawFormatter.format_csv behavior."""
+    """Tests for RawFormatter.format with CSV output."""
 
     def test_format_csv_outputs_json_or_error(self, tmp_path: Path) -> None:
-        """RED: format_csv should output JSON or error (CSV not suitable for raw LSP response)."""
+        """format with CSV should output JSON (CSV not suitable for raw LSP response)."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -259,20 +262,17 @@ class TestRawFormatterFormatCsv:
                 }
             ]
         }
-        # For raw mode with CSV, we should either:
-        # 1. Output JSON (same as text)
-        # 2. Raise an error
-        # For now, expect JSON passthrough
-        result = formatter.format_csv(lsp_response)
+        # For raw mode with CSV, we output JSON passthrough
+        result = formatter.format(lsp_response, OutputFormat.CSV)
         parsed = json.loads(result)
         assert parsed == lsp_response
 
 
 class TestRawFormatterLocationsPassthrough:
-    """RED: Tests for RawFormatter locations passthrough."""
+    """Tests for RawFormatter locations passthrough."""
 
     def test_format_json_locations(self, tmp_path: Path) -> None:
-        """RED: format_json must pass through locations response unchanged."""
+        """format with JSON must pass through locations response unchanged."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -287,17 +287,17 @@ class TestRawFormatterLocationsPassthrough:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == lsp_response
 
 
 class TestRawFormatterCallHierarchyPassthrough:
-    """RED: Tests for RawFormatter call hierarchy passthrough."""
+    """Tests for RawFormatter call hierarchy passthrough."""
 
     def test_format_json_incoming_calls(self, tmp_path: Path) -> None:
-        """RED: format_json must pass through incoming calls response unchanged."""
+        """format with JSON must pass through incoming calls response unchanged."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -322,13 +322,13 @@ class TestRawFormatterCallHierarchyPassthrough:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == lsp_response
 
     def test_format_json_outgoing_calls(self, tmp_path: Path) -> None:
-        """RED: format_json must pass through outgoing calls response unchanged."""
+        """format with JSON must pass through outgoing calls response unchanged."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -353,17 +353,17 @@ class TestRawFormatterCallHierarchyPassthrough:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == lsp_response
 
 
 class TestRawFormatterDiagnosticsPassthrough:
-    """RED: Tests for RawFormatter diagnostics passthrough."""
+    """Tests for RawFormatter diagnostics passthrough."""
 
     def test_format_json_diagnostics(self, tmp_path: Path) -> None:
-        """RED: format_json must pass through diagnostics response unchanged."""
+        """format with JSON must pass through diagnostics response unchanged."""
         from llm_lsp_cli.output.raw_formatter import RawFormatter
 
         formatter = RawFormatter(str(tmp_path))
@@ -381,7 +381,7 @@ class TestRawFormatterDiagnosticsPassthrough:
                 }
             ]
         }
-        result = formatter.format_json(lsp_response)
+        result = formatter.format(lsp_response, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed == lsp_response

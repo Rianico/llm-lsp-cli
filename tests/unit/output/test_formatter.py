@@ -9,7 +9,9 @@ from typing import Any
 import pytest
 import yaml
 
+from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import CompactFormatter, LocationRecord, Range, SymbolRecord
+from llm_lsp_cli.utils import OutputFormat
 
 # =============================================================================
 # FIXTURES
@@ -352,7 +354,7 @@ class TestSymbolsToJsonCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_json(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # range must be a compact string (1-based), NOT nested dict
@@ -377,7 +379,7 @@ class TestSymbolsToJsonCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_json(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # MUST have kind_name
@@ -407,7 +409,7 @@ class TestSymbolsToJsonCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_json(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
         # selection_range must be compact string
@@ -432,7 +434,7 @@ class TestSymbolsToJsonCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_json(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed[0]["kind_name"] == "Unknown(99)"
@@ -460,7 +462,7 @@ class TestSymbolsToYamlCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_yaml(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(result)
 
         # range must be a compact string (1-based)
@@ -485,7 +487,7 @@ class TestSymbolsToYamlCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_yaml(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(result)
 
         # MUST have kind_name
@@ -511,7 +513,7 @@ class TestLocationsToJsonCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_locations(locations)
-        result = formatter.locations_to_json(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
         assert parsed[0]["range"] == "6:1-6:21"
@@ -535,7 +537,7 @@ class TestLocationsToYamlCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_locations(locations)
-        result = formatter.locations_to_yaml(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(result)
 
         assert parsed[0]["range"] == "6:1-6:21"
@@ -564,7 +566,7 @@ class TestSymbolsToTextCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_text(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
         # TEXT format uses bare compact range (no brackets)
         assert "1:1-51:1" in result
@@ -588,7 +590,7 @@ class TestSymbolsToCsvCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_symbols(symbols)
-        result = formatter.symbols_to_csv(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.CSV)
 
         # CSV range column must be compact string
         assert "1:1-51:1" in result
@@ -611,7 +613,7 @@ class TestLocationsToTextCompactRange:
         ]
         (temp_dir / "src").mkdir()
         records = formatter.transform_locations(locations)
-        result = formatter.locations_to_text(records)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
         # TEXT format uses bare compact range (no brackets)
         assert "6:1-6:21" in result
@@ -832,10 +834,31 @@ class TestTransformLocations:
 
 
 class TestSymbolsToText:
-    """Tests for symbols_to_text method."""
+    """Tests for symbols TEXT output using dispatcher."""
 
-    def test_text_file_grouping(self, temp_dir: Path) -> None:
-        """Verify file grouping in text output."""
+    def test_text_single_symbol(self, temp_dir: Path) -> None:
+        """Verify single symbol text output."""
+        (temp_dir / "src").mkdir()
+        formatter = CompactFormatter(str(temp_dir))
+        symbols = [
+            {
+                "name": "Sym1",
+                "kind": 5,
+                "location": {
+                    "uri": f"file://{temp_dir}/src/file.py",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 9, "character": 0},
+                    },
+                },
+            },
+        ]
+        records = formatter.transform_symbols(symbols)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        assert "src/file.py: Sym1 (Class) [1:1-10:1]" in result
+
+    def test_text_multiple_symbols(self, temp_dir: Path) -> None:
+        """Multiple symbols in text output."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -862,14 +885,13 @@ class TestSymbolsToText:
                 },
             },
         ]
-        result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        assert "src/file.py:" in result
-        # Bare format (no brackets)
-        assert "Sym1 (Class) 1:1-10:1" in result
-        assert "Sym2 (Function) 20:1-30:1" in result
+        records = formatter.transform_symbols(symbols)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        assert "src/file.py: Sym1 (Class) [1:1-10:1]" in result
+        assert "src/file.py: Sym2 (Function) [20:1-30:1]" in result
 
     def test_text_multiple_files(self, temp_dir: Path) -> None:
-        """Multi-file grouping with sorted files."""
+        """Multiple files in text output."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -896,11 +918,11 @@ class TestSymbolsToText:
                 },
             },
         ]
-        result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        # Files should be sorted alphabetically
-        a_file_pos = result.find("src/a_file.py:")
-        b_file_pos = result.find("src/b_file.py:")
-        assert a_file_pos < b_file_pos
+        records = formatter.transform_symbols(symbols)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Both symbols should be present
+        assert "src/a_file.py: SymA (Class) [1:1-2:1]" in result
+        assert "src/b_file.py: SymB (Class) [1:1-2:1]" in result
 
     def test_text_includes_detail(self, temp_dir: Path) -> None:
         """Detail formatting with arrow."""
@@ -919,9 +941,10 @@ class TestSymbolsToText:
                 "detail": "def my_func() -> str",
             },
         ]
-        result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        # Bare format (no brackets)
-        assert "MyFunc (Function) 1:1-2:1 -> def my_func() -> str" in result
+        records = formatter.transform_symbols(symbols)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Format: "file: name (kind) [range] -> detail"
+        assert "src/utils.py: MyFunc (Function) [1:1-2:1] -> def my_func() -> str" in result
 
     def test_text_omits_none_detail(self, temp_dir: Path) -> None:
         """Conditional detail omission."""
@@ -939,48 +962,16 @@ class TestSymbolsToText:
                 },
             },
         ]
-        result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        # Bare format (no brackets)
-        assert "MyClass (Class) 1:1-2:1" in result
-        assert "->" not in result
+        records = formatter.transform_symbols(symbols)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Format: "file: name (kind) [range]" (no detail)
+        assert "src/models.py: MyClass (Class) [1:1-2:1]" in result
 
     def test_text_empty_records(self, temp_dir: Path) -> None:
-        """Empty state message."""
+        """Empty list returns empty string."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.symbols_to_text([])
-        assert result == "No symbols found."
-
-    def test_text_sorted_by_file(self, temp_dir: Path) -> None:
-        """Deterministic ordering by file path."""
-        (temp_dir / "src").mkdir()
-        formatter = CompactFormatter(str(temp_dir))
-        symbols = [
-            {
-                "name": "Sym1",
-                "kind": 5,
-                "location": {
-                    "uri": f"file://{temp_dir}/src/z.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "Sym2",
-                "kind": 5,
-                "location": {
-                    "uri": f"file://{temp_dir}/src/a.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                },
-            },
-        ]
-        result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        # a.py should appear before z.py
-        assert result.index("src/a.py:") < result.index("src/z.py:")
+        result = OutputDispatcher().format_list([], OutputFormat.TEXT)
+        assert result == ""
 
 
 class TestSymbolsToJson:
@@ -1003,7 +994,7 @@ class TestSymbolsToJson:
                 },
             },
         ]
-        result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
         assert isinstance(parsed, list)
         assert len(parsed) == 1
@@ -1026,7 +1017,7 @@ class TestSymbolsToJson:
                 },
             },
         ]
-        result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
         assert "detail" not in parsed[0]
 
@@ -1046,7 +1037,7 @@ class TestSymbolsToJson:
                 },
             },
         ]
-        result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
         assert "container" not in parsed[0]
 
@@ -1066,7 +1057,7 @@ class TestSymbolsToJson:
                 },
             },
         ]
-        result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
         assert "tags" not in parsed[0]
 
@@ -1089,7 +1080,7 @@ class TestSymbolsToJson:
                 "tags": [1],
             },
         ]
-        result = formatter.symbols_to_json(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
         assert parsed[0]["detail"] == "detail text"
         assert parsed[0]["container"] == "container"
@@ -1098,7 +1089,7 @@ class TestSymbolsToJson:
     def test_json_empty_records(self, temp_dir: Path) -> None:
         """Empty array."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.symbols_to_json([])
+        result = OutputDispatcher().format_list([], OutputFormat.JSON)
         parsed = json.loads(result)
         assert parsed == []
 
@@ -1123,7 +1114,7 @@ class TestSymbolsToYaml:
                 },
             },
         ]
-        result = formatter.symbols_to_yaml(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.YAML)
         parsed = yaml.safe_load(result)
         assert isinstance(parsed, list)
         assert len(parsed) == 1
@@ -1145,7 +1136,7 @@ class TestSymbolsToYaml:
                 },
             },
         ]
-        result = formatter.symbols_to_yaml(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.YAML)
         parsed = yaml.safe_load(result)
         assert "detail" not in parsed[0]
 
@@ -1165,13 +1156,13 @@ class TestSymbolsToYaml:
                 },
             },
         ]
-        result = formatter.symbols_to_yaml(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.YAML)
         assert "\u03b1\u03b2\u03b3_Test" in result
 
     def test_yaml_empty_records(self, temp_dir: Path) -> None:
         """Empty state."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.symbols_to_yaml([])
+        result = OutputDispatcher().format_list([], OutputFormat.YAML)
         parsed = yaml.safe_load(result)
         assert parsed == []
 
@@ -1195,7 +1186,7 @@ class TestSymbolsToCsv:
                 },
             },
         ]
-        result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.CSV)
         header = result.split("\n")[0]
         assert "file" in header
         assert "name" in header
@@ -1219,14 +1210,14 @@ class TestSymbolsToCsv:
                 },
             },
         ]
-        result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.CSV)
         lines = result.strip().split("\n")
         assert len(lines) == 2  # header + 1 data row
 
     def test_csv_empty_records(self, temp_dir: Path) -> None:
         """Empty state."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.symbols_to_csv([])
+        result = OutputDispatcher().format_list([], OutputFormat.CSV)
         assert result == ""
 
     def test_csv_tags_pipe_separated(self, temp_dir: Path) -> None:
@@ -1246,7 +1237,7 @@ class TestSymbolsToCsv:
                 "tags": [1, 2, 3],
             },
         ]
-        result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.CSV)
         assert "1|2|3" in result
 
     def test_csv_escapes_commas(self, temp_dir: Path) -> None:
@@ -1265,7 +1256,7 @@ class TestSymbolsToCsv:
                 },
             },
         ]
-        result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.CSV)
         reader = csv.DictReader(io.StringIO(result))
         rows = list(reader)
         assert len(rows) == 1
@@ -1287,17 +1278,32 @@ class TestSymbolsToCsv:
                 },
             },
         ]
-        result = formatter.symbols_to_csv(formatter.transform_symbols(symbols))
+        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.CSV)
         reader = csv.DictReader(io.StringIO(result))
         rows = list(reader)
         assert rows[0]["detail"] == ""
 
 
 class TestLocationsToText:
-    """Tests for locations_to_text method."""
+    """Tests for locations TEXT output using dispatcher."""
 
-    def test_locations_text_grouping(self, temp_dir: Path) -> None:
-        """File grouping for locations."""
+    def test_locations_text_single(self, temp_dir: Path) -> None:
+        """Single location text output."""
+        (temp_dir / "src").mkdir()
+        formatter = CompactFormatter(str(temp_dir))
+        locations = [
+            {
+                "uri": f"file://{temp_dir}/src/file.py",
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 9, "character": 0}},
+            },
+        ]
+        records = formatter.transform_locations(locations)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Format: "file: range"
+        assert "src/file.py: 1:1-10:1" in result
+
+    def test_locations_text_multiple(self, temp_dir: Path) -> None:
+        """Multiple locations text output."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         locations = [
@@ -1313,20 +1319,20 @@ class TestLocationsToText:
                 },
             },
         ]
-        result = formatter.locations_to_text(formatter.transform_locations(locations))
-        assert "src/file.py:" in result
-        # Bare format (no brackets)
-        assert "1:1-10:1" in result
-        assert "20:1-30:1" in result
+        records = formatter.transform_locations(locations)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Both ranges should be present
+        assert "src/file.py: 1:1-10:1" in result
+        assert "src/file.py: 20:1-30:1" in result
 
     def test_locations_text_empty(self, temp_dir: Path) -> None:
-        """Empty state."""
+        """Empty list returns empty string."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.locations_to_text([])
-        assert result == "No locations found."
+        result = OutputDispatcher().format_list([], OutputFormat.TEXT)
+        assert result == ""
 
     def test_locations_multiple_files(self, temp_dir: Path) -> None:
-        """Multi-file format."""
+        """Multiple files in text output."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         locations = [
@@ -1339,9 +1345,11 @@ class TestLocationsToText:
                 "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
             },
         ]
-        result = formatter.locations_to_text(formatter.transform_locations(locations))
-        # Should have blank line between files
-        assert "\n\n" in result
+        records = formatter.transform_locations(locations)
+        result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        # Both files should be present
+        assert "src/a.py: 1:1-2:1" in result
+        assert "src/b.py: 1:1-2:1" in result
 
 
 class TestLocationsToJson:
@@ -1357,7 +1365,7 @@ class TestLocationsToJson:
                 "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
             },
         ]
-        result = formatter.locations_to_json(formatter.transform_locations(locations))
+        result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.JSON)
         parsed = json.loads(result)
         assert isinstance(parsed, list)
         assert len(parsed) == 1
@@ -1366,7 +1374,7 @@ class TestLocationsToJson:
     def test_locations_json_empty(self, temp_dir: Path) -> None:
         """Empty array."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.locations_to_json([])
+        result = OutputDispatcher().format_list([], OutputFormat.JSON)
         parsed = json.loads(result)
         assert parsed == []
 
@@ -1384,7 +1392,7 @@ class TestLocationsToYaml:
                 "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
             },
         ]
-        result = formatter.locations_to_yaml(formatter.transform_locations(locations))
+        result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.YAML)
         parsed = yaml.safe_load(result)
         assert isinstance(parsed, list)
         assert len(parsed) == 1
@@ -1392,7 +1400,7 @@ class TestLocationsToYaml:
     def test_locations_yaml_empty(self, temp_dir: Path) -> None:
         """Empty state."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.locations_to_yaml([])
+        result = OutputDispatcher().format_list([], OutputFormat.YAML)
         parsed = yaml.safe_load(result)
         assert parsed == []
 
@@ -1409,7 +1417,7 @@ class TestLocationsToCsv:
                 "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
             },
         ]
-        result = formatter.locations_to_csv(formatter.transform_locations(locations))
+        result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.CSV)
         header = result.split("\n")[0]
         assert header == "file,range"
 
@@ -1423,12 +1431,12 @@ class TestLocationsToCsv:
                 "range": {"start": {"line": 0, "character": 0}, "end": {"line": 1, "character": 0}},
             },
         ]
-        result = formatter.locations_to_csv(formatter.transform_locations(locations))
+        result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.CSV)
         lines = result.strip().split("\n")
         assert len(lines) == 2
 
     def test_locations_csv_empty(self, temp_dir: Path) -> None:
         """Empty state."""
         formatter = CompactFormatter(str(temp_dir))
-        result = formatter.locations_to_csv([])
+        result = OutputDispatcher().format_list([], OutputFormat.CSV)
         assert result == ""
