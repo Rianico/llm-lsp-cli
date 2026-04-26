@@ -47,7 +47,7 @@ class TestRapidRestart:
         # First restart
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result1 = runner.invoke(app, ["restart", "-l", "python"])
+            result1 = runner.invoke(app, ["daemon", "restart", "-l", "python"])
             assert result1.exit_code == 0
             assert "[RESTART] Daemon restarted" in result1.stderr
 
@@ -56,7 +56,7 @@ class TestRapidRestart:
             mock.is_running.return_value = False
             with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
                 mock_manager.return_value = mock
-                result = runner.invoke(app, ["restart", "-l", "python"])
+                result = runner.invoke(app, ["daemon", "restart", "-l", "python"])
                 assert result.exit_code == 0
                 assert "[RESTART]" in result.stderr
 
@@ -69,7 +69,7 @@ class TestRapidRestart:
             mock.is_running.return_value = True
             with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
                 mock_manager.return_value = mock
-                result = runner.invoke(app, ["restart", "-l", "python"])
+                result = runner.invoke(app, ["daemon", "restart", "-l", "python"])
                 assert result.exit_code == 0
                 assert "[RESTART] Stopping existing daemon..." in result.stderr
                 assert "[RESTART] Daemon restarted" in result.stderr
@@ -90,7 +90,7 @@ class TestStopEdgeCases:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["stop", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "stop", "-l", "python"])
 
             assert result.exit_code == 0
             assert "[STOP] Daemon is not running." in result.stderr
@@ -107,17 +107,17 @@ class TestStopEdgeCases:
             mock_manager.return_value = mock
 
             # First stop - daemon running
-            result1 = runner.invoke(app, ["stop", "-l", "python"])
+            result1 = runner.invoke(app, ["daemon", "stop", "-l", "python"])
             assert result1.exit_code == 0
             assert "[STOP] Stopping daemon..." in result1.stderr
 
             # Second stop - daemon not running
-            result2 = runner.invoke(app, ["stop", "-l", "python"])
+            result2 = runner.invoke(app, ["daemon", "stop", "-l", "python"])
             assert result2.exit_code == 0
             assert "[STOP] Daemon is not running." in result2.stderr
 
             # Third stop - still not running
-            result3 = runner.invoke(app, ["stop", "-l", "python"])
+            result3 = runner.invoke(app, ["daemon", "stop", "-l", "python"])
             assert result3.exit_code == 0
             assert "[STOP] Daemon is not running." in result3.stderr
 
@@ -137,7 +137,7 @@ class TestStartEdgeCases:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["start", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "start", "-l", "python"])
 
             assert result.exit_code == 1
             assert "Error: Daemon is already running." in result.stderr
@@ -154,17 +154,17 @@ class TestStartEdgeCases:
             mock_manager.return_value = mock
 
             # First start - success
-            result1 = runner.invoke(app, ["start", "-l", "python"])
+            result1 = runner.invoke(app, ["daemon", "start", "-l", "python"])
             assert result1.exit_code == 0
             assert "[START] Ready" in result1.stderr
 
             # Second start - already running
-            result2 = runner.invoke(app, ["start", "-l", "python"])
+            result2 = runner.invoke(app, ["daemon", "start", "-l", "python"])
             assert result2.exit_code == 1
             assert "Error: Daemon is already running." in result2.stderr
 
             # Third start - still running
-            result3 = runner.invoke(app, ["start", "-l", "python"])
+            result3 = runner.invoke(app, ["daemon", "start", "-l", "python"])
             assert result3.exit_code == 1
             assert "Error: Daemon is already running." in result3.stderr
 
@@ -185,7 +185,7 @@ class TestRestartEdgeCases:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["restart", "-l", "rust"])
+            result = runner.invoke(app, ["daemon", "restart", "-l", "rust"])
 
             assert result.exit_code == 0
             assert "rust-analyzer" in result.stderr
@@ -207,7 +207,7 @@ class TestRestartEdgeCases:
 
             with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
                 mock_manager.return_value = mock
-                result = runner.invoke(app, ["restart", "-l", language])
+                result = runner.invoke(app, ["daemon", "restart", "-l", language])
 
                 assert result.exit_code == 0
                 assert server_name in result.stderr
@@ -377,9 +377,9 @@ class TestOutputStreamConsistency:
         mock._lsp_server_name = "pyright-langserver"
 
         commands = [
-            (["start", "-l", "python"], "[START]"),
-            (["stop", "-l", "python"], "[STOP]"),
-            (["restart", "-l", "python"], "[RESTART]"),
+            (["daemon", "start", "-l", "python"], "[START]"),
+            (["daemon", "stop", "-l", "python"], "[STOP]"),
+            (["daemon", "restart", "-l", "python"], "[RESTART]"),
         ]
 
         for args, prefix in commands:
@@ -399,7 +399,7 @@ class TestOutputStreamConsistency:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["start", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "start", "-l", "python"])
 
             assert result.exit_code == 1
             assert "Error:" in result.stderr
@@ -426,7 +426,7 @@ class TestLoggingPerformance:
             mock_manager.return_value = mock
 
             start_time = time.time()
-            result = runner.invoke(app, ["start", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "start", "-l", "python"])
             elapsed = time.time() - start_time
 
             # Should complete quickly (no arbitrary sleeps)
@@ -449,7 +449,7 @@ class TestLoggingPerformance:
 
             # Execute multiple commands
             for _ in range(5):
-                runner.invoke(app, ["start", "-l", "python"])
+                runner.invoke(app, ["daemon", "start", "-l", "python"])
                 mock.is_running.return_value = True
 
         elapsed = time.time() - start_time
@@ -474,7 +474,7 @@ class TestLogMarkerFormat:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["start", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "start", "-l", "python"])
 
             stderr = result.stderr
 
@@ -490,7 +490,7 @@ class TestLogMarkerFormat:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["stop", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "stop", "-l", "python"])
 
             stderr = result.stderr
 
@@ -505,7 +505,7 @@ class TestLogMarkerFormat:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["restart", "-l", "python"])
+            result = runner.invoke(app, ["daemon", "restart", "-l", "python"])
 
             stderr = result.stderr
 
@@ -526,14 +526,14 @@ class TestLogMarkerFormat:
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
 
-            for command in ["start", "stop", "restart"]:
-                result = runner.invoke(app, [command, "-l", "python"])
+            for command in ["daemon start", "daemon stop", "daemon restart"]:
+                result = runner.invoke(app, command.split() + ["-l", "python"])
 
                 # All markers should match [MARKER] format
                 markers = re.findall(r"\[(START|STOP|RESTART)\]", result.stderr)
                 assert len(markers) > 0, f"No markers found in {command} output"
                 # All markers should be the same type for each command
-                expected_marker = command.upper()
+                expected_marker = command.split()[-1].upper()
                 for marker in markers:
                     assert marker == expected_marker
 
@@ -563,7 +563,7 @@ class TestWorkspaceLanguageDetectionLogging:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
-            result = runner.invoke(app, ["start", "-w", str(temp_workspace)])
+            result = runner.invoke(app, ["daemon", "start", "-w", str(temp_workspace)])
 
             assert "[START] Detected language: python" in result.stderr
 
@@ -576,7 +576,7 @@ class TestWorkspaceLanguageDetectionLogging:
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock
             # Use temp_workspace to avoid unused fixture warning
-            result = runner.invoke(app, ["start", "-w", str(temp_workspace), "-l", "rust"])
+            result = runner.invoke(app, ["daemon", "start", "-w", str(temp_workspace), "-l", "rust"])
 
             assert "[START] Detected language:" not in result.stderr
             assert "[START] Initializing daemon..." in result.stderr

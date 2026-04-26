@@ -385,7 +385,7 @@ class TestCLICommandsAutoStart:
         # Mock daemon as not running
         mock_is_running.return_value = False
 
-        result = runner.invoke(app, ["status"])
+        result = runner.invoke(app, ["daemon", "status"])
         assert result.exit_code == 0
         # Status shows "not running" when daemon is not running
         assert "not running" in result.output.lower()
@@ -421,6 +421,7 @@ class TestCLICommandsAutoStart:
         result = runner.invoke(
             app,
             [
+                "lsp",
                 "definition",
                 str(test_file),
                 "0",

@@ -41,7 +41,7 @@ class TestRenameCommandRegistration:
 
     def test_rename_command_is_registered(self) -> None:
         """Verify rename command is registered and accessible."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "rename" in result.output.lower()
 
@@ -59,6 +59,7 @@ class TestRenameCommandRegistration:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "rename",
                     str(temp_python_file),
                     "1",
@@ -77,7 +78,7 @@ class TestRenameCommandRegistration:
         temp_python_file: Path,
     ) -> None:
         """Verify rename command supports --workspace / -w option."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--workspace" in result.output or "-w" in result.output
 
@@ -86,7 +87,7 @@ class TestRenameCommandRegistration:
         temp_workspace: Path,
     ) -> None:
         """Verify rename command supports --language / -l option."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--language" in result.output or "-l" in result.output
 
@@ -95,7 +96,7 @@ class TestRenameCommandRegistration:
         temp_workspace: Path,
     ) -> None:
         """Verify rename command supports --format / -o option."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--format" in result.output or "-o" in result.output
 
@@ -104,7 +105,7 @@ class TestRenameCommandRegistration:
         temp_workspace: Path,
     ) -> None:
         """Verify rename command supports --apply flag."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--apply" in result.output
 
@@ -113,7 +114,7 @@ class TestRenameCommandRegistration:
         temp_workspace: Path,
     ) -> None:
         """Verify rename command supports --dry-run flag."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--dry-run" in result.output
 
@@ -122,7 +123,7 @@ class TestRenameCommandRegistration:
         temp_workspace: Path,
     ) -> None:
         """Verify rename command supports --rollback option."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "--rollback" in result.output
 
@@ -132,24 +133,24 @@ class TestRenameCommandHelp:
 
     def test_rename_help_shows_file_argument(self) -> None:
         """Verify help shows file argument."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "file" in result.output.lower()
 
     def test_rename_help_shows_line_argument(self) -> None:
         """Verify help shows line argument."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "line" in result.output.lower()
 
     def test_rename_help_shows_column_argument(self) -> None:
         """Verify help shows column argument."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "column" in result.output.lower()
 
     def test_rename_help_shows_new_name_argument(self) -> None:
         """Verify help shows new_name argument."""
-        result = runner.invoke(app, ["rename", "--help"])
+        result = runner.invoke(app, ["lsp", "rename", "--help"])
         assert result.exit_code == 0
         assert "new_name" in result.output.lower() or "new-name" in result.output.lower()

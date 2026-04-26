@@ -36,10 +36,10 @@ class TestCLITraceFlag:
         self, cli_runner: CliRunner, mock_daemon_manager: MagicMock
     ) -> None:
         """llm-lsp-cli start --trace accepted (with mocked daemon)."""
-        with patch("llm_lsp_cli.cli._create_daemon_manager") as mock_create:
+        with patch("llm_lsp_cli.commands.shared.create_daemon_manager") as mock_create:
             mock_create.return_value = mock_daemon_manager
 
-            result = cli_runner.invoke(app, ["start", "--trace"])
+            result = cli_runner.invoke(app, ["daemon", "start", "--trace"])
 
             # Should not fail with unknown option
             assert "unknown option" not in result.output.lower()
@@ -49,10 +49,10 @@ class TestCLITraceFlag:
         self, cli_runner: CliRunner, mock_daemon_manager: MagicMock
     ) -> None:
         """llm-lsp-cli start -t accepted (with mocked daemon)."""
-        with patch("llm_lsp_cli.cli._create_daemon_manager") as mock_create:
+        with patch("llm_lsp_cli.commands.shared.create_daemon_manager") as mock_create:
             mock_create.return_value = mock_daemon_manager
 
-            result = cli_runner.invoke(app, ["start", "-t"])
+            result = cli_runner.invoke(app, ["daemon", "start", "-t"])
 
             # Should not fail with unknown option
             assert "unknown option" not in result.output.lower()
@@ -61,11 +61,11 @@ class TestCLITraceFlag:
         self, cli_runner: CliRunner, mock_daemon_manager: MagicMock
     ) -> None:
         """llm-lsp-cli restart --trace accepted (with mocked daemon)."""
-        with patch("llm_lsp_cli.cli._create_daemon_manager") as mock_create:
+        with patch("llm_lsp_cli.commands.shared.create_daemon_manager") as mock_create:
             mock_create.return_value = mock_daemon_manager
             mock_daemon_manager.is_running.return_value = True
 
-            result = cli_runner.invoke(app, ["restart", "--trace"])
+            result = cli_runner.invoke(app, ["daemon", "restart", "--trace"])
 
             # Should not fail with unknown option
             assert "unknown option" not in result.output.lower()
@@ -76,10 +76,10 @@ class TestCLITraceFlag:
         """--trace enables DEBUG level for all loggers."""
         # This test verifies that when --trace is used, the daemon is started
         # with trace=True, which should set DEBUG level for all loggers
-        with patch("llm_lsp_cli.cli._create_daemon_manager") as mock_create:
+        with patch("llm_lsp_cli.commands.shared.create_daemon_manager") as mock_create:
             mock_create.return_value = mock_daemon_manager
 
-            cli_runner.invoke(app, ["start", "--trace"])
+            cli_runner.invoke(app, ["daemon", "start", "--trace"])
 
             # The DaemonManager should have been created with trace=True
             # This is verified by checking the implementation
@@ -100,7 +100,7 @@ class TestCLITraceHelpText:
 
     def test_trace_help_text_present(self, cli_runner: CliRunner) -> None:
         """--trace has help text mentioning 'transport-level'."""
-        result = cli_runner.invoke(app, ["start", "--help"])
+        result = cli_runner.invoke(app, ["daemon", "start", "--help"])
 
         assert "trace" in result.output.lower()
         # Help text should mention transport-level logging
@@ -108,7 +108,7 @@ class TestCLITraceHelpText:
 
     def test_trace_help_explains_debug_relation(self, cli_runner: CliRunner) -> None:
         """Help explains relationship to --debug."""
-        result = cli_runner.invoke(app, ["start", "--help"])
+        result = cli_runner.invoke(app, ["daemon", "start", "--help"])
 
         # Should mention that --trace is more verbose than --debug
         output = result.output.lower()

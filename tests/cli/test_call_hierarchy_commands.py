@@ -55,7 +55,7 @@ class TestIncomingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -75,7 +75,7 @@ class TestIncomingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -96,6 +96,7 @@ class TestIncomingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "incoming-calls",
                     str(test_file),
                     "0",
@@ -122,6 +123,7 @@ class TestIncomingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "incoming-calls",
                     str(test_file),
                     "0",
@@ -146,7 +148,7 @@ class TestIncomingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -167,7 +169,7 @@ class TestIncomingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "incoming-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -186,6 +188,7 @@ class TestIncomingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "incoming-calls",
                     str(test_file),
                     "0",
@@ -211,6 +214,7 @@ class TestIncomingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "incoming-calls",
                     str(test_file),
                     "0",
@@ -272,7 +276,7 @@ class TestOutgoingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -292,7 +296,7 @@ class TestOutgoingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -313,6 +317,7 @@ class TestOutgoingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "outgoing-calls",
                     str(test_file),
                     "0",
@@ -340,7 +345,7 @@ class TestOutgoingCallsCommand:
 
             result = runner.invoke(
                 app,
-                ["outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
+                ["lsp", "outgoing-calls", str(test_file), "0", "4", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -359,6 +364,7 @@ class TestOutgoingCallsCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "outgoing-calls",
                     str(test_file),
                     "0",
@@ -401,7 +407,7 @@ class TestCallHierarchyCommandsPosition:
 
             result = runner.invoke(
                 app,
-                ["incoming-calls", str(test_file), "10", "5", "-w", str(tmp_path)],
+                ["lsp", "incoming-calls", str(test_file), "10", "5", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0
@@ -424,7 +430,7 @@ class TestCallHierarchyCommandsPosition:
 
             result = runner.invoke(
                 app,
-                ["outgoing-calls", str(test_file), "10", "5", "-w", str(tmp_path)],
+                ["lsp", "outgoing-calls", str(test_file), "10", "5", "-w", str(tmp_path)],
             )
 
         assert result.exit_code == 0

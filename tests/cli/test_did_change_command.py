@@ -59,6 +59,7 @@ class TestDidChangeCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "did-change",
                     str(temp_python_file),
                     "--workspace", str(temp_workspace),
@@ -82,6 +83,7 @@ class TestDidChangeCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "did-change",
                     str(temp_python_file),
                     "--workspace", str(temp_workspace),
@@ -106,6 +108,7 @@ class TestDidChangeCommand:
         result = runner.invoke(
             app,
             [
+                "lsp",
                 "did-change",
                 str(non_existent),
                 "--workspace", str(temp_workspace),
@@ -135,6 +138,7 @@ class TestDidChangeCommand:
         result = runner.invoke(
             app,
             [
+                "lsp",
                 "did-change",
                 str(outside_file),
                 "--workspace", str(temp_workspace),
@@ -164,6 +168,7 @@ class TestDidChangeCommand:
                 result = runner.invoke(
                     app,
                     [
+                        "lsp",
                         "did-change",
                         temp_python_file.name,
                     ],
@@ -189,6 +194,7 @@ class TestDidChangeCommand:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "did-change",
                     str(py_file),
                     "--workspace", str(temp_workspace),

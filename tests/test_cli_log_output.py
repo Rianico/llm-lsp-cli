@@ -58,7 +58,7 @@ def _invoke_start(args: list[str], mock_instance: MagicMock) -> Any:
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
-        return runner.invoke(app, ["start", *args])
+        return runner.invoke(app, ["daemon", "start", *args])
 
 
 def _invoke_stop(args: list[str], mock_instance: MagicMock) -> Any:
@@ -67,7 +67,7 @@ def _invoke_stop(args: list[str], mock_instance: MagicMock) -> Any:
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
-        return runner.invoke(app, ["stop", *args])
+        return runner.invoke(app, ["daemon", "stop", *args])
 
 
 def _invoke_restart(args: list[str], mock_instance: MagicMock) -> Any:
@@ -76,7 +76,7 @@ def _invoke_restart(args: list[str], mock_instance: MagicMock) -> Any:
 
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
-        return runner.invoke(app, ["restart", *args])
+        return runner.invoke(app, ["daemon", "restart", *args])
 
 
 # =============================================================================

@@ -178,7 +178,7 @@ class TestDepthCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "-o", "json"],
+                ["lsp", "workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -211,7 +211,7 @@ class TestDepthCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "-1", "-o", "json"],
+                ["lsp", "workspace-symbol", "query", "-w", "/tmp", "--depth", "-1", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -245,7 +245,7 @@ class TestDepthCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "0", "-o", "json"],
+                ["lsp", "workspace-symbol", "query", "-w", "/tmp", "--depth", "0", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -298,7 +298,7 @@ class TestDepthCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "--include-tests", "-o", "json"],
+                ["lsp", "workspace-symbol", "query", "-w", "/tmp", "--depth", "1", "--include-tests", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -384,7 +384,7 @@ class TestDepthCLIEdgeCases:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file), "-w", str(tmp_path), "--depth", "1", "-o", "json"],
+                ["lsp", "document-symbol", str(test_file), "-w", str(tmp_path), "--depth", "1", "-o", "json"],
             )
 
             assert result.exit_code == 0

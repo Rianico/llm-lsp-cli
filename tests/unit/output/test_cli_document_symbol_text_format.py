@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from llm_lsp_cli.cli import OutputFormat, RequestContext, app
+from llm_lsp_cli.cli import app
+from llm_lsp_cli.commands.shared import OutputFormat, RequestContext
 
 runner = CliRunner()
 
@@ -105,25 +106,32 @@ class TestDocumentSymbolTextFormat:
         self, mock_document_symbol_response: dict, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """TEXT format must use tree connectors (|-- and `--) per ADR-0014."""
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
-        # Mock _build_request_context to return a valid context
+        # Mock build_request_context to return a valid context
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(),
         )
 
-        # Mock _send_request to return the test data
+        # Mock send_request to return the test data
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: mock_document_symbol_response,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "text"],
+            ["lsp", "document-symbol", "test.py", "--format", "text"],
             catch_exceptions=False,
         )
 
@@ -136,23 +144,30 @@ class TestDocumentSymbolTextFormat:
         self, mock_document_symbol_response: dict, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """TEXT format must show nested children with continuation prefix."""
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: mock_document_symbol_response,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "text"],
+            ["lsp", "document-symbol", "test.py", "--format", "text"],
             catch_exceptions=False,
         )
 
@@ -166,7 +181,7 @@ class TestDocumentSymbolTextFormat:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """CLI --depth parameter must pass through to transform_symbols."""
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         # 3-level nested structure
         three_level_response = {
@@ -203,21 +218,28 @@ class TestDocumentSymbolTextFormat:
         }
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: three_level_response,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         # With depth=1, grandchildren should NOT appear
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "text", "--depth", "1"],
+            ["lsp", "document-symbol", "test.py", "--format", "text", "--depth", "1"],
             catch_exceptions=False,
         )
 
@@ -228,23 +250,30 @@ class TestDocumentSymbolTextFormat:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Empty symbol list should render 'No symbols found.' message."""
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: {"symbols": []},
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "text"],
+            ["lsp", "document-symbol", "test.py", "--format", "text"],
             catch_exceptions=False,
         )
 
@@ -276,23 +305,30 @@ class TestDocumentSymbolOtherFormats:
         """JSON format should use CompactFormatter with file field."""
         import json
 
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(output_format=OutputFormat.JSON),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: mock_symbols,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "json"],
+            ["lsp", "document-symbol", "test.py", "--format", "json"],
             catch_exceptions=False,
         )
 
@@ -308,23 +344,30 @@ class TestDocumentSymbolOtherFormats:
         """YAML format should use CompactFormatter."""
         import yaml
 
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(output_format=OutputFormat.YAML),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: mock_symbols,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "yaml"],
+            ["lsp", "document-symbol", "test.py", "--format", "yaml"],
             catch_exceptions=False,
         )
 
@@ -337,23 +380,30 @@ class TestDocumentSymbolOtherFormats:
         self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """CSV format should use CompactFormatter with headers."""
-        from llm_lsp_cli import cli
+        from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
-            cli,
-            "_build_request_context",
+            lsp,
+            "build_request_context",
             lambda *args, **kwargs: make_mock_context(output_format=OutputFormat.CSV),
         )
 
         monkeypatch.setattr(
-            cli,
-            "_send_request",
+            lsp,
+            "send_request",
             lambda *args, **kwargs: mock_symbols,
+        )
+
+        # Mock validate_file_in_workspace to skip file validation
+        monkeypatch.setattr(
+            lsp,
+            "validate_file_in_workspace",
+            lambda *args, **kwargs: Path("test.py"),
         )
 
         result = runner.invoke(
             app,
-            ["document-symbol", "test.py", "--format", "csv"],
+            ["lsp", "document-symbol", "test.py", "--format", "csv"],
             catch_exceptions=False,
         )
 

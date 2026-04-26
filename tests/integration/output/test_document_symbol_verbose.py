@@ -54,7 +54,7 @@ class TestDocumentSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "-o", "json"],
+                ["lsp", "document-symbol", str(test_file_in_workspace), "-w", workspace, "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -87,6 +87,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -130,6 +131,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -173,6 +175,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -211,6 +214,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -249,6 +253,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -288,6 +293,7 @@ class TestDocumentSymbolDepth:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "document-symbol",
                     str(test_file_in_workspace),
                     "-w",
@@ -327,7 +333,7 @@ class TestDocumentSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(nonexistent_file), "-w", workspace, "--depth", "1", "-o", "json"],
+                ["lsp", "document-symbol", str(nonexistent_file), "-w", workspace, "--depth", "1", "-o", "json"],
             )
 
             # Should handle gracefully (either exit 0 with empty or exit 1 with error)
@@ -370,7 +376,7 @@ class TestDocumentSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "--depth", "0", "-o", "json"],
+                ["lsp", "document-symbol", str(test_file_in_workspace), "-w", workspace, "--depth", "0", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -423,7 +429,7 @@ class TestDocumentSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["document-symbol", str(test_file_in_workspace), "-w", workspace, "--depth", "-1", "-o", "json"],
+                ["lsp", "document-symbol", str(test_file_in_workspace), "-w", workspace, "--depth", "-1", "-o", "json"],
             )
 
             assert result.exit_code == 0

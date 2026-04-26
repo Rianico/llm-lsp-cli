@@ -79,14 +79,14 @@ def mock_daemon_not_running() -> Generator[MagicMock, None, None]:
 @pytest.fixture
 def mock_send_request() -> Generator[MagicMock, None, None]:
     """Fixture that mocks _send_request and returns the mock."""
-    with patch("llm_lsp_cli.cli._send_request") as mock:
+    with patch("llm_lsp_cli.commands.lsp.send_request") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_validate_file() -> Generator[MagicMock, None, None]:
     """Fixture that mocks _validate_file_in_workspace and returns the mock."""
-    with patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock:
+    with patch("llm_lsp_cli.commands.shared.validate_file_in_workspace") as mock:
         mock.return_value = Path("/tmp/test.py")
         yield mock
 
@@ -179,8 +179,9 @@ def test_cli_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "llm-lsp-cli" in result.output
-    assert "definition" in result.output
-    assert "references" in result.output
+    assert "daemon" in result.output
+    assert "lsp" in result.output
+    assert "config" in result.output
 
 
 def test_cli_version() -> None:
@@ -201,7 +202,7 @@ def test_cli_start() -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["start"])
+        result = runner.invoke(app, ["daemon", "start"])
         assert result.exit_code == 0
 
 
@@ -214,7 +215,7 @@ def test_start_command_has_diagnostic_log_flag() -> None:
     """Test that --diagnostic-log flag appears in start --help output."""
     from llm_lsp_cli.cli import app
 
-    result = runner.invoke(app, ["start", "--help"])
+    result = runner.invoke(app, ["daemon", "start", "--help"])
     assert result.exit_code == 0
     assert "--diagnostic-log" in result.output
 
@@ -229,7 +230,7 @@ def test_diagnostic_log_flag_parsed_when_present(temp_dir: Path) -> None:
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(
-            app, ["start", "--diagnostic-log", "--workspace", str(temp_dir)]
+            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir)]
         )
         assert result.exit_code == 0
 
@@ -243,7 +244,7 @@ def test_diagnostic_log_flag_default_false(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["start", "--workspace", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir)])
         assert result.exit_code == 0
 
 
@@ -257,7 +258,7 @@ def test_diagnostic_log_flag_passed_to_daemon_manager(temp_dir: Path) -> None:
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(
-            app, ["start", "--diagnostic-log", "--workspace", str(temp_dir)]
+            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir)]
         )
         assert result.exit_code == 0
 
@@ -275,7 +276,7 @@ def test_diagnostic_log_flag_not_passed_when_omitted(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["start", "--workspace", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir)])
         assert result.exit_code == 0
 
 
@@ -290,7 +291,7 @@ def test_cli_stop() -> None:
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["stop"])
+        result = runner.invoke(app, ["daemon", "stop"])
         assert result.exit_code == 0
 
 
@@ -305,7 +306,7 @@ def test_cli_status() -> None:
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["status"])
+        result = runner.invoke(app, ["daemon", "status"])
         assert result.exit_code == 0
         assert "Daemon" in result.output
 
@@ -345,7 +346,7 @@ def test_cli_definition_daemon_not_running() -> None:
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
         patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
-        patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock_validate,
+        patch("llm_lsp_cli.commands.shared.validate_file_in_workspace") as mock_validate,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = False
@@ -360,7 +361,7 @@ def test_cli_definition_daemon_not_running() -> None:
         # Mock file validation to return a valid path
         mock_validate.return_value = Path("/tmp/test.py")
 
-        result = runner.invoke(app, ["definition", "test.py", "10", "5"])
+        result = runner.invoke(app, ["lsp", "definition", "test.py", "10", "5"])
         # Auto-start should succeed (exit code 0) and return JSON
         assert result.exit_code == 0
 
@@ -374,7 +375,7 @@ def test_cli_definition_file_not_found() -> None:
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["definition", "nonexistent/file.py", "10", "5"])
+        result = runner.invoke(app, ["lsp", "definition", "nonexistent/file.py", "10", "5"])
         assert result.exit_code == 1
         assert "File not found" in result.output
 
@@ -386,7 +387,7 @@ def test_cli_references_daemon_not_running() -> None:
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
         patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
-        patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock_validate,
+        patch("llm_lsp_cli.commands.shared.validate_file_in_workspace") as mock_validate,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = False
@@ -401,7 +402,7 @@ def test_cli_references_daemon_not_running() -> None:
         # Mock file validation to return a valid path
         mock_validate.return_value = Path("/tmp/test.py")
 
-        result = runner.invoke(app, ["references", "test.py", "10", "5"])
+        result = runner.invoke(app, ["lsp", "references", "test.py", "10", "5"])
         # Auto-start should succeed (exit code 0) and return JSON
         assert result.exit_code == 0
 
@@ -413,7 +414,7 @@ def test_cli_hover_daemon_not_running() -> None:
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
         patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
-        patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock_validate,
+        patch("llm_lsp_cli.commands.shared.validate_file_in_workspace") as mock_validate,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = False
@@ -428,7 +429,7 @@ def test_cli_hover_daemon_not_running() -> None:
         # Mock file validation to return a valid path
         mock_validate.return_value = Path("/tmp/test.py")
 
-        result = runner.invoke(app, ["hover", "test.py", "10", "5"])
+        result = runner.invoke(app, ["lsp", "hover", "test.py", "10", "5"])
         # Auto-start should succeed (exit code 0) and return JSON
         assert result.exit_code == 0
 
@@ -440,7 +441,7 @@ def test_cli_document_symbol_daemon_not_running() -> None:
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
         patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_client_class,
-        patch("llm_lsp_cli.cli._validate_file_in_workspace") as mock_validate,
+        patch("llm_lsp_cli.commands.shared.validate_file_in_workspace") as mock_validate,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = False
@@ -455,7 +456,7 @@ def test_cli_document_symbol_daemon_not_running() -> None:
         # Mock file validation to return a valid path
         mock_validate.return_value = Path("/tmp/test.py")
 
-        result = runner.invoke(app, ["document-symbol", "test.py"])
+        result = runner.invoke(app, ["lsp", "document-symbol", "test.py"])
         # Auto-start should succeed (exit code 0) and return JSON
         assert result.exit_code == 0
 
@@ -478,7 +479,7 @@ def test_cli_workspace_symbol_daemon_not_running() -> None:
         mock_client.close = AsyncMock()
         mock_client_class.return_value = mock_client
 
-        result = runner.invoke(app, ["workspace-symbol", "MyClass"])
+        result = runner.invoke(app, ["lsp", "workspace-symbol", "MyClass"])
         # Auto-start should succeed (exit code 0) and return JSON
         assert result.exit_code == 0
 
@@ -495,7 +496,7 @@ def test_cli_start_auto_detect_language(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["start", "-w", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "start", "-w", str(temp_dir)])
         assert result.exit_code == 0
         assert "[START] Detected language: rust" in result.stderr
         # Verify DaemonManager received detected language
@@ -512,7 +513,7 @@ def test_cli_start_explicit_language_override() -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["start", "-l", "rust"])
+        result = runner.invoke(app, ["daemon", "start", "-l", "rust"])
         assert result.exit_code == 0
         # Verify explicit language was passed
         call_kwargs = mock_manager.call_args.kwargs
@@ -531,7 +532,7 @@ def test_cli_stop_auto_detect_language(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["stop", "-w", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "stop", "-w", str(temp_dir)])
         assert result.exit_code == 0
         # Verify DaemonManager received detected language
         call_kwargs = mock_manager.call_args.kwargs
@@ -550,7 +551,7 @@ def test_cli_restart_auto_detect_language(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["restart", "-w", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "restart", "-w", str(temp_dir)])
         assert result.exit_code == 0
         # Verify DaemonManager received detected language
         call_kwargs = mock_manager.call_args.kwargs
@@ -570,7 +571,7 @@ def test_cli_status_auto_detect_language(temp_dir: Path) -> None:
         mock_instance.get_pid.return_value = 12345
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["status", "-w", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "status", "-w", str(temp_dir)])
         assert result.exit_code == 0
         assert "Language: typescript" in result.output
         # Verify DaemonManager received detected language
@@ -589,7 +590,7 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -599,7 +600,7 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["definition", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
+            ["lsp", "definition", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -617,7 +618,7 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -627,7 +628,7 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["references", str(temp_file), "10", "5", "-o", "yaml", "-w", workspace],
+            ["lsp", "references", str(temp_file), "10", "5", "-o", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -645,7 +646,7 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -655,7 +656,7 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["completion", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
+            ["lsp", "completion", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -677,7 +678,7 @@ def test_cli_hover_yaml_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -687,7 +688,7 @@ def test_cli_hover_yaml_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["hover", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
+            ["lsp", "hover", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -706,7 +707,7 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -716,7 +717,7 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["document-symbol", str(temp_file), "--format", "yaml", "-w", workspace],
+            ["lsp", "document-symbol", str(temp_file), "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -736,7 +737,7 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -746,7 +747,7 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         workspace = str(temp_dir)
         result = runner.invoke(
             app,
-            ["workspace-symbol", "MyClass", "--format", "yaml", "-w", workspace],
+            ["lsp", "workspace-symbol", "MyClass", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -766,7 +767,7 @@ def test_cli_format_explicit_text(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -776,7 +777,7 @@ def test_cli_format_explicit_text(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         # Test with explicit text format
         result = runner.invoke(
-            app, ["definition", str(temp_file), "10", "5", "--format", "text", "-w", workspace]
+            app, ["lsp", "definition", str(temp_file), "10", "5", "--format", "text", "-w", workspace]
         )
         assert result.exit_code == 0
         # Text output should contain formatted path with full range
@@ -795,7 +796,7 @@ def test_cli_format_invalid_option(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["definition", str(temp_file), "10", "5", "--format", "xml", "-w", workspace],
+            ["lsp", "definition", str(temp_file), "10", "5", "--format", "xml", "-w", workspace],
         )
         # Should fail because 'xml' is not a valid format
         assert result.exit_code != 0
@@ -838,7 +839,7 @@ def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -848,7 +849,7 @@ def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["completion", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
+            ["lsp", "completion", str(temp_file), "10", "5", "--format", "yaml", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -898,7 +899,7 @@ def test_cli_definition_json_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -908,7 +909,7 @@ def test_cli_definition_json_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["definition", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+            ["lsp", "definition", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -947,7 +948,7 @@ def test_cli_references_json_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -957,7 +958,7 @@ def test_cli_references_json_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["references", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+            ["lsp", "references", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -998,7 +999,7 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1008,7 +1009,7 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["completion", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+            ["lsp", "completion", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -1043,7 +1044,7 @@ def test_cli_hover_json_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1053,7 +1054,7 @@ def test_cli_hover_json_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["hover", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+            ["lsp", "hover", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -1091,7 +1092,7 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1101,7 +1102,7 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["document-symbol", str(temp_file), "--format", "json", "-w", workspace],
+            ["lsp", "document-symbol", str(temp_file), "--format", "json", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -1148,7 +1149,7 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1156,7 +1157,7 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
         mock_send.return_value = mock_response
 
         result = runner.invoke(
-            app, ["workspace-symbol", "My", "--format", "json", "-w", str(temp_dir)]
+            app, ["lsp", "workspace-symbol", "My", "--format", "json", "-w", str(temp_dir)]
         )
         assert result.exit_code == 0
 
@@ -1193,7 +1194,7 @@ def test_cli_definition_text_format_shows_full_range(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1203,7 +1204,7 @@ def test_cli_definition_text_format_shows_full_range(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["definition", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
+            ["lsp", "definition", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
         # Text format should show full range: start-end (e.g., "11:5-11:21" with 1-based positions)
@@ -1234,7 +1235,7 @@ def test_cli_references_text_format_shows_full_range(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1244,7 +1245,7 @@ def test_cli_references_text_format_shows_full_range(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["references", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
+            ["lsp", "references", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
         # Should show full range information
@@ -1275,7 +1276,7 @@ def test_cli_completion_text_format_includes_range(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1285,7 +1286,7 @@ def test_cli_completion_text_format_includes_range(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["completion", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
+            ["lsp", "completion", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
         # Text format should include range info from textEdit
@@ -1312,7 +1313,7 @@ def test_cli_hover_text_format_includes_range(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1322,7 +1323,7 @@ def test_cli_hover_text_format_includes_range(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["hover", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
+            ["lsp", "hover", str(temp_file), "10", "5", "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
         # Should show hover content
@@ -1349,7 +1350,7 @@ def test_cli_document_symbol_text_format_shows_full_range(temp_file: Path) -> No
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1359,7 +1360,7 @@ def test_cli_document_symbol_text_format_shows_full_range(temp_file: Path) -> No
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["document-symbol", str(temp_file), "--format", "text", "-w", workspace],
+            ["lsp", "document-symbol", str(temp_file), "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
         # Should show full range (start-end), not just start position
@@ -1392,7 +1393,7 @@ def test_cli_workspace_symbol_text_format_includes_range(temp_dir: Path) -> None
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1401,7 +1402,7 @@ def test_cli_workspace_symbol_text_format_includes_range(temp_dir: Path) -> None
 
         result = runner.invoke(
             app,
-            ["workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
         )
         assert result.exit_code == 0
         # Should include range information from location
@@ -1433,7 +1434,7 @@ def test_cli_default_format_is_json(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1442,7 +1443,7 @@ def test_cli_default_format_is_json(temp_file: Path) -> None:
 
         workspace = str(temp_file.parent)
         # Test without --format option (should default to JSON)
-        result = runner.invoke(app, ["definition", str(temp_file), "10", "5", "-w", workspace])
+        result = runner.invoke(app, ["lsp", "definition", str(temp_file), "10", "5", "-w", workspace])
         assert result.exit_code == 0
 
         # Output should be valid JSON (not text format)
@@ -1514,7 +1515,7 @@ def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1524,7 +1525,7 @@ def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
         workspace = str(temp_file.parent)
         result = runner.invoke(
             app,
-            ["document-symbol", str(temp_file), "--format", "text", "-w", workspace],
+            ["lsp", "document-symbol", str(temp_file), "--format", "text", "-w", workspace],
         )
         assert result.exit_code == 0
 
@@ -1584,7 +1585,7 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1593,7 +1594,7 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
 
         result = runner.invoke(
             app,
-            ["workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
         )
         assert result.exit_code == 0
 
@@ -1656,7 +1657,7 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1668,7 +1669,7 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
         # Test without --include-tests (should filter out test locations)
         result = runner.invoke(
             app,
-            ["references", str(temp_file), "10", "5", "-w", workspace],
+            ["lsp", "references", str(temp_file), "10", "5", "-w", workspace],
         )
         assert result.exit_code == 0
         # Without flag, test locations should be filtered
@@ -1685,7 +1686,7 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1697,7 +1698,7 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
         # Test with --include-tests (should include all locations)
         result = runner.invoke(
             app,
-            ["references", str(temp_file), "10", "5", "--include-tests", "-w", workspace],
+            ["lsp", "references", str(temp_file), "10", "5", "--include-tests", "-w", workspace],
         )
         assert result.exit_code == 0
         # With flag, all locations should be included
@@ -1713,7 +1714,7 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1723,7 +1724,7 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
         # Test without --include-tests (should filter out test symbols)
         result = runner.invoke(
             app,
-            ["workspace-symbol", "My", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "-w", str(temp_dir)],
         )
         assert result.exit_code == 0
         # Without flag, test symbols should be filtered
@@ -1740,7 +1741,7 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1750,7 +1751,7 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
         # Test with --include-tests (should include all symbols)
         result = runner.invoke(
             app,
-            ["workspace-symbol", "My", "--include-tests", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--include-tests", "-w", str(temp_dir)],
         )
         assert result.exit_code == 0
         # With flag, all symbols should be included
@@ -1768,7 +1769,7 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1779,6 +1780,7 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
         result = runner.invoke(
             app,
             [
+                "lsp",
                 "references",
                 str(temp_file),
                 "10",
@@ -1806,7 +1808,7 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-        patch("llm_lsp_cli.cli._send_request") as mock_send,
+        patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
     ):
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
@@ -1816,6 +1818,7 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
         result = runner.invoke(
             app,
             [
+                "lsp",
                 "workspace-symbol",
                 "My",
                 "--format",
@@ -1847,7 +1850,7 @@ class TestDefinitionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1857,7 +1860,7 @@ class TestDefinitionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -1873,7 +1876,7 @@ class TestDefinitionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1883,7 +1886,7 @@ class TestDefinitionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -1897,7 +1900,7 @@ class TestDefinitionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1907,7 +1910,7 @@ class TestDefinitionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -1924,7 +1927,7 @@ class TestReferencesCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1934,7 +1937,7 @@ class TestReferencesCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -1950,7 +1953,7 @@ class TestReferencesCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1960,7 +1963,7 @@ class TestReferencesCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -1978,7 +1981,7 @@ class TestCompletionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1988,7 +1991,7 @@ class TestCompletionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2003,7 +2006,7 @@ class TestCompletionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2013,7 +2016,7 @@ class TestCompletionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2031,7 +2034,7 @@ class TestCompletionCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2041,7 +2044,7 @@ class TestCompletionCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2063,7 +2066,7 @@ class TestHoverCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2073,7 +2076,7 @@ class TestHoverCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2086,7 +2089,7 @@ class TestHoverCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2096,7 +2099,7 @@ class TestHoverCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2113,7 +2116,7 @@ class TestDocumentSymbolCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2123,7 +2126,7 @@ class TestDocumentSymbolCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2137,7 +2140,7 @@ class TestDocumentSymbolCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2147,7 +2150,7 @@ class TestDocumentSymbolCsvOutput:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2166,7 +2169,7 @@ class TestWorkspaceSymbolCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2175,7 +2178,7 @@ class TestWorkspaceSymbolCsvOutput:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
             )
             assert result.exit_code == 0
 
@@ -2189,7 +2192,7 @@ class TestWorkspaceSymbolCsvOutput:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2198,7 +2201,7 @@ class TestWorkspaceSymbolCsvOutput:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
             )
             assert result.exit_code == 0
 
@@ -2216,7 +2219,7 @@ class TestCsvFormatOption:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2226,7 +2229,7 @@ class TestCsvFormatOption:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             # Should not fail due to format option parsing
             assert result.exit_code == 0
@@ -2237,7 +2240,7 @@ class TestCsvFormatOption:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -2247,7 +2250,7 @@ class TestCsvFormatOption:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "-o", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "-o", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -2255,7 +2258,7 @@ class TestCsvFormatOption:
         """Test --help includes csv in format options."""
         from llm_lsp_cli.cli import app
 
-        result = runner.invoke(app, ["definition", "--help"])
+        result = runner.invoke(app, ["lsp", "definition", "--help"])
         assert result.exit_code == 0
 
         # Help text should mention csv as a valid format
@@ -2272,7 +2275,7 @@ def test_restart_debug_flag_present_in_help() -> None:
     """Test that the --debug flag appears in restart --help output."""
     from llm_lsp_cli.cli import app
 
-    result = runner.invoke(app, ["restart", "--help"])
+    result = runner.invoke(app, ["daemon", "restart", "--help"])
     assert result.exit_code == 0
     # Flag should be present
     assert "--debug" in result.output or "-d" in result.output
@@ -2290,7 +2293,7 @@ def test_restart_debug_flag_passed_to_daemon_manager() -> None:
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["restart", "--debug"])
+        result = runner.invoke(app, ["daemon", "restart", "--debug"])
         assert result.exit_code == 0
 
         # Verify DaemonManager constructor received debug=True
@@ -2308,7 +2311,7 @@ def test_restart_without_debug_flag_default_false() -> None:
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["restart"])
+        result = runner.invoke(app, ["daemon", "restart"])
         assert result.exit_code == 0
 
         # Verify DaemonManager constructor received debug=False (default)
@@ -2326,7 +2329,7 @@ def test_restart_debug_short_flag() -> None:
     with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["restart", "-d"])
+        result = runner.invoke(app, ["daemon", "restart", "-d"])
         assert result.exit_code == 0
 
         # Verify DaemonManager constructor received debug=True
@@ -2345,12 +2348,13 @@ def test_restart_debug_with_other_options() -> None:
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(
-            app, ["restart", "--debug", "--workspace", "/tmp", "--language", "python"]
+            app, ["daemon", "restart", "--debug", "--workspace", "/tmp", "--language", "python"]
         )
         assert result.exit_code == 0
 
         # Verify DaemonManager constructor received debug=True and other options
         call_kwargs = mock_manager.call_args.kwargs
         assert call_kwargs["debug"] is True
-        assert call_kwargs["workspace_path"] == "/tmp"
+        # On macOS, /tmp is a symlink to /private/tmp, so we need to resolve
+        assert call_kwargs["workspace_path"] in ["/tmp", "/private/tmp"]
         assert call_kwargs["language"] == "python"

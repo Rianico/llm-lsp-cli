@@ -11,7 +11,7 @@ class TestRestartDebugIntegration:
 
     def test_restart_debug_flag_in_help_output(self) -> None:
         """Test that --debug flag appears in restart --help output."""
-        result = runner.invoke(app, ["restart", "--help"])
+        result = runner.invoke(app, ["daemon", "restart", "--help"])
         assert result.exit_code == 0
         # Flag should be present with both long and short forms
         assert "--debug" in result.output
@@ -28,7 +28,7 @@ class TestRestartDebugIntegration:
         mock_instance.get_pid.return_value = 12345
 
         with patch("llm_lsp_cli.daemon.DaemonManager", return_value=mock_instance):
-            result = runner.invoke(app, ["restart", "--debug"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug"])
             assert result.exit_code == 0
             # Verify the command executed successfully with debug flag
             assert "RESTART" in result.output
@@ -42,7 +42,7 @@ class TestRestartDebugIntegration:
         mock_instance.get_pid.return_value = 12345
 
         with patch("llm_lsp_cli.daemon.DaemonManager", return_value=mock_instance):
-            result = runner.invoke(app, ["restart", "-d"])
+            result = runner.invoke(app, ["daemon", "restart", "-d"])
             assert result.exit_code == 0
             assert "RESTART" in result.output
 
@@ -53,7 +53,7 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["restart", "--debug"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug"])
             assert result.exit_code == 0
 
             # Verify debug=True was passed
@@ -67,7 +67,7 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["restart"])
+            result = runner.invoke(app, ["daemon", "restart"])
             assert result.exit_code == 0
 
             # Verify debug=False was passed by default
@@ -81,12 +81,13 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["restart", "--debug", "--workspace", "/tmp"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp"])
             assert result.exit_code == 0
 
             call_kwargs = mock_manager.call_args.kwargs
             assert call_kwargs["debug"] is True
-            assert call_kwargs["workspace_path"] == "/tmp"
+            # Path is resolved, so /tmp may become /private/tmp on macOS
+            assert call_kwargs["workspace_path"].endswith("/tmp")
 
     def test_restart_debug_with_language_flag(self) -> None:
         """Test that --debug works in combination with --language."""
@@ -95,7 +96,7 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["restart", "--debug", "--language", "python"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug", "--language", "python"])
             assert result.exit_code == 0
 
             call_kwargs = mock_manager.call_args.kwargs
@@ -111,20 +112,21 @@ class TestRestartDebugIntegration:
             mock_manager.return_value = mock_instance
             result = runner.invoke(
                 app,
-                ["restart", "--debug", "--workspace", "/tmp", "--language", "python"],
+                ["daemon", "restart", "--debug", "--workspace", "/tmp", "--language", "python"],
             )
             assert result.exit_code == 0
 
             call_kwargs = mock_manager.call_args.kwargs
             assert call_kwargs["debug"] is True
-            assert call_kwargs["workspace_path"] == "/tmp"
+            # Path is resolved, so /tmp may become /private/tmp on macOS
+            assert call_kwargs["workspace_path"].endswith("/tmp")
             assert call_kwargs["language"] == "python"
 
     def test_restart_debug_consistency_with_start(self) -> None:
         """Test that restart --debug has the same flag signature as start --debug."""
         # Get help output for both commands
-        restart_help = runner.invoke(app, ["restart", "--help"])
-        start_help = runner.invoke(app, ["start", "--help"])
+        restart_help = runner.invoke(app, ["daemon", "restart", "--help"])
+        start_help = runner.invoke(app, ["daemon", "start", "--help"])
 
         assert restart_help.exit_code == 0
         assert start_help.exit_code == 0
@@ -148,7 +150,7 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["restart", "--debug"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug"])
             assert result.exit_code == 0
 
             # Verify the mock was called with debug=True
@@ -170,12 +172,12 @@ class TestRestartDebugEdgeCases:
             mock_manager.return_value = mock_instance
 
             # Test --debug before other flags
-            result1 = runner.invoke(app, ["restart", "--debug", "--workspace", "/tmp"])
+            result1 = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp"])
             assert result1.exit_code == 0
             assert mock_manager.call_args.kwargs["debug"] is True
 
             # Test --debug after other flags
-            result2 = runner.invoke(app, ["restart", "--workspace", "/tmp", "--debug"])
+            result2 = runner.invoke(app, ["daemon", "restart", "--workspace", "/tmp", "--debug"])
             assert result2.exit_code == 0
             assert mock_manager.call_args.kwargs["debug"] is True
 
@@ -189,7 +191,7 @@ class TestRestartDebugEdgeCases:
 
             # Invoke multiple times
             for _ in range(3):
-                result = runner.invoke(app, ["restart", "--debug"])
+                result = runner.invoke(app, ["daemon", "restart", "--debug"])
                 assert result.exit_code == 0
 
     def test_restart_short_and_long_debug_flags_equivalent(self) -> None:
@@ -201,12 +203,12 @@ class TestRestartDebugEdgeCases:
             mock_manager.return_value = mock_instance
 
             # Test long flag
-            result_long = runner.invoke(app, ["restart", "--debug"])
+            result_long = runner.invoke(app, ["daemon", "restart", "--debug"])
             assert result_long.exit_code == 0
             long_debug = mock_manager.call_args.kwargs["debug"]
 
             # Test short flag
-            result_short = runner.invoke(app, ["restart", "-d"])
+            result_short = runner.invoke(app, ["daemon", "restart", "-d"])
             assert result_short.exit_code == 0
             short_debug = mock_manager.call_args.kwargs["debug"]
 
@@ -224,6 +226,6 @@ class TestRestartDebugEdgeCases:
             mock_manager.return_value = mock_instance
 
             # Should handle gracefully (may exit with 0 or error message)
-            result = runner.invoke(app, ["restart", "--debug", "--workspace", "/nonexistent"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/nonexistent"])
             # The command should not crash - either success or graceful error
             assert result.exit_code in (0, 1)

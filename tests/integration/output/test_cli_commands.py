@@ -65,7 +65,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "text"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "text"]
             )
 
             # Note: Current format is verbose (pre-CompactFormatter)
@@ -92,7 +92,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"]
             )
 
             assert result.exit_code == 0
@@ -123,7 +123,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "yaml"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "yaml"]
             )
 
             assert result.exit_code == 0
@@ -154,7 +154,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "csv"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "csv"]
             )
 
             assert result.exit_code == 0
@@ -181,7 +181,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-o", "text"]
+                app, ["lsp", "workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-o", "text"]
             )
 
             assert result.exit_code == 0
@@ -236,7 +236,7 @@ class TestDocumentSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["document-symbol", "/tmp/test.py", "-o", "text"])
+            result = runner.invoke(app, ["lsp", "document-symbol", "/tmp/test.py", "-o", "text"])
 
             # Document-symbol may have different handling - check for any output
             assert result.exit_code in [0, 1]  # May fail if workspace not configured
@@ -259,7 +259,7 @@ class TestDocumentSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["document-symbol", "/tmp/test.py", "-o", "json"])
+            result = runner.invoke(app, ["lsp", "document-symbol", "/tmp/test.py", "-o", "json"])
 
             # Document-symbol may have different handling
             assert result.exit_code in [0, 1]
@@ -282,7 +282,7 @@ class TestDocumentSymbolCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["document-symbol", "/tmp/empty.py", "-o", "text"])
+            result = runner.invoke(app, ["lsp", "document-symbol", "/tmp/empty.py", "-o", "text"])
 
             # Document-symbol may have different handling
             assert result.exit_code in [0, 1]
@@ -329,7 +329,7 @@ class TestReferencesCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "text"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "text"])
 
             # References command may need additional setup
             assert result.exit_code in [0, 1]
@@ -352,7 +352,7 @@ class TestReferencesCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "json"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "json"])
 
             assert result.exit_code in [0, 1]
 
@@ -374,7 +374,7 @@ class TestReferencesCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "yaml"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "yaml"])
 
             assert result.exit_code in [0, 1]
 
@@ -396,7 +396,7 @@ class TestReferencesCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "csv"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "csv"])
 
             assert result.exit_code in [0, 1]
 
@@ -418,7 +418,7 @@ class TestReferencesCommand:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "text"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "text"])
 
             assert result.exit_code in [0, 1]
 
@@ -444,7 +444,7 @@ class TestOutputFormatOption:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "text"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "text"])
 
             # Command structure test - exit code may vary based on setup
             assert result.exit_code in [0, 1]
@@ -467,7 +467,7 @@ class TestOutputFormatOption:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "json"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "json"])
 
             assert result.exit_code in [0, 1]
 
@@ -489,7 +489,7 @@ class TestOutputFormatOption:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "yaml"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "yaml"])
 
             assert result.exit_code in [0, 1]
 
@@ -511,7 +511,7 @@ class TestOutputFormatOption:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5", "-o", "csv"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5", "-o", "csv"])
 
             assert result.exit_code in [0, 1]
 
@@ -533,6 +533,6 @@ class TestOutputFormatOption:
             mock_client.close = AsyncMock()
             mock_client_class.return_value = mock_client
 
-            result = runner.invoke(app, ["references", "/tmp/test.py", "10", "5"])
+            result = runner.invoke(app, ["lsp", "references", "/tmp/test.py", "10", "5"])
 
             assert result.exit_code in [0, 1]

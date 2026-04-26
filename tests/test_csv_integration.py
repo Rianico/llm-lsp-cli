@@ -78,7 +78,7 @@ class TestE2ECsvDefinition:
         """Test that definition CSV output can be parsed correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -88,7 +88,7 @@ class TestE2ECsvDefinition:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -104,7 +104,7 @@ class TestE2ECsvDefinition:
         """Test definition CSV with no results returns empty string."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -114,7 +114,7 @@ class TestE2ECsvDefinition:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
             # Empty results should produce empty output
@@ -137,7 +137,7 @@ class TestE2ECsvDefinition:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -147,7 +147,7 @@ class TestE2ECsvDefinition:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -165,7 +165,7 @@ class TestE2ECsvReferences:
         """Test that references CSV output parses correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -175,7 +175,7 @@ class TestE2ECsvReferences:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -191,7 +191,7 @@ class TestE2ECsvReferences:
         # Without --include-tests, test files should be filtered
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -200,7 +200,7 @@ class TestE2ECsvReferences:
 
             result = runner.invoke(
                 app,
-                ["references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
             rows = parse_csv_output(result.output)
@@ -211,7 +211,7 @@ class TestE2ECsvReferences:
         # With --include-tests, all files should be included
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -221,6 +221,7 @@ class TestE2ECsvReferences:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "references",
                     str(temp_file),
                     "10",
@@ -244,7 +245,7 @@ class TestE2ECsvCompletion:
         """Test completion CSV output parses correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -254,7 +255,7 @@ class TestE2ECsvCompletion:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -268,7 +269,7 @@ class TestE2ECsvCompletion:
         """Test completion CSV with no results."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -278,7 +279,7 @@ class TestE2ECsvCompletion:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
             assert result.output.strip() == ""
@@ -291,7 +292,7 @@ class TestE2ECsvHover:
         """Test hover CSV output parses correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -301,7 +302,7 @@ class TestE2ECsvHover:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -314,7 +315,7 @@ class TestE2ECsvHover:
         """Test hover CSV when no hover data available."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -324,7 +325,7 @@ class TestE2ECsvHover:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
             assert result.output.strip() == ""
@@ -337,7 +338,7 @@ class TestE2ECsvDocumentSymbol:
         """Test document-symbol CSV output parses correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -347,7 +348,7 @@ class TestE2ECsvDocumentSymbol:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -365,7 +366,7 @@ class TestE2ECsvWorkspaceSymbol:
         """Test workspace-symbol CSV output parses correctly."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -374,7 +375,7 @@ class TestE2ECsvWorkspaceSymbol:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
             )
             assert result.exit_code == 0
 
@@ -390,7 +391,7 @@ class TestE2ECsvWorkspaceSymbol:
         # Without --include-tests
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -399,7 +400,7 @@ class TestE2ECsvWorkspaceSymbol:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
             )
             assert result.exit_code == 0
             rows = parse_csv_output(result.output)
@@ -410,7 +411,7 @@ class TestE2ECsvWorkspaceSymbol:
         # With --include-tests
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -420,6 +421,7 @@ class TestE2ECsvWorkspaceSymbol:
             result = runner.invoke(
                 app,
                 [
+                    "lsp",
                     "workspace-symbol",
                     "My",
                     "--format",
@@ -446,7 +448,7 @@ class TestCsvEdgeCasesSpecialCharacters:
         """Test CSV escaping when URI contains comma."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -456,7 +458,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -468,7 +470,7 @@ class TestCsvEdgeCasesSpecialCharacters:
         """Test CSV escaping when URI contains double quotes."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -478,7 +480,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -490,7 +492,7 @@ class TestCsvEdgeCasesSpecialCharacters:
         """Test CSV escaping when detail contains comma."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -500,7 +502,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -523,7 +525,7 @@ class TestCsvEdgeCasesSpecialCharacters:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -533,7 +535,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -555,7 +557,7 @@ class TestCsvEdgeCasesSpecialCharacters:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -565,7 +567,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -591,7 +593,7 @@ class TestCsvEdgeCasesSpecialCharacters:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -601,7 +603,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -625,7 +627,7 @@ class TestCsvEdgeCasesEmptyAndNone:
         for command, response in empty_responses.items():
             with (
                 patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-                patch("llm_lsp_cli.cli._send_request") as mock_send,
+                patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
             ):
                 mock_instance = MagicMock()
                 mock_instance.is_running.return_value = True
@@ -636,12 +638,12 @@ class TestCsvEdgeCasesEmptyAndNone:
                 if command == "document-symbol":
                     result = runner.invoke(
                         app,
-                        [command, str(temp_file), "--format", "csv", "-w", workspace],
+                        ["lsp", command, str(temp_file), "--format", "csv", "-w", workspace],
                     )
                 else:
                     result = runner.invoke(
                         app,
-                        [command, str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                        ["lsp", command, str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
                     )
                 assert result.exit_code == 0
                 assert result.output.strip() == ""
@@ -652,7 +654,7 @@ class TestCsvEdgeCasesEmptyAndNone:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -662,7 +664,7 @@ class TestCsvEdgeCasesEmptyAndNone:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
             assert result.output.strip() == ""
@@ -673,7 +675,7 @@ class TestCsvEdgeCasesEmptyAndNone:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -683,7 +685,7 @@ class TestCsvEdgeCasesEmptyAndNone:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -713,7 +715,7 @@ class TestCsvEdgeCasesUnicode:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -723,7 +725,7 @@ class TestCsvEdgeCasesUnicode:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -746,7 +748,7 @@ class TestCsvEdgeCasesUnicode:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -756,7 +758,7 @@ class TestCsvEdgeCasesUnicode:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -781,7 +783,7 @@ class TestCsvEdgeCasesUnicode:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -791,7 +793,7 @@ class TestCsvEdgeCasesUnicode:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -818,7 +820,7 @@ class TestCsvEdgeCasesLargeResultSets:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -828,7 +830,7 @@ class TestCsvEdgeCasesLargeResultSets:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -854,7 +856,7 @@ class TestCsvEdgeCasesLargeResultSets:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -864,7 +866,7 @@ class TestCsvEdgeCasesLargeResultSets:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
 
@@ -891,7 +893,7 @@ class TestCsvEdgeCasesLargeResultSets:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -900,7 +902,7 @@ class TestCsvEdgeCasesLargeResultSets:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "Symbol", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "Symbol", "--format", "csv", "-w", str(temp_dir)],
             )
             assert result.exit_code == 0
 
@@ -932,7 +934,7 @@ class TestCsvPerformance:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -944,7 +946,7 @@ class TestCsvPerformance:
             start_time = time.perf_counter()
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             elapsed = time.perf_counter() - start_time
 
@@ -969,7 +971,7 @@ class TestCsvPerformance:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -981,7 +983,7 @@ class TestCsvPerformance:
             start_time = time.perf_counter()
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             elapsed = time.perf_counter() - start_time
 
@@ -1019,7 +1021,7 @@ class TestCsvCrossFormatConsistency:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1030,13 +1032,13 @@ class TestCsvCrossFormatConsistency:
 
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             csv_output = result.output
 
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
             )
             json_output = result.output
 
@@ -1070,7 +1072,7 @@ class TestCsvCrossFormatConsistency:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1081,13 +1083,13 @@ class TestCsvCrossFormatConsistency:
 
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             csv_output = result.output
 
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "json", "-w", workspace],
             )
             json_output = result.output
 
@@ -1127,7 +1129,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1137,7 +1139,7 @@ class TestCsvSchemaValidation:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "definition", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
 
             header = get_csv_header(result.output)
@@ -1160,7 +1162,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1170,7 +1172,7 @@ class TestCsvSchemaValidation:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "references", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
 
             header = get_csv_header(result.output)
@@ -1187,7 +1189,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1197,7 +1199,7 @@ class TestCsvSchemaValidation:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "completion", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
 
             header = get_csv_header(result.output)
@@ -1221,7 +1223,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1231,7 +1233,7 @@ class TestCsvSchemaValidation:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
+                ["lsp", "document-symbol", str(temp_file), "--format", "csv", "-w", workspace],
             )
 
             header = get_csv_header(result.output)
@@ -1259,7 +1261,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1268,7 +1270,7 @@ class TestCsvSchemaValidation:
 
             result = runner.invoke(
                 app,
-                ["workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
             )
 
             header = get_csv_header(result.output)
@@ -1290,7 +1292,7 @@ class TestCsvSchemaValidation:
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
-            patch("llm_lsp_cli.cli._send_request") as mock_send,
+            patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
         ):
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
@@ -1300,7 +1302,7 @@ class TestCsvSchemaValidation:
             workspace = str(temp_file.parent)
             result = runner.invoke(
                 app,
-                ["hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
+                ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
 
             header = get_csv_header(result.output)
