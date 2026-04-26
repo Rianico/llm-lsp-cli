@@ -359,6 +359,8 @@ class RequestHandler:
         LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
         LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: "calls",
         LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: "calls",
+        LSPConstants.PREPARE_RENAME: "prepare_rename",
+        LSPConstants.RENAME: "workspace_edit",
     }
 
     # Default values for common params
@@ -430,6 +432,8 @@ class RequestHandler:
             LSPConstants.WORKSPACE_DIAGNOSTIC,
             LSPConstants.CALL_HIERARCHY_INCOMING_CALLS,
             LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS,
+            LSPConstants.PREPARE_RENAME,
+            LSPConstants.RENAME,
         }:
             return await self._handle_lsp_method(method, params)
 
@@ -607,6 +611,8 @@ class RequestHandler:
                 "request_hover",
                 "request_call_hierarchy_incoming",
                 "request_call_hierarchy_outgoing",
+                "request_prepare_rename",
+                "request_rename",
             }:
                 file_path = params.get("filePath")
                 if file_path is None:
@@ -621,6 +627,8 @@ class RequestHandler:
                 "request_hover",
                 "request_call_hierarchy_incoming",
                 "request_call_hierarchy_outgoing",
+                "request_prepare_rename",
+                "request_rename",
             }:
                 kwargs["line"] = params.get("line", self.DEFAULTS["line"])
                 kwargs["column"] = params.get("column", self.DEFAULTS["column"])
@@ -632,6 +640,13 @@ class RequestHandler:
                     f"Workspace symbol request: workspace={kwargs.get('workspace_path')}, "
                     f"query={kwargs.get('query')}"
                 )
+
+            # Include newName for rename method
+            if registry_method == "request_rename":
+                new_name = params.get("newName")
+                if new_name is None:
+                    raise ValueError("Missing 'newName' parameter")
+                kwargs["new_name"] = new_name
 
             result = await registry_func(**kwargs)
             logger.debug(f"Registry method returned for {method}")

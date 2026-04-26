@@ -43,6 +43,7 @@ class LSPConstants:
     RANGE_FORMATTING = "textDocument/rangeFormatting"
     ON_TYPE_FORMATTING = "textDocument/onTypeFormatting"
     RENAME = "textDocument/rename"
+    PREPARE_RENAME = "textDocument/prepareRename"
     FOLDING_RANGE = "textDocument/foldingRange"
     SELECTION_RANGE = "textDocument/selectionRange"
     PREPARE_CALL_HIERARCHY = "textDocument/prepareCallHierarchy"

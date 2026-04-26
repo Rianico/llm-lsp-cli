@@ -237,6 +237,31 @@ class ServerRegistry:
         client = await workspace.ensure_initialized()
         return await client.request_call_hierarchy_outgoing(file_path, line, column)
 
+    async def request_prepare_rename(
+        self,
+        workspace_path: str,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> Any:
+        """Request prepare rename at position."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_prepare_rename(file_path, line, column)
+
+    async def request_rename(
+        self,
+        workspace_path: str,
+        file_path: str,
+        line: int,
+        column: int,
+        new_name: str,
+    ) -> Any:
+        """Request rename at position."""
+        workspace = await self.get_or_create_workspace(workspace_path)
+        client = await workspace.ensure_initialized()
+        return await client.request_rename(file_path, line, column, new_name)
+
     async def shutdown_all(self) -> None:
         """Shutdown all workspaces."""
         async with self._global_lock:

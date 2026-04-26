@@ -68,3 +68,40 @@ def is_pyright_langserver_installed() -> bool:
         return path is not None
     except Exception:
         return False
+
+
+@pytest.fixture
+def temp_workspace(tmp_path: Path) -> Path:
+    """Create a temporary workspace with sample Python files for rename tests."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    src = workspace / "src"
+    src.mkdir()
+
+    # Create sample module
+    (src / "main.py").write_text('''
+class OldClassName:
+    def method(self):
+        return OldClassName()
+
+def standalone_func():
+    obj = OldClassName()
+    return obj
+''')
+
+    # Create second module with imports
+    (src / "utils.py").write_text('''
+from main import OldClassName
+
+def use_class():
+    return OldClassName()
+''')
+    return workspace
+
+
+@pytest.fixture
+def sample_position() -> "Position":
+    """Create a sample Position for testing rename operations."""
+    from llm_lsp_cli.output.formatter import Position
+
+    return Position(line=1, character=6)

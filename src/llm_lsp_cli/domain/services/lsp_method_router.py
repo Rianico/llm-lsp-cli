@@ -84,6 +84,12 @@ class LspMethodRouter:
             LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: _create_method_config(
                 "request_call_hierarchy_outgoing", ["textDocument", "position"]
             ),
+            LSPConstants.PREPARE_RENAME: _create_method_config(
+                "request_prepare_rename", ["textDocument", "position"]
+            ),
+            LSPConstants.RENAME: _create_method_config(
+                "request_rename", ["textDocument", "position", "newName"]
+            ),
         }
 
     def get_config(self, method: str) -> LspMethodConfig | None:

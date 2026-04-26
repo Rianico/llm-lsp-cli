@@ -226,6 +226,45 @@ class CallHierarchyRecord:
         return f"{self.file}: {self.name} ({self.kind_name}) [{self.range.to_compact()}]"
 
 
+@dataclass
+class RenameEditRecord:
+    """A normalized rename edit record for compact output.
+
+    Implements FormattableRecord for consistent output formatting.
+    """
+
+    file: str
+    range: Range
+    old_text: str
+    new_text: str
+
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format."""
+        return {
+            "file": self.file,
+            "range": self.range.to_compact(),
+            "old_text": self.old_text,
+            "new_text": self.new_text,
+        }
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for rename edit records."""
+        return ["file", "range", "old_text", "new_text"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this rename edit."""
+        return {
+            "file": self.file,
+            "range": self.range.to_compact(),
+            "old_text": self.old_text,
+            "new_text": self.new_text,
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        return f"{self.file}:{self.range.to_compact()} '{self.old_text}' -> '{self.new_text}'"
+
+
 SEVERITY_MAP = {
     1: "Error",
     2: "Warning",

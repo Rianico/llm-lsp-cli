@@ -225,7 +225,11 @@ def _resolve_language(workspace: str | None, language: str | None) -> tuple[str,
     Returns:
         Tuple of (workspace_path, detected_language)
     """
-    workspace_path = workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    if workspace:
+        workspace_path = str(Path(workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     detected_language = detect_language_with_fallback(
         workspace_path=workspace_path,
         explicit_language=language,
@@ -250,7 +254,11 @@ def _validate_file_in_workspace(
     Raises:
         typer.Exit: If file doesn't exist or escapes workspace boundary
     """
-    workspace_path = workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    if workspace:
+        workspace_path = str(Path(workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     file_path = Path(file).resolve()
     workspace_resolved = Path(workspace_path).resolve()
 
@@ -308,7 +316,12 @@ def _build_request_context(
     if effective_language is None and file is not None:
         effective_language = detect_language_from_file(file)
 
-    workspace_path = effective_workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    # This ensures the daemon receives an absolute path regardless of current working directory
+    if effective_workspace:
+        workspace_path = str(Path(effective_workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     file_path = _validate_file_in_workspace(file, effective_workspace) if file else None
 
     return RequestContext(
@@ -543,6 +556,7 @@ def _run_daemon_command(
     trace: bool = False,
     check_running: bool | None = None,
     action_fn: Callable[[Any, str, str], None] | None = None,
+    ctx: typer.Context | None = None,
 ) -> None:
     """Execute a daemon lifecycle command with consistent logging.
 
@@ -555,8 +569,18 @@ def _run_daemon_command(
         trace: Enable trace logging
         check_running: None for no check, True to require running, False to require stopped
         action_fn: Optional function to execute (manager, command_name, detected_language) -> None
+        ctx: Optional Typer context for accessing global options
     """
-    workspace_path, detected_language = _resolve_language(workspace, language)
+    # Check global context for workspace/language if not provided locally
+    if ctx is not None and ctx.obj is not None:
+        global_opts: GlobalOptions = ctx.obj
+        effective_workspace = workspace if workspace is not None else global_opts.workspace
+        effective_language = language if language is not None else global_opts.language
+    else:
+        effective_workspace = workspace
+        effective_language = language
+
+    workspace_path, detected_language = _resolve_language(effective_workspace, effective_language)
     manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf, debug, trace)
 
     # Check running state if required
@@ -588,6 +612,7 @@ def _run_daemon_command(
 
 @app.command()
 def start(
+    ctx: typer.Context,
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
@@ -632,11 +657,13 @@ def start(
         trace=trace,
         check_running=False,  # Require daemon to be stopped
         action_fn=do_start,
+        ctx=ctx,
     )
 
 
 @app.command()
 def stop(
+    ctx: typer.Context,
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
@@ -659,11 +686,13 @@ def stop(
         debug=False,
         check_running=True,  # Require daemon to be running
         action_fn=do_stop,
+        ctx=ctx,
     )
 
 
 @app.command()
 def restart(
+    ctx: typer.Context,
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
@@ -700,11 +729,13 @@ def restart(
         trace=trace,
         check_running=None,  # No running state check
         action_fn=do_restart,
+        ctx=ctx,
     )
 
 
 @app.command()
 def status(
+    ctx: typer.Context,
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language (auto-detected if not specified)"
@@ -712,7 +743,16 @@ def status(
     lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
 ) -> None:
     """Show the daemon server status."""
-    workspace_path, detected_language = _resolve_language(workspace, language)
+    # Check global context for workspace/language if not provided locally
+    if ctx.obj is not None:
+        global_opts: GlobalOptions = ctx.obj
+        effective_workspace = workspace if workspace is not None else global_opts.workspace
+        effective_language = language if language is not None else global_opts.language
+    else:
+        effective_workspace = workspace
+        effective_language = language
+
+    workspace_path, detected_language = _resolve_language(effective_workspace, effective_language)
     manager = _create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
     if manager.is_running():
@@ -1226,7 +1266,12 @@ def workspace_symbol(
         global_opts, workspace, language, output_format
     )
 
-    workspace_path = effective_workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    # This ensures the daemon receives an absolute path regardless of current working directory
+    if effective_workspace:
+        workspace_path = str(Path(effective_workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     language_value = effective_language or "python"
 
     try:
@@ -1287,7 +1332,12 @@ def diagnostics(
     if effective_language is None:
         effective_language = detect_language_from_file(file)
 
-    workspace_path = effective_workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    # This ensures the daemon receives an absolute path regardless of current working directory
+    if effective_workspace:
+        workspace_path = str(Path(effective_workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     file_path = _validate_file_in_workspace(file, effective_workspace)
 
     try:
@@ -1344,7 +1394,12 @@ def workspace_diagnostics(
         global_opts, workspace, language, output_format
     )
 
-    workspace_path = effective_workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    # This ensures the daemon receives an absolute path regardless of current working directory
+    if effective_workspace:
+        workspace_path = str(Path(effective_workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
     language_value = effective_language or "python"
 
     try:
@@ -1388,6 +1443,143 @@ def workspace_diagnostics(
         raise typer.Exit(1) from e
 
 
+@app.command()
+def rename(
+    ctx: typer.Context,
+    file: str = typer.Argument(None, help="File path"),
+    line: int = typer.Argument(None, help="Line number (1-based)"),
+    column: int = typer.Argument(None, help="Column number (1-based)"),
+    new_name: str = typer.Argument(None, help="New symbol name"),
+    workspace: str | None = typer.Option(
+        None, "--workspace", "-w", help="Workspace path (overrides global)"
+    ),
+    language: str | None = typer.Option(
+        None, "--language", "-l", help="Language (overrides global)"
+    ),
+    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+        None,
+        "--format",
+        "-o",
+        help="Output format (overrides global)",
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Apply changes to files",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Explicit dry-run (default is preview-only)",
+    ),
+    rollback: str | None = typer.Option(
+        None,
+        "--rollback",
+        help="Session ID to rollback",
+    ),
+) -> None:
+    """Rename symbol at position across workspace.
+
+    Default: Preview changes without applying.
+    Use --apply to write changes to files.
+    """
+    from pathlib import Path
+
+    from llm_lsp_cli.domain.services.backup_manager import BackupManager
+    from llm_lsp_cli.domain.services.rename_service import RenameService
+    from llm_lsp_cli.output.formatter import Position
+
+    # Validate required arguments when not in rollback mode
+    if not rollback:
+        if file is None:
+            typer.echo("Error: Missing argument 'FILE'.", err=True)
+            raise typer.Exit(1)
+        if line is None:
+            typer.echo("Error: Missing argument 'LINE'.", err=True)
+            raise typer.Exit(1)
+        if column is None:
+            typer.echo("Error: Missing argument 'COLUMN'.", err=True)
+            raise typer.Exit(1)
+        if new_name is None:
+            typer.echo("Error: Missing argument 'NEW_NAME'.", err=True)
+            raise typer.Exit(1)
+
+    context = _build_request_context(
+        ctx, workspace, language, output_format, file, line, column
+    )
+
+    # Handle rollback mode
+    if rollback:
+        try:
+            backup_manager = BackupManager(Path(context.workspace_path))
+            backup_manager.restore_by_id(rollback)
+            typer.echo(f"Rollback completed for session: {rollback}")
+            return
+        except Exception as e:
+            typer.echo(f"Error during rollback: {e}", err=True)
+            raise typer.Exit(1) from e
+
+    # Preview mode (default) or apply mode
+    try:
+        response = _send_request(
+            "textDocument/rename",
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": context.line - 1 if context.line else 0,
+                "column": context.column - 1 if context.column else 0,
+                "newName": new_name,
+            },
+            language=context.language,
+        )
+
+        workspace_edit = response.get("workspace_edit")
+
+        # Initialize service
+        backup_manager = BackupManager(Path(context.workspace_path))
+        rename_service = RenameService(backup_manager)
+        position = Position(
+            line=context.line - 1 if context.line else 0,
+            character=context.column - 1 if context.column else 0,
+        )
+
+        if apply:
+            # Apply mode - use apply_from_edit
+            records, session = rename_service.apply_from_edit(
+                workspace_edit=workspace_edit,
+                file_path=str(context.file_path),
+                position=position,
+                new_name=new_name,
+            )
+
+            if not records:
+                typer.echo("No rename changes found.")
+                return
+
+            dispatcher = OutputDispatcher()
+            typer.echo(dispatcher.format_list(records, context.output_format))
+            typer.echo(f"Session ID: {session.session_id}", err=True)
+        else:
+            # Preview mode (default) - use preview_from_edit
+            records = rename_service.preview_from_edit(
+                workspace_edit=workspace_edit,
+                file_path=str(context.file_path),
+                position=position,
+                new_name=new_name,
+            )
+
+            if not records:
+                typer.echo("No rename changes found.")
+                return
+
+            dispatcher = OutputDispatcher()
+            typer.echo(dispatcher.format_list(records, context.output_format))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
+
+
 @app.command("did-change")
 def did_change(
     file: str = typer.Argument(..., help="File path"),
@@ -1412,7 +1604,11 @@ def did_change(
     - Sends didChange with full text sync
     - Returns acknowledgment only
     """
-    workspace_path = workspace or str(Path.cwd())
+    # Resolve workspace path to absolute path
+    if workspace:
+        workspace_path = str(Path(workspace).resolve())
+    else:
+        workspace_path = str(Path.cwd().resolve())
 
     # Auto-detect language from file if not provided
     if language is None:

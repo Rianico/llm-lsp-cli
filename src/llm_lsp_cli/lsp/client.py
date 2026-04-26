@@ -997,6 +997,73 @@ class LSPClient:
 
         return calls
 
+    async def request_prepare_rename(
+        self,
+        file_path: str,
+        line: int,
+        column: int,
+    ) -> dict[str, Any] | None:
+        """Request prepareRename at position.
+
+        Args:
+            file_path: Path to the file
+            line: Line number (0-based)
+            column: Column number (0-based)
+
+        Returns:
+            Range or placeholder dict if rename is valid, None otherwise
+        """
+        uri = await self._ensure_open(file_path)
+
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": column},
+        }
+
+        assert self._transport is not None
+        result = await self._transport.send_request(
+            LSPConstants.PREPARE_RENAME,
+            params,
+            timeout=self.timeout,
+        )
+
+        return result
+
+    async def request_rename(
+        self,
+        file_path: str,
+        line: int,
+        column: int,
+        new_name: str,
+    ) -> dict[str, Any] | None:
+        """Request rename at position.
+
+        Args:
+            file_path: Path to the file
+            line: Line number (0-based)
+            column: Column number (0-based)
+            new_name: New name for the symbol
+
+        Returns:
+            WorkspaceEdit dict with changes, or None if no changes
+        """
+        uri = await self._ensure_open(file_path)
+
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": column},
+            "newName": new_name,
+        }
+
+        assert self._transport is not None
+        result = await self._transport.send_request(
+            LSPConstants.RENAME,
+            params,
+            timeout=self.timeout,
+        )
+
+        return result
+
     def _is_method_not_found_error(self, error: Any) -> bool:
         """Check if error is a MethodNotFound (-32601) error.
 
