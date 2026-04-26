@@ -2,8 +2,10 @@
 
 Tests the rename flow end-to-end with a real LSP server (pyright).
 
-Note: These tests are skipped by default as they require a real LSP server
-and can hang during initialization. Run with --runslow to execute.
+These tests require pyright-langserver to be installed:
+    pip install pyright
+    # or
+    npm install -g pyright
 """
 
 from __future__ import annotations
@@ -22,9 +24,11 @@ from tests.conftest import is_pyright_langserver_installed
 # Check if pyright is available
 PYRIGHT_AVAILABLE = is_pyright_langserver_installed()
 
-# Skip entire module by default - these tests require real LSP server
-# and can hang. Run with: pytest --runslow tests/integration/test_rename.py
-pytestmark = pytest.mark.skip(reason="Slow integration test requiring real LSP server - use --runslow to enable")
+# Skip entire module if pyright-langserver is not installed
+pytestmark = pytest.mark.skipif(
+    not PYRIGHT_AVAILABLE,
+    reason="pyright-langserver not installed - required for integration tests",
+)
 
 
 @pytest.fixture
@@ -37,6 +41,7 @@ async def lsp_client_with_timeout(temp_workspace: Path) -> typing.AsyncGenerator
     client = LSPClient(
         workspace_path=str(temp_workspace),
         server_command="pyright-langserver",
+        server_args=["--stdio"],
         language_id="python",
         timeout=60.0,  # Extended timeout
     )

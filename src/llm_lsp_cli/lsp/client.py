@@ -136,6 +136,19 @@ class LSPClient:
 
         return cast(lsp.InitializeResult, response)
 
+    @property
+    def server_capabilities(self) -> lsp.ServerCapabilities:
+        """Get the server capabilities.
+
+        Returns:
+            Server capabilities dict, or empty dict if not initialized.
+
+        Note:
+            This property provides access to the LSP server's capabilities
+            for use by services like RenameService.
+        """
+        return self._capabilities or {}
+
     async def _wait_for_workspace_index(self) -> None:
         """Wait for workspace to be indexed by the LSP server.
 
@@ -653,7 +666,11 @@ class LSPClient:
         before returning. This prevents race conditions where requests are sent
         before the server has finished parsing the document.
         """
-        path = Path(file_path).resolve()
+        # Resolve relative paths relative to workspace path
+        path = Path(file_path)
+        if not path.is_absolute():
+            path = self.workspace_path / path
+        path = path.resolve()
         uri = path.as_uri()
 
         if uri not in self._open_files:
