@@ -348,14 +348,14 @@ class TestFieldFormat:
     """Tests for field formatting in TEXT output."""
 
     def test_render_all_fields_present(self, simple_node) -> None:
-        """Complete field format: name (kind_name) [range] sel[selection_range] [tags] detail."""
+        """Complete field format: name (kind_name) range sel[selection_range] [tags] detail."""
         from llm_lsp_cli.output.text_renderer import render_text
 
         result = render_text((simple_node,))
         # Should include all fields
         assert "MyClass" in result
         assert "(Class)" in result  # kind_name, not numeric kind
-        assert "[1:1-50:1]" in result  # range
+        assert "1:1-50:1" in result  # range (bare format, no brackets)
         assert "sel[1:7-1:14]" in result  # selection_range
         assert "[@deprecated]" in result  # tags
         assert "class MyClass" in result  # detail
@@ -377,7 +377,7 @@ class TestFieldFormat:
             depth=0,
         )
         result = render_text((node,))
-        assert "Func (Function) [5:1-10:1]" in result
+        assert "Func (Function) 5:1-10:1" in result  # Bare format
         assert "sel[" not in result
         assert "[]" not in result  # No empty tags
 
@@ -492,12 +492,12 @@ class TestBackwardCompatibility:
     """Tests ensuring existing behavior is preserved."""
 
     def test_range_format_compact(self, simple_node) -> None:
-        """Range format must be compact line:char-line:char."""
+        """Range format must be compact line:char-line:char (bare format)."""
         from llm_lsp_cli.output.text_renderer import render_text
 
         result = render_text((simple_node,))
-        # Must use compact format, not nested object
-        assert "[1:1-50:1]" in result
+        # Must use compact format (bare, no brackets)
+        assert "1:1-50:1" in result
         assert "start" not in result.lower()  # No nested position objects
 
     def test_selection_range_format_compact(self, simple_node) -> None:
@@ -512,7 +512,7 @@ class TestADR0014Example:
     """Tests matching the exact ADR-0014 example output."""
 
     def test_exact_adr_example(self) -> None:
-        """Output matches ADR-0014 example exactly."""
+        """Output matches ADR-0014 example with bare range format."""
         from llm_lsp_cli.output.symbol_transformer import SymbolNode
         from llm_lsp_cli.output.text_renderer import render_text
 
@@ -565,9 +565,9 @@ class TestADR0014Example:
         result = render_text((myclass, helper), file_header="file.py:")
         lines = result.split("\n")
 
-        # Verify exact structure per ADR-0014 (using kind_name, not numeric kind)
+        # Verify exact structure per ADR-0014 (using kind_name and bare range format)
         assert lines[0] == "file.py:"
-        assert "├── MyClass (Class) [1:1-50:1] sel[1:5-1:12] [@deprecated]" in lines[1]
-        assert "│   ├── __init__ (Constructor) [10:1-25:1] sel[10:5-10:13]" in lines[2]
-        assert "│   └── method (Method) [30:1-45:1] sel[30:5-30:11]" in lines[3]
-        assert "└── helper (Function) [55:1-80:1] sel[55:1-55:8]" in lines[4]
+        assert "├── MyClass (Class) 1:1-50:1 sel[1:5-1:12] [@deprecated]" in lines[1]
+        assert "│   ├── __init__ (Constructor) 10:1-25:1 sel[10:5-10:13]" in lines[2]
+        assert "│   └── method (Method) 30:1-45:1 sel[30:5-30:11]" in lines[3]
+        assert "└── helper (Function) 55:1-80:1 sel[55:1-55:8]" in lines[4]

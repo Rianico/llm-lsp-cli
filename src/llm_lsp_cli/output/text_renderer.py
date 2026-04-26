@@ -21,8 +21,9 @@ PREFIX_TERMINATE = "    "
 def _render_node_line(node: SymbolNode) -> str:
     """Render a single SymbolNode as a text line.
 
-    Format: name (kind_name) [range] sel[selection_range] [tags] detail
+    Format: name (kind_name) range sel[selection_range] [tags] detail
     Null/empty fields are omitted.
+    Range uses bare format (no brackets) for token efficiency.
 
     Args:
         node: SymbolNode to render
@@ -30,7 +31,7 @@ def _render_node_line(node: SymbolNode) -> str:
     Returns:
         Formatted string without tree prefix
     """
-    parts: list[str] = [f"{node.name} ({node.kind_name}) [{node.range}]"]
+    parts: list[str] = [f"{node.name} ({node.kind_name}) {node.range}"]
 
     # Add selection range if present
     if node.selection_range:

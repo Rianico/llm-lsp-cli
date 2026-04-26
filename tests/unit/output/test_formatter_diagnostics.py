@@ -1,177 +1,572 @@
-"""Tests for diagnostic formatting in CompactFormatter."""
+"""Tests for diagnostic formatting in CompactFormatter.
+
+This test file follows the test specification for diagnostics-compact-range.
+Tests are written in RED phase - they will fail until implementation is complete.
+"""
+
+from __future__ import annotations
 
 import json
+from typing import Any
 
-from llm_lsp_cli.output.formatter import CompactFormatter, DiagnosticRecord
+import pytest
+import yaml
+
+from llm_lsp_cli.output.formatter import (
+    CompactFormatter,
+    DiagnosticRecord,
+    LocationRecord,
+    Position,
+    Range,
+    SymbolRecord,
+)
 
 
-class TestDiagnosticTransform:
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def sample_lsp_diagnostic() -> dict[str, Any]:
+    """Sample LSP diagnostic with minimal fields."""
+    return {
+        "range": {
+            "start": {"line": 9, "character": 4},
+            "end": {"line": 14, "character": 19},
+        },
+        "severity": 1,
+        "code": "reportGeneralTypeIssues",
+        "source": "Pyright",
+        "message": "Type 'int' is not assignable to type 'str'",
+    }
+
+
+@pytest.fixture
+def sample_lsp_diagnostic_with_tags() -> dict[str, Any]:
+    """Sample LSP diagnostic with tags."""
+    return {
+        "range": {
+            "start": {"line": 5, "character": 0},
+            "end": {"line": 5, "character": 10},
+        },
+        "severity": 2,
+        "code": "deprecated",
+        "source": "Pyright",
+        "message": "Function is deprecated",
+        "tags": [1, 2],  # Unnecessary + Deprecated
+    }
+
+
+@pytest.fixture
+def sample_lsp_diagnostic_unknown_tag() -> dict[str, Any]:
+    """Sample LSP diagnostic with unknown tag value."""
+    return {
+        "range": {
+            "start": {"line": 1, "character": 0},
+            "end": {"line": 1, "character": 5},
+        },
+        "severity": 1,
+        "code": "test",
+        "source": "Test",
+        "message": "Test message",
+        "tags": [99],  # Unknown tag
+    }
+
+
+@pytest.fixture
+def sample_diagnostic_record() -> DiagnosticRecord:
+    """Sample DiagnosticRecord with Range object."""
+    return DiagnosticRecord(
+        file="/tmp/test/file.py",
+        range=Range(
+            start=Position(line=9, character=4),
+            end=Position(line=14, character=19),
+        ),
+        severity=1,
+        severity_name="Error",
+        code="reportGeneralTypeIssues",
+        source="Pyright",
+        message="Type 'int' is not assignable to type 'str'",
+        tags=[1, 2],
+    )
+
+
+# =============================================================================
+# Scenario Group A: DIAGNOSTIC_TAG_MAP Constant
+# =============================================================================
+
+
+class TestDiagnosticTagMap:
+    """Tests for DIAGNOSTIC_TAG_MAP and get_diagnostic_tag_name."""
+
+    def test_diagnostic_tag_map_has_known_values(self) -> None:
+        """DIAGNOSTIC_TAG_MAP contains LSP 3.17 defined tags."""
+        from llm_lsp_cli.utils.formatter import DIAGNOSTIC_TAG_MAP
+
+        assert DIAGNOSTIC_TAG_MAP[1] == "Unnecessary"
+        assert DIAGNOSTIC_TAG_MAP[2] == "Deprecated"
+
+    def test_get_diagnostic_tag_name_returns_names(self) -> None:
+        """get_diagnostic_tag_name returns human-readable names for known tags."""
+        from llm_lsp_cli.utils.formatter import get_diagnostic_tag_name
+
+        assert get_diagnostic_tag_name(1) == "Unnecessary"
+        assert get_diagnostic_tag_name(2) == "Deprecated"
+
+    def test_get_diagnostic_tag_name_unknown_fallback(self) -> None:
+        """get_diagnostic_tag_name returns Unknown(N) for unknown tags."""
+        from llm_lsp_cli.utils.formatter import get_diagnostic_tag_name
+
+        assert get_diagnostic_tag_name(99) == "Unknown(99)"
+        assert get_diagnostic_tag_name(0) == "Unknown(0)"
+
+
+# =============================================================================
+# Scenario Group B: DiagnosticRecord Dataclass Refactor
+# =============================================================================
+
+
+class TestDiagnosticRecordRefactor:
+    """Tests for DiagnosticRecord dataclass refactor to use Range."""
+
+    def test_diagnostic_record_has_range_field(self) -> None:
+        """DiagnosticRecord has range field of type Range, not 4 position fields."""
+        rec = DiagnosticRecord(
+            file="test.py",
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=1, character=5),
+            ),
+            severity=1,
+            severity_name="Error",
+            code=None,
+            source="Test",
+            message="Test",
+        )
+
+        assert hasattr(rec, "range")
+        assert isinstance(rec.range, Range)
+        assert not hasattr(rec, "line")  # Old field removed
+        assert not hasattr(rec, "character")  # Old field removed
+        assert not hasattr(rec, "end_line")  # Old field removed
+        assert not hasattr(rec, "end_character")  # Old field removed
+
+    def test_diagnostic_record_range_compact(self) -> None:
+        """Range.to_compact() returns 1-indexed compact format."""
+        range_obj = Range(
+            start=Position(line=9, character=4),  # 0-indexed
+            end=Position(line=14, character=19),  # 0-indexed
+        )
+
+        assert range_obj.to_compact() == "10:5-15:20"  # 1-indexed
+
+
+# =============================================================================
+# Scenario Group C: Transform Diagnostics
+# =============================================================================
+
+
+class TestTransformDiagnostics:
     """Tests for transform_diagnostics method."""
 
-    def test_transform_diagnostics_to_records(self) -> None:
-        """Test that LSP diagnostics are transformed to DiagnosticRecord list."""
+    def test_transform_diagnostics_creates_range_objects(
+        self, sample_lsp_diagnostic: dict[str, Any]
+    ) -> None:
+        """transform_diagnostics creates DiagnosticRecord with Range, not 4 fields."""
         formatter = CompactFormatter("/tmp/test")
+        records = formatter.transform_diagnostics(
+            [sample_lsp_diagnostic], file_path="/tmp/test/file.py"
+        )
 
-        diagnostics = [
-            {
-                "range": {
-                    "start": {"line": 9, "character": 4},
-                    "end": {"line": 9, "character": 10},
-                },
-                "severity": 1,
-                "code": "reportGeneralTypeIssues",
-                "source": "Pyright",
-                "message": "Type 'int' is not assignable to type 'str'",
-            }
-        ]
-
-        records = formatter.transform_diagnostics(diagnostics, file_path="/tmp/test/file.py")
-
-        assert isinstance(records, list)
         assert len(records) == 1
-
         rec = records[0]
-        assert isinstance(rec, DiagnosticRecord)
-        assert rec.file == "/tmp/test/file.py"
-        assert rec.line == 10  # 1-indexed
-        assert rec.character == 5  # 1-indexed
-        assert rec.severity == 1
-        assert rec.severity_name == "Error"
-        assert rec.code == "reportGeneralTypeIssues"
-        assert rec.source == "Pyright"
-        assert "Type" in rec.message
+        assert hasattr(rec, "range")
+        assert rec.range.to_compact() == "10:5-15:20"
 
-
-class TestDiagnosticsToText:
-    """Tests for diagnostics_to_text method."""
-
-    def test_diagnostics_to_text_format(self) -> None:
-        """Test that DiagnosticRecord list is formatted as compact text."""
+    def test_transform_diagnostics_preserves_severity_int(
+        self, sample_lsp_diagnostic: dict[str, Any]
+    ) -> None:
+        """Internal record keeps severity as int for filtering/sorting."""
         formatter = CompactFormatter("/tmp/test")
+        records = formatter.transform_diagnostics(
+            [sample_lsp_diagnostic], file_path="/tmp/test/file.py"
+        )
 
-        records = [
-            DiagnosticRecord(
-                file="/tmp/test/file.py",
-                line=10,
-                character=5,
-                end_line=10,
-                end_character=10,
-                severity=1,
-                severity_name="Error",
-                code="reportGeneralTypeIssues",
-                source="Pyright",
-                message="Type 'int' is not assignable to type 'str'",
-            )
-        ]
+        assert records[0].severity == 1
+        assert records[0].severity_name == "Error"
 
-        text = formatter.diagnostics_to_text(records)
-
-        assert "Error" in text
-        assert "Type 'int' is not assignable to type 'str'" in text
-        assert "Pyright" in text
-        assert "10:5" in text
-
-    def test_diagnostics_to_text_empty(self) -> None:
-        """Test that empty diagnostics returns appropriate message."""
+    def test_transform_diagnostics_preserves_tags_ints(
+        self, sample_lsp_diagnostic_with_tags: dict[str, Any]
+    ) -> None:
+        """Internal record keeps tags as list[int]."""
         formatter = CompactFormatter("/tmp/test")
+        records = formatter.transform_diagnostics(
+            [sample_lsp_diagnostic_with_tags], file_path="/tmp/test/file.py"
+        )
 
-        text = formatter.diagnostics_to_text([])
+        assert records[0].tags == [1, 2]
 
-        assert "No diagnostics found" in text
+
+# =============================================================================
+# Scenario Group D: JSON Output Format
+# =============================================================================
 
 
 class TestDiagnosticsToJson:
-    """Tests for diagnostics_to_json method."""
+    """Tests for diagnostics_to_json method with compact range."""
 
-    def test_diagnostics_to_json_format(self) -> None:
-        """Test that DiagnosticRecord list is formatted as JSON."""
+    def test_diagnostics_to_json_uses_compact_range(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """JSON output has 'range' as compact string, not 4 position fields."""
         formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        data = json.loads(json_str)
 
-        records = [
-            DiagnosticRecord(
-                file="/tmp/test/file.py",
-                line=10,
-                character=5,
-                end_line=10,
-                end_character=10,
-                severity=1,
-                severity_name="Error",
-                code="reportGeneralTypeIssues",
-                source="Pyright",
-                message="Type error",
-            )
-        ]
+        assert data[0]["range"] == "10:5-15:20"
+        assert "line" not in data[0]
+        assert "character" not in data[0]
+        assert "end_line" not in data[0]
+        assert "end_character" not in data[0]
 
+    def test_diagnostics_to_json_no_severity_int(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """JSON output has severity_name only, no severity integer."""
+        formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        data = json.loads(json_str)
+
+        assert data[0]["severity_name"] == "Error"
+        assert "severity" not in data[0]
+
+    def test_diagnostics_to_json_translates_tags(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """JSON output has tag names, not integers."""
+        formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        data = json.loads(json_str)
+
+        assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
+        assert 1 not in data[0]["tags"]
+        assert 2 not in data[0]["tags"]
+
+    def test_diagnostics_to_json_omits_empty_tags(self) -> None:
+        """JSON output omits tags field when tags list is empty."""
+        rec = DiagnosticRecord(
+            file="test.py",
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=1, character=5),
+            ),
+            severity=1,
+            severity_name="Error",
+            code=None,
+            source="Test",
+            message="Test",
+            tags=[],
+        )
+
+        formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([rec])
+        data = json.loads(json_str)
+
+        assert "tags" not in data[0]
+
+    def test_diagnostics_to_json_unknown_tag_fallback(
+        self, sample_lsp_diagnostic_unknown_tag: dict[str, Any]
+    ) -> None:
+        """JSON output shows Unknown(N) for unknown tag values."""
+        formatter = CompactFormatter("/tmp/test")
+        records = formatter.transform_diagnostics(
+            [sample_lsp_diagnostic_unknown_tag], file_path="/tmp/test/file.py"
+        )
         json_str = formatter.diagnostics_to_json(records)
         data = json.loads(json_str)
 
-        assert isinstance(data, list)
-        assert len(data) == 1
-        assert data[0]["file"] == "/tmp/test/file.py"
-        assert data[0]["line"] == 10
-        assert data[0]["severity"] == 1
-        assert data[0]["message"] == "Type error"
+        assert data[0]["tags"] == ["Unknown(99)"]
+
+
+# =============================================================================
+# Scenario Group E: YAML Output Format
+# =============================================================================
 
 
 class TestDiagnosticsToYaml:
-    """Tests for diagnostics_to_yaml method."""
+    """Tests for diagnostics_to_yaml method with compact range."""
 
-    def test_diagnostics_to_yaml_format(self) -> None:
-        """Test that DiagnosticRecord list is formatted as YAML."""
+    def test_diagnostics_to_yaml_uses_compact_range(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """YAML output has 'range' as compact string."""
         formatter = CompactFormatter("/tmp/test")
+        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        data = yaml.safe_load(yaml_str)
 
-        records = [
-            DiagnosticRecord(
-                file="/tmp/test/file.py",
-                line=10,
-                character=5,
-                end_line=10,
-                end_character=10,
-                severity=1,
-                severity_name="Error",
-                code="test_code",
-                source="test",
-                message="Test message",
-            )
-        ]
+        assert data[0]["range"] == "10:5-15:20"
 
-        yaml_str = formatter.diagnostics_to_yaml(records)
+    def test_diagnostics_to_yaml_no_severity_int(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """YAML output has severity_name only."""
+        formatter = CompactFormatter("/tmp/test")
+        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        data = yaml.safe_load(yaml_str)
 
-        assert "file:" in yaml_str
-        assert "/tmp/test/file.py" in yaml_str
-        assert "line: 10" in yaml_str
-        assert "message:" in yaml_str
+        assert data[0]["severity_name"] == "Error"
+        assert "severity" not in data[0]
+
+    def test_diagnostics_to_yaml_translates_tags(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """YAML output has tag names."""
+        formatter = CompactFormatter("/tmp/test")
+        yaml_str = formatter.diagnostics_to_yaml([sample_diagnostic_record])
+        data = yaml.safe_load(yaml_str)
+
+        assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
+
+
+# =============================================================================
+# Scenario Group F: TEXT Output Format
+# =============================================================================
+
+
+class TestDiagnosticsToText:
+    """Tests for diagnostics_to_text method with bare range format."""
+
+    def test_diagnostics_to_text_bare_range(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """TEXT output appends bare range (no brackets) after message."""
+        formatter = CompactFormatter("/tmp/test")
+        text = formatter.diagnostics_to_text([sample_diagnostic_record])
+
+        assert "10:5-15:20" in text
+        assert "[10:5-15:20]" not in text  # No brackets
+
+    def test_diagnostics_to_text_format_structure(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """TEXT format: '{severity_name}: {message} [{code}] ({source}) {range}'."""
+        formatter = CompactFormatter("/tmp/test")
+        text = formatter.diagnostics_to_text([sample_diagnostic_record])
+
+        expected = (
+            "Error: Type 'int' is not assignable to type 'str' "
+            "[reportGeneralTypeIssues] (Pyright) 10:5-15:20"
+        )
+        assert expected in text
+
+    def test_diagnostics_to_text_empty(self) -> None:
+        """Empty diagnostics returns 'No diagnostics found.'"""
+        formatter = CompactFormatter("/tmp/test")
+        text = formatter.diagnostics_to_text([])
+
+        assert text == "No diagnostics found."
+
+
+# =============================================================================
+# Scenario Group G: CSV Output Format
+# =============================================================================
 
 
 class TestDiagnosticsToCsv:
-    """Tests for diagnostics_to_csv method."""
+    """Tests for diagnostics_to_csv method with compact range."""
 
-    def test_diagnostics_to_csv_format(self) -> None:
-        """Test that DiagnosticRecord list is formatted as CSV."""
-        formatter = CompactFormatter("/tmp/test")
-
-        records = [
-            DiagnosticRecord(
-                file="/tmp/test/file.py",
-                line=10,
-                character=5,
-                end_line=10,
-                end_character=10,
-                severity=1,
-                severity_name="Error",
-                code="test_code",
-                source="test",
-                message="Test message",
-            )
-        ]
-
-        csv_str = formatter.diagnostics_to_csv(records)
-
-        expected_headers = (
-            "file,line,character,end_line,end_character,"
-            "severity,severity_name,code,source,message,tags"
+    def test_diagnostics_to_csv_headers(self) -> None:
+        """CSV has correct headers: file,range,severity_name,code,source,message,tags."""
+        rec = DiagnosticRecord(
+            file="test.py",
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=1, character=5),
+            ),
+            severity=1,
+            severity_name="Error",
+            code=None,
+            source="Test",
+            message="Test",
+            tags=[],
         )
-        assert expected_headers in csv_str
-        assert "/tmp/test/file.py" in csv_str
-        assert "10" in csv_str
-        assert "Error" in csv_str
+
+        formatter = CompactFormatter("/tmp/test")
+        csv_str = formatter.diagnostics_to_csv([rec])
+
+        expected_headers = "file,range,severity_name,code,source,message,tags"
+        assert csv_str.startswith(expected_headers)
+
+    def test_diagnostics_to_csv_compact_range(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """CSV range column uses compact format."""
+        formatter = CompactFormatter("/tmp/test")
+        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+
+        assert "10:5-15:20" in csv_str
+
+    def test_diagnostics_to_csv_severity_name_only(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """CSV has severity_name column, not severity integer."""
+        formatter = CompactFormatter("/tmp/test")
+        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+
+        # Header should not have severity column
+        assert "severity,severity_name" not in csv_str
+        # But should have severity_name
+        assert "severity_name" in csv_str
+
+    def test_diagnostics_to_csv_tags_pipe_delimited(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """CSV tags column is pipe-delimited tag names."""
+        formatter = CompactFormatter("/tmp/test")
+        csv_str = formatter.diagnostics_to_csv([sample_diagnostic_record])
+
+        assert "Unnecessary|Deprecated" in csv_str
+
+
+# =============================================================================
+# Scenario Group H: Symbol TEXT Format Consistency
+# =============================================================================
+
+
+class TestSymbolsToTextBareRange:
+    """Tests for symbols_to_text bare range format."""
+
+    def test_symbols_to_text_bare_range(self) -> None:
+        """Symbol TEXT output uses bare range (no brackets)."""
+        rec = SymbolRecord(
+            file="test.py",
+            name="foo",
+            kind=12,
+            kind_name="Function",
+            range=Range(
+                start=Position(line=9, character=4),
+                end=Position(line=9, character=19),
+            ),
+        )
+
+        formatter = CompactFormatter("/tmp/test")
+        text = formatter.symbols_to_text([rec])
+
+        assert "foo (Function) 10:5-10:20" in text
+        assert "foo (Function) [10:5-10:20]" not in text
+
+
+# =============================================================================
+# Scenario Group I: Location TEXT Format Consistency
+# =============================================================================
+
+
+class TestLocationsToTextBareRange:
+    """Tests for locations_to_text bare range format."""
+
+    def test_locations_to_text_bare_range(self) -> None:
+        """Location TEXT output uses bare range (no brackets)."""
+        rec = LocationRecord(
+            file="test.py",
+            range=Range(
+                start=Position(line=9, character=4),
+                end=Position(line=9, character=19),
+            ),
+        )
+
+        formatter = CompactFormatter("/tmp/test")
+        text = formatter.locations_to_text([rec])
+
+        assert "10:5-10:20" in text
+        assert "[10:5-10:20]" not in text
+
+
+# =============================================================================
+# Negative Test Cases
+# =============================================================================
+
+
+class TestNegativeCases:
+    """Negative test cases ensuring unwanted output is absent."""
+
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "diagnostics_to_json",
+            "diagnostics_to_yaml",
+            "diagnostics_to_text",
+            "diagnostics_to_csv",
+        ],
+    )
+    def test_no_severity_int_in_output(
+        self, sample_diagnostic_record: DiagnosticRecord, method: str
+    ) -> None:
+        """severity integer does not appear in any output format."""
+        formatter = CompactFormatter("/tmp/test")
+        output = getattr(formatter, method)([sample_diagnostic_record])
+
+        if method in ("diagnostics_to_json", "diagnostics_to_yaml"):
+            data = (
+                json.loads(output)
+                if method == "diagnostics_to_json"
+                else yaml.safe_load(output)
+            )
+            assert "severity" not in data[0] or not isinstance(
+                data[0].get("severity"), int
+            )
+        else:
+            # TEXT/CSV: check raw string doesn't contain "severity": 1 pattern
+            assert '"severity": 1' not in output
+
+    def test_no_tag_ints_in_json_output(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """Tag integers do not appear in JSON output."""
+        formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+
+        # Should not contain raw tag integers in the tags array
+        assert ": [1, 2]" not in json_str
+        assert ": [1" not in json_str
+
+    def test_no_four_field_position_in_json(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """4 position fields do not appear in JSON output."""
+        formatter = CompactFormatter("/tmp/test")
+        json_str = formatter.diagnostics_to_json([sample_diagnostic_record])
+        data = json.loads(json_str)
+
+        assert "line" not in data[0]
+        assert "character" not in data[0]
+        assert "end_line" not in data[0]
+        assert "end_character" not in data[0]
+
+
+# =============================================================================
+# Regression Test Cases
+# =============================================================================
+
+
+class TestRegressionCases:
+    """Regression tests ensuring internal behavior is preserved."""
+
+    def test_internal_severity_accessible(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """severity int is accessible on record for filtering/sorting."""
+        assert sample_diagnostic_record.severity == 1
+        assert isinstance(sample_diagnostic_record.severity, int)
+
+    def test_internal_tags_accessible(
+        self, sample_diagnostic_record: DiagnosticRecord
+    ) -> None:
+        """tags list[int] is accessible on record."""
+        assert sample_diagnostic_record.tags == [1, 2]
+        assert all(isinstance(t, int) for t in sample_diagnostic_record.tags)
+
+    def test_empty_diagnostics_message_preserved(self) -> None:
+        """Empty diagnostics returns existing message."""
+        formatter = CompactFormatter("/tmp/test")
+        assert formatter.diagnostics_to_text([]) == "No diagnostics found."

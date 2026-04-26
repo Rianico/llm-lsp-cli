@@ -12,7 +12,7 @@ from typing import Any
 import yaml
 
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative
-from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP
+from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,7 @@ class Range:
 
     def to_compact(self) -> str:
         """Convert to compact string format for TEXT/CSV output (1-based)."""
+        # LSP uses 0-based indexing, but editors/humans expect 1-based
         start_line = self.start.line + 1
         start_char = self.start.character + 1
         end_line = self.end.line + 1
@@ -97,10 +98,7 @@ class DiagnosticRecord:
     """A normalized diagnostic record for compact output."""
 
     file: str
-    line: int
-    character: int
-    end_line: int
-    end_character: int
+    range: Range
     severity: int
     severity_name: str
     code: str | int | None
@@ -119,18 +117,26 @@ class CallHierarchyRecord:
     kind: int
     kind_name: str
     range: Range
+    selection_range: Range | None = None
     from_ranges: list[Range] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict with Range objects serialized."""
-        return {
+        """Convert to dict with compact range format.
+
+        Omits 'kind' int field for token efficiency (kind_name provides human-readable value).
+        Range fields use compact format "start_line:start_char-end_line:end_char".
+        """
+        obj: dict[str, Any] = {
             "file": self.file,
             "name": self.name,
-            "kind": self.kind,
             "kind_name": self.kind_name,
-            "range": self.range.to_dict(),
-            "from_ranges": [r.to_dict() for r in self.from_ranges],
+            "range": self.range.to_compact(),
         }
+        if self.selection_range is not None:
+            obj["selection_range"] = self.selection_range.to_compact()
+        if self.from_ranges:
+            obj["from_ranges"] = [r.to_compact() for r in self.from_ranges]
+        return obj
 
 
 SEVERITY_MAP = {
@@ -304,7 +310,7 @@ class CompactFormatter:
         for file_path in sorted_files:
             lines.append(f"{file_path}:")
             for rec in by_file[file_path]:
-                line = f"  {rec.name} ({rec.kind_name}) [{rec.range.to_compact()}]"
+                line = f"  {rec.name} ({rec.kind_name}) {rec.range.to_compact()}"
                 if rec.detail:
                     line += f" -> {rec.detail}"
                 lines.append(line)
@@ -452,7 +458,7 @@ class CompactFormatter:
         for i, file_path in enumerate(sorted_files):
             lines.append(f"{file_path}:")
             for rec in by_file[file_path]:
-                lines.append(f"  [{rec.range.to_compact()}]")
+                lines.append(f"  {rec.range.to_compact()}")
             # Add blank line between files (but not after last)
             if i < len(sorted_files) - 1:
                 lines.append("")
@@ -523,22 +529,18 @@ class CompactFormatter:
 
         for diag in diagnostics:
             range_obj = diag.get("range", {})
-            start = range_obj.get("start", {})
-            end = range_obj.get("end", {})
+            range_val = Range.from_dict(range_obj)
 
             records.append(
                 DiagnosticRecord(
                     file=file_path or "",
-                    line=(start.get("line", 0) or 0) + 1,
-                    character=(start.get("character", 0) or 0) + 1,
-                    end_line=(end.get("line", 0) or 0) + 1,
-                    end_character=(end.get("character", 0) or 0) + 1,
+                    range=range_val,
                     severity=diag.get("severity", 1),
                     severity_name=SEVERITY_MAP.get(diag.get("severity", 1), "Unknown"),
                     code=diag.get("code"),
                     source=diag.get("source", ""),
                     message=diag.get("message", ""),
-                    tags=diag.get("tags", []),
+                    tags=diag.get("tags", []) or [],
                 )
             )
 
@@ -562,7 +564,7 @@ class CompactFormatter:
             source_str = f" ({rec.source})" if rec.source else ""
             line = (
                 f"{rec.severity_name}: {rec.message}{code_str}{source_str} "
-                f"at {rec.line}:{rec.character}-{rec.end_line}:{rec.end_character}"
+                f"{rec.range.to_compact()}"
             )
             lines.append(line)
 
@@ -572,6 +574,9 @@ class CompactFormatter:
     def _diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, Any]:
         """Convert DiagnosticRecord to dict, omitting null/empty fields.
 
+        Translates tags to names and uses compact range format.
+        Omits severity integer (keeps severity_name only).
+
         Args:
             rec: DiagnosticRecord to convert
 
@@ -580,11 +585,7 @@ class CompactFormatter:
         """
         obj: dict[str, Any] = {
             "file": rec.file,
-            "line": rec.line,
-            "character": rec.character,
-            "end_line": rec.end_line,
-            "end_character": rec.end_character,
-            "severity": rec.severity,
+            "range": rec.range.to_compact(),
             "severity_name": rec.severity_name,
             "message": rec.message,
         }
@@ -593,7 +594,7 @@ class CompactFormatter:
         if rec.source:
             obj["source"] = rec.source
         if rec.tags:
-            obj["tags"] = rec.tags
+            obj["tags"] = [get_diagnostic_tag_name(t) for t in rec.tags]
         return obj
 
     def diagnostics_to_json(self, records: list[DiagnosticRecord]) -> str:
@@ -633,26 +634,19 @@ class CompactFormatter:
             return ""
 
         output = io.StringIO()
-        fieldnames = [
-            "file", "line", "character", "end_line", "end_character",
-            "severity", "severity_name", "code", "source", "message", "tags"
-        ]
+        fieldnames = ["file", "range", "severity_name", "code", "source", "message", "tags"]
         writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
 
         for rec in records:
             row = {
                 "file": rec.file,
-                "line": rec.line,
-                "character": rec.character,
-                "end_line": rec.end_line,
-                "end_character": rec.end_character,
-                "severity": str(rec.severity),
+                "range": rec.range.to_compact(),
                 "severity_name": rec.severity_name,
                 "code": str(rec.code) if rec.code is not None else "",
                 "source": rec.source,
                 "message": rec.message,
-                "tags": "|".join(str(t) for t in rec.tags) if rec.tags else "",
+                "tags": "|".join(get_diagnostic_tag_name(t) for t in rec.tags) if rec.tags else "",
             }
             writer.writerow(row)
 
@@ -682,6 +676,11 @@ class CompactFormatter:
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
         range_val = Range.from_dict(range_obj)
 
+        # Extract selectionRange if present
+        selection_range: Range | None = None
+        if "selectionRange" in item:
+            selection_range = Range.from_dict(item["selectionRange"])
+
         # Extract fromRanges
         from_ranges_raw = call.get("fromRanges", [])
         from_ranges = [Range.from_dict(r) for r in from_ranges_raw]
@@ -692,6 +691,7 @@ class CompactFormatter:
             kind=kind,
             kind_name=kind_name,
             range=range_val,
+            selection_range=selection_range,
             from_ranges=from_ranges,
         )
 

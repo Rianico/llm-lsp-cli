@@ -54,6 +54,26 @@ def get_symbol_kind_name(kind: int) -> str:
     return SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
 
 
+# LSP DiagnosticTag mapping (3.17 spec)
+# Maps numeric tag values to human-readable names
+DIAGNOSTIC_TAG_MAP: dict[int, str] = {
+    1: "Unnecessary",
+    2: "Deprecated",
+}
+
+
+def get_diagnostic_tag_name(tag: int) -> str:
+    """Translate LSP DiagnosticTag number to human-readable name.
+
+    Args:
+        tag: The LSP DiagnosticTag number (1=Unnecessary, 2=Deprecated)
+
+    Returns:
+        Human-readable tag name, or "Unknown(N)" for unknown tags
+    """
+    return DIAGNOSTIC_TAG_MAP.get(tag, f"Unknown({tag})")
+
+
 class OutputFormat(str, Enum):
     """Output format options."""
 

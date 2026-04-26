@@ -8,6 +8,8 @@ Accepted
 
 Supercedes [14. Text format tree structure and field omission for document symbols](0014-text-format-tree-structure-and-field-omission-for-document-symbols.md)
 
+Amended by [17. Diagnostic output compact range format with tag translation](0017-diagnostic-output-compact-range-format-with-tag-translation.md)
+
 ## Context
 
 ADR-0014 and ADR-0013 established hierarchical output with `--depth` control, but implementation deviates from the design specification in three critical ways:

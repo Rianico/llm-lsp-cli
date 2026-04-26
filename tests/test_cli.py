@@ -726,7 +726,7 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         assert len(output) >= 1  # At least MyClass (children may be flattened or omitted)
         assert "file" in output[0]
         assert "name" in output[0]
-        assert "kind" in output[0]
+        assert "kind_name" in output[0]  # Compact format uses kind_name
         assert "range" in output[0]
 
 
@@ -756,7 +756,7 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         assert len(output) == 2
         assert "file" in output[0]
         assert "name" in output[0]
-        assert "kind" in output[0]
+        assert "kind_name" in output[0]  # Compact format uses kind_name
         assert "range" in output[0]
 
 
@@ -1111,7 +1111,7 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
         assert len(output) >= 1
         assert "file" in output[0]
         assert "name" in output[0]
-        assert "kind" in output[0]
+        assert "kind_name" in output[0]  # Compact format uses kind_name
         assert "range" in output[0]
 
 
@@ -1166,7 +1166,7 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
         assert len(output) == 2
         assert "file" in output[0]
         assert "name" in output[0]
-        assert "kind" in output[0]
+        assert "kind_name" in output[0]  # Compact format uses kind_name
         assert "range" in output[0]
 
 
@@ -1529,13 +1529,13 @@ def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
         assert result.exit_code == 0
 
         output = result.output.strip()
-        # Compact format uses numeric kinds (LLMs know the mapping)
+        # Compact format uses kind names for readability
         # For document-symbol without URI in response, file header may be empty
-        assert "MyClass (5)" in output  # Numeric kind
-        assert "myFunction (12)" in output
-        assert "myMethod (6)" in output
-        # Output should include range information
-        assert "[" in output and "]" in output  # Range brackets
+        assert "MyClass (Class)" in output  # Kind name
+        assert "myFunction (Function)" in output
+        assert "myMethod (Method)" in output
+        # Output should include range information (bare format, no brackets)
+        assert "1:1-51:1" in output  # Range format
         # Output should be indented (symbols under file header)
         assert "  " in output  # Indented symbols
 
@@ -1598,11 +1598,11 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
         assert result.exit_code == 0
 
         output = result.output.strip()
-        # Compact format uses numeric kinds and file-grouped output
+        # Compact format uses kind names and file-grouped output
         assert ".py:" in output  # File headers
-        assert "MyClass (5)" in output  # Numeric kind
-        assert "helper_function (12)" in output
-        assert "CONFIG_VALUE (14)" in output
+        assert "MyClass (Class)" in output  # Kind name
+        assert "helper_function (Function)" in output
+        assert "CONFIG_VALUE (Constant)" in output
         # Output should be file-grouped with indentation
         assert "  " in output  # Indented symbols
 

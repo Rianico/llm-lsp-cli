@@ -566,8 +566,8 @@ class TestSymbolsToTextCompactRange:
         records = formatter.transform_symbols(symbols)
         result = formatter.symbols_to_text(records)
 
-        # TEXT format must still show compact range like [1:1-51:1]
-        assert "[1:1-51:1]" in result
+        # TEXT format uses bare compact range (no brackets)
+        assert "1:1-51:1" in result
 
 
 class TestSymbolsToCsvCompactRange:
@@ -613,7 +613,8 @@ class TestLocationsToTextCompactRange:
         records = formatter.transform_locations(locations)
         result = formatter.locations_to_text(records)
 
-        assert "[6:1-6:21]" in result
+        # TEXT format uses bare compact range (no brackets)
+        assert "6:1-6:21" in result
 
 
 # =============================================================================
@@ -863,8 +864,9 @@ class TestSymbolsToText:
         ]
         result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
         assert "src/file.py:" in result
-        assert "Sym1 (Class) [1:1-10:1]" in result
-        assert "Sym2 (Function) [20:1-30:1]" in result
+        # Bare format (no brackets)
+        assert "Sym1 (Class) 1:1-10:1" in result
+        assert "Sym2 (Function) 20:1-30:1" in result
 
     def test_text_multiple_files(self, temp_dir: Path) -> None:
         """Multi-file grouping with sorted files."""
@@ -918,7 +920,8 @@ class TestSymbolsToText:
             },
         ]
         result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        assert "MyFunc (Function) [1:1-2:1] -> def my_func() -> str" in result
+        # Bare format (no brackets)
+        assert "MyFunc (Function) 1:1-2:1 -> def my_func() -> str" in result
 
     def test_text_omits_none_detail(self, temp_dir: Path) -> None:
         """Conditional detail omission."""
@@ -937,7 +940,8 @@ class TestSymbolsToText:
             },
         ]
         result = formatter.symbols_to_text(formatter.transform_symbols(symbols))
-        assert "MyClass (Class) [1:1-2:1]" in result
+        # Bare format (no brackets)
+        assert "MyClass (Class) 1:1-2:1" in result
         assert "->" not in result
 
     def test_text_empty_records(self, temp_dir: Path) -> None:
@@ -1311,8 +1315,9 @@ class TestLocationsToText:
         ]
         result = formatter.locations_to_text(formatter.transform_locations(locations))
         assert "src/file.py:" in result
-        assert "[1:1-10:1]" in result
-        assert "[20:1-30:1]" in result
+        # Bare format (no brackets)
+        assert "1:1-10:1" in result
+        assert "20:1-30:1" in result
 
     def test_locations_text_empty(self, temp_dir: Path) -> None:
         """Empty state."""

@@ -78,9 +78,10 @@ class TestWorkspaceSymbolWorkflow:
         assert "tests/test_models.py:" in output
 
         # Verify symbol formatting (using kind_name, not numeric kind)
-        assert "MyClass (Class) [1:1-51:1]" in output
-        assert "my_function (Function) [11:1-31:1] -> def my_function(x: int) -> str" in output
-        assert "TestClass (Class) [6:1-26:1]" in output
+        # Bare format (no brackets)
+        assert "MyClass (Class) 1:1-51:1" in output
+        assert "my_function (Function) 11:1-31:1 -> def my_function(x: int) -> str" in output
+        assert "TestClass (Class) 6:1-26:1" in output
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
@@ -226,8 +227,9 @@ class TestDocumentSymbolWorkflow:
         records = formatter.transform_symbols(document_symbols_response)
         output = formatter.symbols_to_text(records)
 
-        assert "MyClass (Class) [1:1-51:1]" in output
-        assert "helper_function (Function) [53:1-71:1] -> def helper_function(x: int) -> int" in output
+        # Bare format (no brackets)
+        assert "MyClass (Class) 1:1-51:1" in output
+        assert "helper_function (Function) 53:1-71:1 -> def helper_function(x: int) -> int" in output
 
     def test_workflow_json_with_nested_children(
         self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]
@@ -289,13 +291,15 @@ class TestReferencesWorkflow:
         assert "src/main.py:" in output
         assert "src/utils.py:" in output
 
-        # Verify location count in output
+        # Verify location count in output (bare format, count lines with ranges)
         main_section = (
             output.split("src/main.py:")[1].split("src/utils.py:")[0]
             if "src/utils.py:" in output
             else output.split("src/main.py:")[1]
         )
-        assert main_section.count("[") == 2  # Two locations in main.py
+        # Count lines with ranges (format: "  6:1-6:21")
+        range_count = sum(1 for line in main_section.strip().split("\n") if ":" in line and "-" in line)
+        assert range_count == 2  # Two locations in main.py
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
