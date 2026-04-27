@@ -1,5 +1,12 @@
 [project]
+name = "llm-lsp-cli"
+version = "1.0.0"
+description = "A CLI tool that interacts with language servers to provide code intelligence features for LLM-assisted development"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
+keywords = ["lsp", "language-server", "cli", "code-intelligence", "llm", "developer-tools"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -8,14 +15,9 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development",
+  "Topic :: Text Editors :: Integrated Development Environments (IDE)",
 ]
-description = "A CLI tool that interacts with language servers to provide code intelligence features for LLM-assisted development"
-keywords = ["lsp", "language-server", "cli", "code-intelligence"]
-name = "llm-lsp-cli"
-readme = "README.md"
-requires-python = ">=3.10"
-version = "0.1.0"
-
 dependencies = [
   "typer>=0.9.0",
   "python-daemon>=3.0.0",
@@ -23,6 +25,11 @@ dependencies = [
   "psutil>=5.9.0",
   "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Rianico/llm-lsp-cli"
+Repository = "https://github.com/Rianico/llm-lsp-cli"
+Issues = "https://github.com/Rianico/llm-lsp-cli/issues"
 
 [project.optional-dependencies]
 dev = [
