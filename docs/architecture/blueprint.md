@@ -84,6 +84,72 @@ infrastructure/
 └── logging/
 ```
 
+## Output Formatter Architecture
+
+The output formatting system uses a Protocol-based Strategy pattern with centralized dispatch to eliminate format logic duplication across CLI commands.
+
+### Architecture
+
+```
++------------------+      implements      +-----------------------+
+|  Record Types    | ------------------> |  FormattableRecord    |
+|  (dataclasses)   |                     |  (Protocol)           |
++------------------+                     +-----------------------+
+          |                                         ^
+          | uses                                    | uses
+          v                                         |
++------------------+      delegates      +-----------------------+
+| CLI Commands     | ------------------> |  OutputDispatcher     |
+| (lsp.py)         |                     |  (match/case)         |
++------------------+                     +-----------------------+
+```
+
+### Record Types
+
+All LSP responses are normalized to record types implementing `FormattableRecord`:
+
+| Record Type | Commands | ADR |
+|-------------|----------|-----|
+| `LocationRecord` | references, definition | ADR-0018 |
+| `SymbolRecord` | document-symbol, workspace-symbol | ADR-0013 |
+| `DiagnosticRecord` | diagnostics, workspace-diagnostics | ADR-0017 |
+| `CallHierarchyRecord` | incoming-calls, outgoing-calls | ADR-0011 |
+| `RenameEditRecord` | rename | ADR-0019 |
+| `CompletionRecord` | completion | Design-CompactRange |
+| `HoverRecord` | hover | Design-CompactRange |
+
+### Protocol Contract
+
+```python
+class FormattableRecord(Protocol):
+    def to_compact_dict(self) -> dict[str, Any]: ...
+    def get_csv_headers(self) -> list[str]: ...
+    def get_csv_row(self) -> dict[str, str]: ...
+    def get_text_line(self) -> str: ...
+```
+
+### Design Invariants
+
+1. **Compact Range Format**: All range fields use `"line:char-line:char"` (ADR-0015)
+2. **Human-Readable Names**: Use `kind_name` not numeric `kind` (ADR-0015)
+3. **No Format Logic in CLI**: Commands delegate to `OutputDispatcher`
+4. **Raw Pipeline Separate**: `--raw` flag bypasses normalization entirely (ADR-0012)
+
+### Dispatcher Pattern
+
+```python
+# CLI commands use single dispatch point
+dispatcher = OutputDispatcher()
+records = formatter.transform_locations(locations)
+typer.echo(dispatcher.format_list(records, context.output_format))
+```
+
+Benefits:
+- Single match/case eliminates fall-through bugs
+- Type safety via Protocol
+- Extensibility: new formats need one dispatcher method
+- Testability: format logic unit-testable without CLI
+
 ## Dependency Rule
 
 Dependencies point inward:
@@ -134,7 +200,8 @@ llm-lsp-cli <group> <command>
 1. **New LSP server:** Add JSON to `config/capabilities/`
 2. **New LSP method:** Add to `LSPConstants`, `RequestHandler.RESPONSE_KEYS`
 3. **New CLI command:** Add to appropriate `commands/*.py`, follow two-level hierarchy
-4. **New output format:** Extend `CompactFormatter` or add to `OutputDispatcher`
+4. **New output format:** Extend `OutputDispatcher`, update `FormattableRecord` protocol
+5. **New record type:** Implement `FormattableRecord`, use `CompactFormatter.transform_*`
 
 ## Key Invariants
 
@@ -145,3 +212,5 @@ llm-lsp-cli <group> <command>
 | Default dry-run for renames | RenameService | ADR-0019 |
 | Atomic backup before file modify | BackupManager | ADR-0019 |
 | Hyphenated LSP command names | commands/lsp.py | This blueprint |
+| Compact range format | All record types | ADR-0015 |
+| No format logic in CLI | OutputDispatcher | ADR-0018 |

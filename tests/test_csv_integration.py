@@ -92,13 +92,14 @@ class TestE2ECsvDefinition:
             )
             assert result.exit_code == 0
 
-            # Parse CSV and verify structure
+            # Parse CSV and verify structure - compact format
             rows = parse_csv_output(result.output)
             assert len(rows) == 1
-            # Note: CSV still uses legacy format for definition command
-            assert rows[0]["uri"] == "file:///path/to/file.py"
-            assert rows[0]["start_line"] == "10"
-            assert rows[0]["end_line"] == "10"
+            # Compact format uses 'file' and 'range' columns
+            assert "file" in rows[0]
+            assert "range" in rows[0]
+            # LSP (10,4)-(10,20) -> compact "11:5-11:21"
+            assert rows[0]["range"] == "11:5-11:21"
 
     def test_e2e_definition_csv_empty_results(self, temp_file: Path) -> None:
         """Test definition CSV with no results returns empty string."""
@@ -153,9 +154,11 @@ class TestE2ECsvDefinition:
 
             rows = parse_csv_output(result.output)
             assert len(rows) == 1000
-            # Verify first and last rows
-            assert rows[0]["uri"] == "file:///path/to/file0.py"
-            assert rows[999]["uri"] == "file:///path/to/file999.py"
+            # Verify first and last rows - compact format uses 'file' column
+            assert "file" in rows[0]
+            assert "range" in rows[0]
+            assert "file0.py" in rows[0]["file"]
+            assert "file999.py" in rows[999]["file"]
 
 
 class TestE2ECsvReferences:
@@ -328,7 +331,8 @@ class TestE2ECsvHover:
                 ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
-            assert result.output.strip() == ""
+            # When hover is None, outputs a message instead of empty
+            assert "No hover information available" in result.output
 
 
 class TestE2ECsvDocumentSymbol:
@@ -445,7 +449,7 @@ class TestCsvEdgeCasesSpecialCharacters:
     """Edge case tests for special characters in CSV."""
 
     def test_csv_uri_with_comma(self, temp_file: Path) -> None:
-        """Test CSV escaping when URI contains comma."""
+        """Test CSV escaping when file path contains comma."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
             patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
@@ -464,10 +468,12 @@ class TestCsvEdgeCasesSpecialCharacters:
 
             rows = parse_csv_output(result.output)
             assert len(rows) == 1
-            assert rows[0]["uri"] == "file:///path/to/file,with,commas.py"
+            # Compact format uses 'file' column with relative path
+            assert "file" in rows[0]
+            assert "file,with,commas.py" in rows[0]["file"]
 
     def test_csv_uri_with_quotes(self, temp_file: Path) -> None:
-        """Test CSV escaping when URI contains double quotes."""
+        """Test CSV escaping when file path contains double quotes."""
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
             patch("llm_lsp_cli.commands.lsp.send_request") as mock_send,
@@ -486,7 +492,9 @@ class TestCsvEdgeCasesSpecialCharacters:
 
             rows = parse_csv_output(result.output)
             assert len(rows) == 1
-            assert rows[0]["uri"] == 'file:///path/to/file"with"quotes.py'
+            # Compact format uses 'file' column with relative path
+            assert "file" in rows[0]
+            assert 'file"with"quotes.py' in rows[0]["file"]
 
     def test_csv_detail_with_comma(self, temp_file: Path) -> None:
         """Test CSV escaping when detail contains comma."""
@@ -649,7 +657,7 @@ class TestCsvEdgeCasesEmptyAndNone:
                 assert result.output.strip() == ""
 
     def test_csv_hover_none_hover(self, temp_file: Path) -> None:
-        """Test hover CSV returns empty for None hover."""
+        """Test hover CSV returns message for None hover."""
         mock_response = {"hover": None}
 
         with (
@@ -667,7 +675,8 @@ class TestCsvEdgeCasesEmptyAndNone:
                 ["lsp", "hover", str(temp_file), "10", "5", "--format", "csv", "-w", workspace],
             )
             assert result.exit_code == 0
-            assert result.output.strip() == ""
+            # When hover is None, outputs a message instead of empty
+            assert "No hover information available" in result.output
 
     def test_csv_missing_optional_fields(self, temp_file: Path) -> None:
         """Test CSV handles missing optional fields gracefully."""
@@ -1045,14 +1054,18 @@ class TestCsvCrossFormatConsistency:
         assert csv_output is not None
         assert json_output is not None
 
-        # Parse both and verify same data
+        # Parse both and verify same data - compact format
         csv_rows = parse_csv_output(csv_output)
         import json
 
         json_data = json.loads(json_output)
 
-        assert len(csv_rows) == len(json_data["locations"])
-        assert csv_rows[0]["uri"] == json_data["locations"][0]["uri"]
+        # JSON is now a flat list, not {"locations": [...]}
+        assert isinstance(json_data, list)
+        assert len(csv_rows) == len(json_data)
+        # Both CSV and JSON use 'file' and 'range' in compact format
+        assert csv_rows[0]["file"] == json_data[0]["file"]
+        assert csv_rows[0]["range"] == json_data[0]["range"]
 
     def test_csv_json_same_data_completions(self, temp_file: Path) -> None:
         """Test CSV and JSON contain same data for completions."""
@@ -1101,8 +1114,11 @@ class TestCsvCrossFormatConsistency:
 
         json_data = json.loads(json_output)
 
-        assert len(csv_rows) == len(json_data["items"])
-        assert csv_rows[0]["label"] == json_data["items"][0]["label"]
+        # JSON is now a flat list, not {"items": [...]}
+        assert isinstance(json_data, list)
+        assert len(csv_rows) == len(json_data)
+        # Both CSV and JSON use 'label' in compact format
+        assert csv_rows[0]["label"] == json_data[0]["label"]
 
 
 # =============================================================================
@@ -1143,7 +1159,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["uri", "start_line", "start_char", "end_line", "end_char"]
+            # Compact format uses 'file' and 'range' columns
+            expected_columns = ["file", "range"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_references_columns(self, temp_file: Path) -> None:
@@ -1203,7 +1220,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["label", "kind", "kind_name", "detail", "documentation"]
+            # Compact format uses file, label, kind_name, detail, documentation, range, position
+            expected_columns = ["file", "label", "kind_name", "detail", "documentation", "range", "position"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_document_symbol_columns(self, temp_file: Path) -> None:
@@ -1306,11 +1324,6 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = [
-                "content",
-                "range_start_line",
-                "range_start_char",
-                "range_end_line",
-                "range_end_char",
-            ]
+            # Compact format uses 'file', 'content', 'range' columns
+            expected_columns = ["file", "content", "range"]
             assert header == ",".join(expected_columns)

@@ -604,12 +604,13 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert "locations" in output
-        assert len(output["locations"]) == 1
-        assert output["locations"][0]["uri"] == "file:///path/to/file.py"
+        assert isinstance(output, list)
+        assert len(output) == 1
+        assert "file" in output[0]
+        assert "range" in output[0]
 
 
 def test_cli_references_yaml_output(temp_file: Path) -> None:
@@ -660,16 +661,16 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert "items" in output
-        assert len(output["items"]) == 2
-        # Verify all fields are preserved
-        assert output["items"][0]["label"] == "my_function"
-        assert output["items"][0]["kind"] == 12  # COMPLETION_RESPONSE uses kind 12 (Function)
-        assert output["items"][0]["detail"] == "def my_function(x: int) -> str"
-        assert output["items"][0]["documentation"] == "A sample function"
+        assert isinstance(output, list)
+        assert len(output) == 2
+        # Verify key fields are preserved in compact format
+        assert output[0]["label"] == "my_function"
+        assert output[0]["kind_name"] == "Function"
+        assert output[0]["detail"] == "def my_function(x: int) -> str"
+        assert output[0]["documentation"] == "A sample function"
 
 
 def test_cli_hover_yaml_output(temp_file: Path) -> None:
@@ -692,13 +693,15 @@ def test_cli_hover_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns single object
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert "hover" in output
-        assert output["hover"]["contents"]["kind"] == "markdown"
-        assert "value" in output["hover"]["contents"]
-        assert output["hover"]["range"]["start"]["line"] == 10
+        assert isinstance(output, dict)
+        assert "file" in output
+        assert "content" in output
+        assert "range" in output
+        # Content should contain the function definition
+        assert "def my_function" in output["content"]
 
 
 def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
@@ -780,8 +783,10 @@ def test_cli_format_explicit_text(temp_file: Path) -> None:
             app, ["lsp", "definition", str(temp_file), "10", "5", "--format", "text", "-w", workspace]
         )
         assert result.exit_code == 0
-        # Text output should contain formatted path with full range
-        assert "file:///path/to/file.py:11:" in result.output
+        # Text output should contain compact path with range (1-based)
+        # LSP (10,4)-(10,20) -> compact "11:5-11:21"
+        assert "/path/to/file.py:" in result.output
+        assert "11:5-11:21" in result.output
 
 
 def test_cli_format_invalid_option(temp_file: Path) -> None:
@@ -803,7 +808,7 @@ def test_cli_format_invalid_option(temp_file: Path) -> None:
 
 
 def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
-    """Test that YAML output preserves ALL fields from LSP responses - no data loss."""
+    """Test that YAML output preserves key fields from LSP responses in compact format."""
     from llm_lsp_cli.cli import app
 
     # Comprehensive mock response with many LSP fields
@@ -853,27 +858,18 @@ def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output
+        # Parse YAML output - compact format returns flat array
         output = yaml.safe_load(result.output)
         assert output is not None
+        assert isinstance(output, list)
 
-        # Verify ALL fields are preserved (no data loss)
-        item = output["items"][0]
+        # Verify key fields are preserved in compact format
+        item = output[0]
         assert item["label"] == "complex_function"
-        assert item["kind"] == 3
-        assert item["tags"] == [1, 2]
+        assert item["kind_name"] == "Namespace"  # kind 3 maps to Namespace
         assert item["detail"] == "def complex_function(x: int, y: str) -> tuple"
-        assert item["documentation"]["kind"] == "markdown"
-        assert item["documentation"]["value"] == "Detailed documentation"
-        assert item["deprecated"] is False
-        assert item["preselect"] is True
-        assert item["filterText"] == "complex_function"
-        assert item["insertText"] == "complex_function(${1:x}, ${2:y})"
-        assert item["insertTextFormat"] == 2
-        assert item["textEdit"]["range"]["start"]["line"] == 10
-        assert item["textEdit"]["newText"] == "complex_function(x, y)"
-        assert item["commitCharacters"] == ["(", "{"]
-        assert item["data"]["custom"] == "metadata"
+        assert item["documentation"] == "Detailed documentation"
+        assert item["range"] == "11:1-11:6"  # 0-based (10,0)-(10,5) -> 1-based "11:1-11:6"
 
 
 # =============================================================================
@@ -913,14 +909,14 @@ def test_cli_definition_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns flat array
         output = json.loads(result.output)
         assert output is not None
-        assert "locations" in output
-        assert len(output["locations"]) == 1
-        assert output["locations"][0]["uri"] == "file:///path/to/file.py"
-        assert output["locations"][0]["range"]["start"]["line"] == 10
-        assert output["locations"][0]["range"]["end"]["character"] == 20
+        assert isinstance(output, list)
+        assert len(output) == 1
+        assert "file" in output[0]
+        assert "range" in output[0]
+        assert output[0]["range"] == "11:5-11:21"  # 0-based (10,4)-(10,20) -> 1-based
 
 
 def test_cli_references_json_output(temp_file: Path) -> None:
@@ -978,7 +974,7 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
         "items": [
             {
                 "label": "my_function",
-                "kind": 3,
+                "kind": 12,  # Function
                 "detail": "def my_function(x: int) -> str",
                 "documentation": "A sample function",
                 "textEdit": {
@@ -1013,16 +1009,18 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns flat array
         output = json.loads(result.output)
         assert output is not None
-        assert "items" in output
-        assert len(output["items"]) == 2
-        # Verify all fields are preserved including textEdit range
-        item = output["items"][0]
+        assert isinstance(output, list)
+        assert len(output) == 2
+        # Verify key fields are preserved in compact format
+        item = output[0]
         assert item["label"] == "my_function"
-        assert item["textEdit"]["range"]["start"]["line"] == 10
-        assert item["textEdit"]["range"]["end"]["character"] == 5
+        assert item["kind_name"] == "Function"
+        assert "range" in item
+        # textEdit range (10,0)-(10,5) -> compact "11:1-11:6"
+        assert item["range"] == "11:1-11:6"
 
 
 def test_cli_hover_json_output(temp_file: Path) -> None:
@@ -1058,15 +1056,16 @@ def test_cli_hover_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output
+        # Parse JSON output - compact format returns single object
         output = json.loads(result.output)
         assert output is not None
-        assert "hover" in output
-        assert output["hover"]["contents"]["kind"] == "markdown"
-        assert "value" in output["hover"]["contents"]
-        # Verify hover range is preserved
-        assert output["hover"]["range"]["start"]["line"] == 10
-        assert output["hover"]["range"]["end"]["character"] == 15
+        assert isinstance(output, dict)
+        assert "file" in output
+        assert "content" in output
+        assert "range" in output
+        # Range (10,4)-(10,15) -> compact "11:5-11:16"
+        assert output["range"] == "11:5-11:16"
+        assert "def my_function" in output["content"]
 
 
 def test_cli_document_symbol_json_output(temp_file: Path) -> None:
@@ -1446,10 +1445,13 @@ def test_cli_default_format_is_json(temp_file: Path) -> None:
         result = runner.invoke(app, ["lsp", "definition", str(temp_file), "10", "5", "-w", workspace])
         assert result.exit_code == 0
 
-        # Output should be valid JSON (not text format)
+        # Output should be valid JSON (compact format - flat array)
         output = json.loads(result.output)
         assert output is not None
-        assert "locations" in output
+        assert isinstance(output, list)
+        assert len(output) == 1
+        assert "file" in output[0]
+        assert "range" in output[0]
 
 
 # =============================================================================
@@ -1864,11 +1866,13 @@ class TestDefinitionCsvOutput:
             )
             assert result.exit_code == 0
 
-            # Verify CSV output has header and data row
+            # Verify CSV output has header and data row - compact format
             lines = result.output.strip().split("\n")
             assert len(lines) == 2  # Header + 1 data row
-            assert "uri" in lines[0]
-            assert "file:///path/to/file.py" in lines[1]
+            # Compact format uses 'file' and 'range' columns
+            assert "file" in lines[0]
+            assert "range" in lines[0]
+            assert "/path/to/file.py" in lines[1]
 
     def test_cli_definition_csv_multiple_locations(self, temp_file: Path) -> None:
         """Test CSV output with multiple definition locations."""
@@ -1895,7 +1899,7 @@ class TestDefinitionCsvOutput:
             assert len(lines) == 4  # Header + 3 data rows
 
     def test_cli_definition_csv_columns_correct(self, temp_file: Path) -> None:
-        """Test that CSV has correct columns: uri,start_line,start_char,end_line,end_char."""
+        """Test that CSV has correct columns: file,range (compact format)."""
         from llm_lsp_cli.cli import app
 
         with (
@@ -1915,7 +1919,8 @@ class TestDefinitionCsvOutput:
             assert result.exit_code == 0
 
             header = result.output.strip().split("\n")[0]
-            assert header == "uri,start_line,start_char,end_line,end_char"
+            # Compact format uses 'file' and 'range' columns
+            assert header == "file,range"
 
 
 class TestReferencesCsvOutput:
@@ -2062,6 +2067,9 @@ class TestHoverCsvOutput:
 
     def test_cli_hover_csv_basic(self, temp_file: Path) -> None:
         """Test hover command with CSV output format."""
+        import csv
+        import io
+
         from llm_lsp_cli.cli import app
 
         with (
@@ -2080,8 +2088,13 @@ class TestHoverCsvOutput:
             )
             assert result.exit_code == 0
 
-            lines = result.output.strip().split("\n")
-            assert len(lines) == 2  # Header + 1 data row
+            # Parse CSV properly (handles quoted multi-line content)
+            reader = csv.DictReader(io.StringIO(result.output.strip()))
+            rows = list(reader)
+            assert len(rows) == 1  # Single data row
+            assert "file" in rows[0]
+            assert "content" in rows[0]
+            assert "range" in rows[0]
 
     def test_cli_hover_csv_single_row(self, temp_file: Path) -> None:
         """Test hover CSV produces single row (not a list)."""

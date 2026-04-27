@@ -3,18 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import typer
 
 from llm_lsp_cli.commands.shared import (
     GlobalOptions,
     build_request_context,
-    format_completions_text,
-    format_hover_text,
-    format_locations_text,
-    format_workspace_symbols_text,
-    output_result,
     resolve_effective_options,
     resolve_workspace_path,
     send_notification,
@@ -31,12 +25,7 @@ from llm_lsp_cli.test_filter import (
     _filter_test_locations,
     _filter_test_symbols,
 )
-from llm_lsp_cli.utils import (
-    OutputFormat,
-    format_completions_csv,
-    format_hover_csv,
-    format_locations_csv,
-)
+from llm_lsp_cli.utils import OutputFormat
 from llm_lsp_cli.utils.language_detector import detect_language_from_file
 
 app = typer.Typer(name="lsp", help="LSP operations for code intelligence.")
@@ -74,22 +63,29 @@ def definition(
     line_index = context.line - 1 if context.line else 0
     column_index = context.column - 1 if context.column else 0
 
-    _execute_lsp_command(
-        method=LSPConstants.DEFINITION,
-        params={
-            "workspacePath": context.workspace_path,
-            "filePath": str(context.file_path),
-            "line": line_index,
-            "column": column_index,
-        },
-        language=context.language,
-        text_formatter=lambda resp: format_locations_text(resp.get("locations", [])),
-        csv_formatter=lambda resp: format_locations_csv(resp.get("locations", [])),
-        output_format=context.output_format,
-        filter_tests=True,
-        test_filter_fn=_filter_test_locations,
-        include_tests=include_tests,
-    )
+    try:
+        response = send_request(
+            LSPConstants.DEFINITION,
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
+
+        locations = response.get("locations", [])
+        filtered = _filter_test_locations(locations, include_tests=include_tests)
+
+        formatter = CompactFormatter(context.workspace_path)
+        records = formatter.transform_locations(filtered)
+        dispatcher = OutputDispatcher()
+        typer.echo(dispatcher.format_list(records, context.output_format))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -421,19 +417,27 @@ def completion(
     line_index = context.line - 1 if context.line else 0
     column_index = context.column - 1 if context.column else 0
 
-    _execute_lsp_command(
-        method=LSPConstants.COMPLETION,
-        params={
-            "workspacePath": context.workspace_path,
-            "filePath": str(context.file_path),
-            "line": line_index,
-            "column": column_index,
-        },
-        language=context.language,
-        text_formatter=lambda resp: format_completions_text(resp.get("items", [])),
-        csv_formatter=lambda resp: format_completions_csv(resp.get("items", [])),
-        output_format=context.output_format,
-    )
+    try:
+        response = send_request(
+            LSPConstants.COMPLETION,
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
+
+        items = response.get("items", [])
+        formatter = CompactFormatter(context.workspace_path)
+        records = formatter.transform_completions(items, file_path=str(context.file_path))
+        dispatcher = OutputDispatcher()
+        typer.echo(dispatcher.format_list(records, context.output_format))
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -461,19 +465,30 @@ def hover(
     line_index = context.line - 1 if context.line else 0
     column_index = context.column - 1 if context.column else 0
 
-    _execute_lsp_command(
-        method=LSPConstants.HOVER,
-        params={
-            "workspacePath": context.workspace_path,
-            "filePath": str(context.file_path),
-            "line": line_index,
-            "column": column_index,
-        },
-        language=context.language,
-        text_formatter=lambda resp: format_hover_text(resp.get("hover")),
-        csv_formatter=lambda resp: format_hover_csv(resp.get("hover")),
-        output_format=context.output_format,
-    )
+    try:
+        response = send_request(
+            LSPConstants.HOVER,
+            {
+                "workspacePath": context.workspace_path,
+                "filePath": str(context.file_path),
+                "line": line_index,
+                "column": column_index,
+            },
+            language=context.language,
+        )
+
+        hover_data = response.get("hover")
+        formatter = CompactFormatter(context.workspace_path)
+        record = formatter.transform_hover(hover_data, file_path=str(context.file_path))
+        if record:
+            dispatcher = OutputDispatcher()
+            typer.echo(dispatcher.format(record, context.output_format))
+        else:
+            typer.echo("No hover information available.")
+
+    except CLIError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -725,44 +740,6 @@ def did_change(
             language=language or "python",
         )
         typer.echo("Change acknowledged.")
-    except CLIError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
-
-
-def _execute_lsp_command(
-    method: str,
-    params: dict[str, Any],
-    language: str,
-    text_formatter: Any,
-    csv_formatter: Any = None,
-    output_format: OutputFormat = OutputFormat.JSON,
-    filter_tests: bool = False,
-    test_filter_fn: Any = None,
-    include_tests: bool = False,
-) -> None:
-    """Execute an LSP command and output the result."""
-    try:
-        response = send_request(method, params, language=language)
-
-        if filter_tests and not include_tests and test_filter_fn is not None:
-            if "locations" in response:
-                response["locations"] = test_filter_fn(response.get("locations", []), False)
-            elif "symbols" in response:
-                response["symbols"] = test_filter_fn(response.get("symbols", []), False)
-
-        def text_format_with_filter(resp: Any) -> None:
-            if test_filter_fn is not None and filter_tests:
-                if "locations" in resp:
-                    format_locations_text(test_filter_fn(resp.get("locations", []), include_tests))
-                    return
-                elif "symbols" in resp:
-                    symbols = test_filter_fn(resp.get("symbols", []), include_tests)
-                    format_workspace_symbols_text(symbols)
-                    return
-            text_formatter(resp)
-
-        output_result(response, output_format, text_format_with_filter, csv_formatter)
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e

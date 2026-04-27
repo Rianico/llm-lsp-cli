@@ -173,7 +173,8 @@ class DiagnosticRecord:
         """Return a single-line text representation."""
         code_str = f" [{self.code}]" if self.code else ""
         source_str = f" ({self.source})" if self.source else ""
-        return f"{self.severity_name}: {self.message}{code_str}{source_str} {self.range.to_compact()}"
+        compact = self.range.to_compact()
+        return f"{self.severity_name}: {self.message}{code_str}{source_str} {compact}"
 
 
 @dataclass
@@ -212,13 +213,16 @@ class CallHierarchyRecord:
 
     def get_csv_row(self) -> dict[str, str]:
         """Return a CSV row for this call hierarchy record."""
+        from_ranges_str = (
+            "|".join(r.to_compact() for r in self.from_ranges) if self.from_ranges else ""
+        )
         return {
             "file": self.file,
             "name": self.name,
             "kind_name": self.kind_name,
             "range": self.range.to_compact(),
             "selection_range": self.selection_range.to_compact() if self.selection_range else "",
-            "from_ranges": "|".join(r.to_compact() for r in self.from_ranges) if self.from_ranges else "",
+            "from_ranges": from_ranges_str,
         }
 
     def get_text_line(self) -> str:
@@ -263,6 +267,101 @@ class RenameEditRecord:
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
         return f"{self.file}:{self.range.to_compact()} '{self.old_text}' -> '{self.new_text}'"
+
+
+@dataclass
+class CompletionRecord:
+    """A normalized completion record for compact output.
+
+    Implements FormattableRecord for consistent output formatting.
+    """
+
+    file: str
+    label: str
+    kind: int
+    kind_name: str
+    detail: str | None = None
+    documentation: str | None = None
+    range: Range | None = None  # from textEdit.range
+    position: Range | None = None  # from data.position (as single point)
+
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format, omitting null fields."""
+        obj: dict[str, Any] = {
+            "file": self.file,
+            "label": self.label,
+            "kind_name": self.kind_name,
+        }
+        if self.detail is not None:
+            obj["detail"] = self.detail
+        if self.documentation is not None:
+            obj["documentation"] = self.documentation
+        if self.range is not None:
+            obj["range"] = self.range.to_compact()
+        if self.position is not None:
+            obj["position"] = self.position.to_compact()
+        return obj
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for completion records."""
+        return ["file", "label", "kind_name", "detail", "documentation", "range", "position"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this completion."""
+        return {
+            "file": self.file,
+            "label": self.label,
+            "kind_name": self.kind_name,
+            "detail": self.detail or "",
+            "documentation": self.documentation or "",
+            "range": self.range.to_compact() if self.range else "",
+            "position": self.position.to_compact() if self.position else "",
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        range_str = f" [{self.range.to_compact()}]" if self.range else ""
+        detail_str = f" - {self.detail}" if self.detail else ""
+        return f"{self.file}: {self.label}{detail_str}{range_str}"
+
+
+@dataclass
+class HoverRecord:
+    """A normalized hover record for compact output.
+
+    Implements FormattableRecord for consistent output formatting.
+    """
+
+    file: str
+    content: str
+    range: Range | None = None
+
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to dict with compact range format, omitting null fields."""
+        obj: dict[str, Any] = {
+            "file": self.file,
+            "content": self.content,
+        }
+        if self.range is not None:
+            obj["range"] = self.range.to_compact()
+        return obj
+
+    def get_csv_headers(self) -> list[str]:
+        """Return CSV headers for hover records."""
+        return ["file", "content", "range"]
+
+    def get_csv_row(self) -> dict[str, str]:
+        """Return a CSV row for this hover."""
+        return {
+            "file": self.file,
+            "content": self.content,
+            "range": self.range.to_compact() if self.range else "",
+        }
+
+    def get_text_line(self) -> str:
+        """Return a single-line text representation."""
+        range_str = f" [{self.range.to_compact()}]" if self.range else ""
+        return f"{self.file}: {self.content}{range_str}"
 
 
 SEVERITY_MAP = {
@@ -592,3 +691,107 @@ class CompactFormatter:
         # Sort by file then name
         records.sort(key=lambda r: (r.file, r.name))
         return records
+
+    def transform_completions(
+        self, items: list[dict[str, Any]], file_path: str
+    ) -> list[CompletionRecord]:
+        """Transform LSP completion items to CompletionRecord list.
+
+        Args:
+            items: List of LSP completion items
+            file_path: File path for the completion request
+
+        Returns:
+            List of normalized CompletionRecord objects
+        """
+        records: list[CompletionRecord] = []
+
+        for item in items:
+            label = item.get("label", "")
+            kind = item.get("kind", 0)
+            kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+            detail = item.get("detail")
+            documentation = item.get("documentation")
+
+            # Handle dict documentation (MarkupContent)
+            if isinstance(documentation, dict):
+                documentation = documentation.get("value")
+
+            # Extract range from textEdit.range
+            range_val: Range | None = None
+            text_edit = item.get("textEdit")
+            if text_edit and isinstance(text_edit, dict):
+                range_obj = text_edit.get("range")
+                if range_obj:
+                    range_val = Range.from_dict(range_obj)
+
+            # Extract position from data.position
+            position_val: Range | None = None
+            data = item.get("data")
+            if data and isinstance(data, dict):
+                pos = data.get("position")
+                if pos:
+                    # Position is a single point, create a Range with same start/end
+                    position_val = Range(
+                        start=Position(
+                            line=pos.get("line", 0) or 0,
+                            character=pos.get("character", 0) or 0,
+                        ),
+                        end=Position(
+                            line=pos.get("line", 0) or 0,
+                            character=pos.get("character", 0) or 0,
+                        ),
+                    )
+
+            records.append(
+                CompletionRecord(
+                    file=file_path,
+                    label=label,
+                    kind=kind,
+                    kind_name=kind_name,
+                    detail=detail,
+                    documentation=documentation,
+                    range=range_val,
+                    position=position_val,
+                )
+            )
+
+        return records
+
+    def transform_hover(
+        self, hover: dict[str, Any] | None, file_path: str
+    ) -> HoverRecord | None:
+        """Transform LSP hover response to HoverRecord.
+
+        Args:
+            hover: LSP hover response object or None
+            file_path: File path for the hover request
+
+        Returns:
+            HoverRecord or None if hover is None
+        """
+        if hover is None:
+            return None
+
+        # Extract content from contents
+        contents = hover.get("contents", {})
+        if isinstance(contents, dict):
+            content = contents.get("value", "")
+        elif isinstance(contents, list) and contents:
+            # Handle array of MarkedString
+            first = contents[0]
+            content = first.get("value", "") if isinstance(first, dict) else str(first)
+        else:
+            content = str(contents) if contents else ""
+
+        # Extract range if present
+        range_val: Range | None = None
+        range_obj = hover.get("range")
+        if range_obj:
+            range_val = Range.from_dict(range_obj)
+
+        return HoverRecord(
+            file=file_path,
+            content=content,
+            range=range_val,
+        )
