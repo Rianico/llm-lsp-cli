@@ -115,6 +115,59 @@ class TestDaemonClientAutoStart:
 
     @pytest.mark.asyncio
     @patch("llm_lsp_cli.daemon_client.ConfigManager")
+    async def test_spawn_daemon_uses_correct_cli_command(
+        self,
+        mock_config_manager: MagicMock,
+        mock_daemon_manager: MagicMock,
+        mock_unix_client: MagicMock,
+        mock_asyncio_create_subprocess: MagicMock,
+    ):
+        """_spawn_daemon_subprocess() constructs two-level command 'daemon start'."""
+        # Setup mock socket path that exists
+        mock_socket = MagicMock(spec=Path)
+        mock_socket.exists.return_value = True
+        mock_socket.__str__ = MagicMock(return_value="/tmp/test.sock")
+        mock_config_manager.build_socket_path.return_value = mock_socket
+
+        # Setup: is_running() returns False initially
+        mock_manager_instance = MagicMock()
+        mock_manager_instance.is_running.return_value = False
+        mock_daemon_manager.return_value = mock_manager_instance
+
+        # Mock subprocess - daemon starts successfully
+        mock_process = AsyncMock()
+        mock_process.returncode = None  # Process is running
+        mock_asyncio_create_subprocess.return_value = mock_process
+
+        # Mock tempfile.NamedTemporaryFile for stderr capture (imported inside method)
+        with patch("tempfile.NamedTemporaryFile") as mock_tempfile:
+            mock_file = MagicMock()
+            mock_file.fileno.return_value = 99
+            mock_file.name = "/tmp/mock_stderr.log"
+            mock_tempfile.return_value = mock_file
+
+            client = DaemonClient("/test/workspace", "python")
+
+            # Execute
+            await client._spawn_daemon_subprocess()
+
+        # Verify create_subprocess_exec was called
+        mock_asyncio_create_subprocess.assert_called_once()
+
+        # Extract the command that was passed
+        call_args = mock_asyncio_create_subprocess.call_args[0]  # positional args
+
+        # Verify command structure: python -m llm_lsp_cli daemon start --workspace ... --language ...
+        assert call_args[0].endswith("python") or "python" in call_args[0]  # python executable
+        assert call_args[1] == "-m"            # module flag
+        assert call_args[2] == "llm_lsp_cli"   # module name
+        assert call_args[3] == "daemon"        # command group (BUG: currently "start")
+        assert call_args[4] == "start"         # command
+        assert "--workspace" in call_args
+        assert "--language" in call_args
+
+    @pytest.mark.asyncio
+    @patch("llm_lsp_cli.daemon_client.ConfigManager")
     async def test_request_auto_starts_daemon(
         self,
         mock_config_manager: MagicMock,

@@ -84,6 +84,7 @@ def cleanup_runtime_files(
     pid_file: Path,
     workspace: str,
     language: str,
+    cleanup_pid: bool = True,
 ) -> None:
     """Clean up daemon runtime files (socket and PID).
 
@@ -92,6 +93,8 @@ def cleanup_runtime_files(
         pid_file: Path to the PID lock file
         workspace: Workspace name for logging
         language: Language name for logging
+        cleanup_pid: If True, remove PID file. Set to False when called from
+            within DaemonContext, since the context manager handles PID cleanup.
 
     This function is idempotent - safe to call multiple times.
     """
@@ -107,13 +110,17 @@ def cleanup_runtime_files(
     else:
         logger.debug("[CLEANUP] Socket already absent")
 
-    # Remove PID file
-    if pid_file.exists():
+    # Remove PID file only if explicitly requested
+    # DaemonContext manages its own PID file, so we skip this when running
+    # inside the context to avoid NotLocked errors during shutdown
+    if cleanup_pid and pid_file.exists():
         try:
             pid_file.unlink()
             logger.debug(f"[CLEANUP] Removed PID file: {pid_file}")
         except OSError as e:
             logger.error(f"[CLEANUP] Failed to remove PID file: {e}")
+    elif not cleanup_pid:
+        logger.debug("[CLEANUP] Skipping PID file cleanup (managed by DaemonContext)")
     else:
         logger.debug("[CLEANUP] PID file already absent")
 
@@ -803,12 +810,16 @@ async def run_daemon(
         logger.info("Daemon stopped")
 
         # Clean up runtime files
+        # Note: cleanup_pid=False because DaemonContext manages the PID file.
+        # We only clean up the socket here; DaemonContext.__exit__ will
+        # release the PID file lock naturally.
         if pid_file is not None:
             cleanup_runtime_files(
                 socket_path=Path(socket_path),
                 pid_file=pid_file,
                 workspace=Path(workspace_path).name,
                 language=language,
+                cleanup_pid=False,
             )
         else:
             # Fallback: construct paths from workspace
@@ -824,6 +835,7 @@ async def run_daemon(
                 pid_file=pid_p,
                 workspace=Path(workspace_path).name,
                 language=language,
+                cleanup_pid=False,
             )
 
 

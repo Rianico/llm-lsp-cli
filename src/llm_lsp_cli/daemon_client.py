@@ -232,7 +232,7 @@ class DaemonClient:
     async def _spawn_daemon_subprocess(self) -> None:
         """Spawn daemon as a background subprocess.
 
-        Spawns `llm-lsp-cli start` as a detached subprocess and returns immediately.
+        Spawns `llm-lsp-cli daemon start` as a detached subprocess and returns immediately.
         """
         import asyncio
         import sys
@@ -244,6 +244,7 @@ class DaemonClient:
             sys.executable,
             "-m",
             "llm_lsp_cli",
+            "daemon",
             "start",
             "--workspace",
             self.workspace_path,
