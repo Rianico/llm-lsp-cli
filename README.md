@@ -13,7 +13,7 @@ A CLI tool that interacts with Language Server Protocol (LSP) servers to provide
 
 ## Architecture
 
-See [CODEMAPS/architecture.md](CODEMAPS/architecture.md) for system architecture overview.
+See [docs/architecture/blueprint.md](docs/architecture/blueprint.md) for system architecture overview.
 
 - **CLI <-> Daemon**: UNIX domain sockets with JSON-RPC 2.0 protocol
 - **Daemon <-> LSP**: stdio transport with LSP 3.17 protocol
@@ -214,7 +214,7 @@ Install the appropriate language server. See [Language Server Requirements](#lan
 
 ## Development
 
-See [CODEMAPS/](CODEMAPS/) for architectural documentation.
+See [docs/architecture/](docs/architecture/) for architectural documentation.
 
 ```bash
 # Install with development dependencies

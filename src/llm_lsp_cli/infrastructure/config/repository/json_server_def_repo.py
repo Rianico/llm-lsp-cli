@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_lsp_cli.domain.entities import ServerDefinition
+
 from ..exceptions import ConfigWriteError
 
 logger = logging.getLogger(__name__)

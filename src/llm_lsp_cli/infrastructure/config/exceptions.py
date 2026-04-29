@@ -76,8 +76,8 @@ class ServerNotFoundError(ConfigError):
             # Handle empty command case
             if not command or not command.strip():
                 super().__init__(
-                    f"LSP server command is empty.\n\n"
-                    f"Hint: Specify a valid server command in config.yaml"
+                    "LSP server command is empty.\n\n"
+                    "Hint: Specify a valid server command in config.yaml"
                 )
             else:
                 super().__init__(

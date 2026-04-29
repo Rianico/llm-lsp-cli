@@ -150,11 +150,91 @@ Benefits:
 - Extensibility: new formats need one dispatcher method
 - Testability: format logic unit-testable without CLI
 
+## Workspace-Level Output Grouping
+
+Workspace-level commands (`workspace-symbol`, `workspace-diagnostics`) return results spanning multiple files. The output system supports file-grouped presentation for improved LLM context.
+
+### Grouped Output Structure
+
+**JSON/YAML Format:**
+```json
+[
+  {
+    "file": "src/main.py",
+    "symbols": [
+      {"name": "MyClass", "kind_name": "Class", "range": "1:1-50:1"}
+    ]
+  }
+]
+```
+
+**TEXT Format (hierarchical):**
+```
+Basedpyright: workspace-symbol
+src/main.py:
+  ├── MyClass (Class) [1:1-50:1]
+  └── helper (Function) [55:1-80:1]
+src/utils.py:
+  └── process (Function) [10:1-25:1]
+```
+
+### Architecture
+
+```
++------------------+      groups by file      +-----------------------+
+| CompactFormatter | -----------------------> |  Grouped Output       |
+|                  |  group_symbols_by_file() |  [{file, items}, ...] |
++------------------+                          +-----------------------+
+                                                         |
++------------------+      delegates                      v
+| OutputDispatcher | <-------------------+  +-----------------------+
+|                  |  format_grouped()    |  |  format_grouped()   |
++------------------+                     |  +-----------------------+
+          |                              |
+          v                              |
++-----------------------+                |
+| JSON/YAML: grouped    |                |
+| TEXT: hierarchical    | <--------------+
+| CSV: flat (unchanged) |
++-----------------------+
+```
+
+### Components
+
+| Component | Responsibility | Location |
+|-----------|---------------|----------|
+| `server_name.py` | Resolve server display name from initialize response | `output/server_name.py` |
+| `header_builder.py` | Build alert header with server name and command context | `output/header_builder.py` |
+| `CompactFormatter.group_*_by_file()` | Group records by file path | `output/formatter.py` |
+| `OutputDispatcher.format_grouped()` | Format grouped data by output type | `output/dispatcher.py` |
+| `text_renderer.py` | Hierarchical TEXT rendering for grouped output | `output/text_renderer.py` |
+
+### Alert Header Pattern
+
+All LSP commands display an alert header indicating the server and command context:
+
+```
+<Server>: <command> [of <file>]
+```
+
+Examples:
+- File-level: `Basedpyright: diagnostics of src/main.py`
+- Workspace-level: `Basedpyright: workspace-diagnostics`
+
+The header is prepended to TEXT output only (JSON/YAML remain machine-parseable).
+
+### Design Invariants
+
+1. **CSV Stays Flat**: CSV format does not support nesting; uses existing flat structure with file column
+2. **Memory-Based Grouping**: Records collected in memory before grouping (acceptable for typical workspace sizes)
+3. **Server Name Resolution Chain**: `serverInfo.name` → command basename mapping → command basename fallback
+4. **Relative Paths**: All file paths normalized to workspace-relative for consistency
+
 ## Dependency Rule
 
 Dependencies point inward:
 ```
-CLI Layer → Application Layer → Domain Layer ← Infrastructure Layer
+CLI Layer -> Application Layer -> Domain Layer <- Infrastructure Layer
 ```
 
 Domain Layer has NO dependencies on outer layers. Infrastructure implements interfaces defined by inner layers.
@@ -202,6 +282,7 @@ llm-lsp-cli <group> <command>
 3. **New CLI command:** Add to appropriate `commands/*.py`, follow two-level hierarchy
 4. **New output format:** Extend `OutputDispatcher`, update `FormattableRecord` protocol
 5. **New record type:** Implement `FormattableRecord`, use `CompactFormatter.transform_*`
+6. **Workspace-level command with grouping:** Use `format_grouped()` for JSON/YAML, hierarchical renderer for TEXT
 
 ## Key Invariants
 
@@ -214,3 +295,5 @@ llm-lsp-cli <group> <command>
 | Hyphenated LSP command names | commands/lsp.py | This blueprint |
 | Compact range format | All record types | ADR-0015 |
 | No format logic in CLI | OutputDispatcher | ADR-0018 |
+| CSV stays flat (no grouping) | OutputDispatcher | This blueprint |
+| Server name resolution chain | output/server_name.py | This blueprint |

@@ -8,6 +8,8 @@ Accepted
 
 Amended by [13. Hierarchical symbol output with depth-controlled traversal](0013-hierarchical-symbol-output-with-depth-controlled-traversal.md)
 
+Amended by [20. Source context field in JSON/YAML output](0020-source-context-field-in-json-yaml-output.md)
+
 ## Context
 
 The llm-lsp-cli serves LLM consumers (via RTK token optimization). Current output is human-readable but verbose, causing:
