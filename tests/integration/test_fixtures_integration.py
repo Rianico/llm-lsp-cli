@@ -71,14 +71,14 @@ class TestCrossFileFixtureUsage:
         # JSON format
         json_output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(json_output)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "/path/to/file.py"
+        assert len(parsed["items"]) == 1
+        assert parsed["items"][0]["file"] == "/path/to/file.py"
 
         # YAML format
         yaml_output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(yaml_output)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "/path/to/file.py"
+        assert len(parsed["items"]) == 1
+        assert parsed["items"][0]["file"] == "/path/to/file.py"
 
         # CSV format
         csv_output = OutputDispatcher().format_list(records, OutputFormat.CSV)
@@ -111,7 +111,7 @@ class TestCrossFileFixtureUsage:
 
         json_output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(json_output)
-        assert len(parsed) == 2
+        assert len(parsed["items"]) == 2
 
     def test_completion_response_across_formats(self, temp_dir: Path) -> None:
         """Test COMPLETION_RESPONSE works with all output formats."""
@@ -156,7 +156,7 @@ class TestLocationFixtureEdgeCases:
 
         # All formats should handle empty gracefully
         assert OutputDispatcher().format_list(records, OutputFormat.TEXT) == ""
-        assert OutputDispatcher().format_list(records, OutputFormat.JSON) == "[]"
+        assert OutputDispatcher().format_list(records, OutputFormat.JSON) == '{\n  "items": []\n}'
         assert OutputDispatcher().format_list(records, OutputFormat.CSV) == ""
 
     def test_location_with_commas_csv_escaping(self, temp_dir: Path) -> None:
@@ -428,8 +428,8 @@ class TestCrossFormatConsistency:
                 if line.strip()
             ]
         )
-        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON)))
-        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML)))
+        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))["items"])
+        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))["items"])
         csv_count = (
             len(OutputDispatcher().format_list(records, OutputFormat.CSV).strip().split("\n")) - 1
         )  # minus header
@@ -450,8 +450,8 @@ class TestCrossFormatConsistency:
                 if line.strip()
             ]
         )
-        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON)))
-        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML)))
+        json_count = len(json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))["items"])
+        yaml_count = len(yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))["items"])
         csv_count = (
             len(OutputDispatcher().format_list(records, OutputFormat.CSV).strip().split("\n")) - 1
         )  # minus header

@@ -117,11 +117,11 @@ class TestWorkspaceSymbolWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
-        assert isinstance(parsed, list)
-        assert len(parsed) == 3
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == 3
 
         # Verify a symbol with detail
-        func_item = next((item for item in parsed if item["name"] == "my_function"), None)
+        func_item = next((item for item in parsed["items"] if item["name"] == "my_function"), None)
         assert func_item is not None
         assert func_item["detail"] == "def my_function(x: int) -> str"
 
@@ -244,8 +244,8 @@ class TestDocumentSymbolWorkflow:
         parsed = json.loads(output)
 
         # Both symbols have detail
-        assert parsed[0]["detail"] == "class MyClass"
-        assert parsed[1]["detail"] == "def helper_function(x: int) -> int"
+        assert parsed["items"][0]["detail"] == "class MyClass"
+        assert parsed["items"][1]["detail"] == "def helper_function(x: int) -> int"
 
 
 class TestReferencesWorkflow:
@@ -308,11 +308,11 @@ class TestReferencesWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
-        assert isinstance(parsed, list)
-        assert len(parsed) == 3
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == 3
 
         # Verify structure
-        for item in parsed:
+        for item in parsed["items"]:
             assert "file" in item
             assert "range" in item
             assert item["file"] in ["src/main.py", "src/utils.py"]
@@ -325,8 +325,8 @@ class TestReferencesWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
-        assert isinstance(parsed, list)
-        assert len(parsed) == 3
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == 3
 
     def test_workflow_csv_output(
         self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
@@ -380,8 +380,8 @@ class TestEdgeCases:
         output_csv = OutputDispatcher().format_list([], OutputFormat.CSV)
 
         assert output_text == ""
-        assert json.loads(output_json) == []
-        assert yaml.safe_load(output_yaml) == []
+        assert json.loads(output_json) == {"items": []}
+        assert yaml.safe_load(output_yaml) == {"items": []}
         assert output_csv == ""
 
     def test_empty_locations_list(self, formatter: CompactFormatter) -> None:
@@ -392,8 +392,8 @@ class TestEdgeCases:
         output_csv = OutputDispatcher().format_list([], OutputFormat.CSV)
 
         assert output_text == ""
-        assert json.loads(output_json) == []
-        assert yaml.safe_load(output_yaml) == []
+        assert json.loads(output_json) == {"items": []}
+        assert yaml.safe_load(output_yaml) == {"items": []}
         assert output_csv == ""
 
     def test_uri_outside_workspace(self, formatter: CompactFormatter) -> None:
@@ -534,7 +534,7 @@ class TestEdgeCases:
         # JSON output
         output_json = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output_json)
-        assert len(parsed) == 100
+        assert len(parsed["items"]) == 100
 
 
 class TestTokenEfficiency:
@@ -588,11 +588,11 @@ class TestTokenEfficiency:
         parsed = json.loads(output)
 
         # First symbol has no container - should be omitted
-        assert "container" not in parsed[0]
+        assert "container" not in parsed["items"][0]
 
         # Second symbol has container - should be included
-        assert "container" in parsed[1]
-        assert parsed[1]["container"] == "MyModule"
+        assert "container" in parsed["items"][1]
+        assert parsed["items"][1]["container"] == "MyModule"
 
     def test_yaml_omits_null_fields(
         self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
@@ -603,7 +603,7 @@ class TestTokenEfficiency:
         parsed = yaml.safe_load(output)
 
         # First symbol has no container - should be omitted
-        assert "container" not in parsed[0]
+        assert "container" not in parsed["items"][0]
 
     def test_compact_range_format(
         self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]

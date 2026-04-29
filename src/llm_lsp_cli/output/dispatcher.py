@@ -27,6 +27,7 @@ class OutputDispatcher:
         fmt: OutputFormat,
         _source: str | None = None,
         file_path: str | None = None,
+        command: str | None = None,
     ) -> str:
         """Format a single record in the specified format.
 
@@ -35,6 +36,7 @@ class OutputDispatcher:
             fmt: Output format (JSON, YAML, CSV, TEXT)
             _source: Server name for JSON/YAML output (ignored for TEXT/CSV)
             file_path: Optional file path to include at top level
+            command: Optional command name (e.g., "hover")
 
         Returns:
             Formatted string representation
@@ -42,23 +44,26 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 data = record.to_compact_dict()
-                if _source is not None or file_path is not None:
-                    # _source and file must be first fields
-                    top_level: dict[str, Any] = {}
-                    if _source is not None:
-                        top_level["_source"] = _source
-                    if file_path is not None:
-                        top_level["file"] = file_path
+                top_level: dict[str, Any] = {}
+                if _source is not None:
+                    top_level["_source"] = _source
+                if file_path is not None:
+                    top_level["file"] = file_path
+                if command is not None:
+                    top_level["command"] = command
+                if top_level:
                     data = {**top_level, **data}
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
                 data = record.to_compact_dict()
-                if _source is not None or file_path is not None:
-                    top_level: dict[str, Any] = {}
-                    if _source is not None:
-                        top_level["_source"] = _source
-                    if file_path is not None:
-                        top_level["file"] = file_path
+                top_level: dict[str, Any] = {}
+                if _source is not None:
+                    top_level["_source"] = _source
+                if file_path is not None:
+                    top_level["file"] = file_path
+                if command is not None:
+                    top_level["command"] = command
+                if top_level:
                     data = {**top_level, **data}
                 return yaml.dump(
                     data,
@@ -77,6 +82,7 @@ class OutputDispatcher:
         fmt: OutputFormat,
         _source: str | None = None,
         file_path: str | None = None,
+        command: str | None = None,
     ) -> str:
         """Format a list of records in the specified format.
 
@@ -85,6 +91,7 @@ class OutputDispatcher:
             fmt: Output format (JSON, YAML, CSV, TEXT)
             _source: Server name for JSON/YAML output (ignored for TEXT/CSV)
             file_path: Optional file path to include at top level
+            command: Optional command name (e.g., "document-symbol")
 
         Returns:
             Formatted string representation. For JSON/YAML, returns "[]" for empty lists.
@@ -93,28 +100,25 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 items = [r.to_compact_dict() for r in records]
-                if _source is not None or file_path is not None:
-                    # _source and file must be first fields
-                    data: dict[str, Any] = {}
-                    if _source is not None:
-                        data["_source"] = _source
-                    if file_path is not None:
-                        data["file"] = file_path
-                    data["items"] = items
-                else:
-                    data = items  # type: ignore[assignment]
+                data: dict[str, Any] = {}
+                if _source is not None:
+                    data["_source"] = _source
+                if file_path is not None:
+                    data["file"] = file_path
+                if command is not None:
+                    data["command"] = command
+                data["items"] = items
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
                 items = [r.to_compact_dict() for r in records]
-                if _source is not None or file_path is not None:
-                    data: dict[str, Any] = {}
-                    if _source is not None:
-                        data["_source"] = _source
-                    if file_path is not None:
-                        data["file"] = file_path
-                    data["items"] = items
-                else:
-                    data = items  # type: ignore[assignment]
+                data: dict[str, Any] = {}
+                if _source is not None:
+                    data["_source"] = _source
+                if file_path is not None:
+                    data["file"] = file_path
+                if command is not None:
+                    data["command"] = command
+                data["items"] = items
                 return yaml.dump(
                     data,
                     default_flow_style=False,

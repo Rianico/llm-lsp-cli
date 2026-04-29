@@ -358,8 +358,8 @@ class TestSymbolsToJsonCompactRange:
         parsed = json.loads(result)
 
         # range must be a compact string (1-based), NOT nested dict
-        assert parsed[0]["range"] == "15:1-146:30"
-        assert not isinstance(parsed[0]["range"], dict)
+        assert parsed["items"][0]["range"] == "15:1-146:30"
+        assert not isinstance(parsed["items"][0]["range"], dict)
 
     def test_json_symbol_excludes_numeric_kind(self, temp_dir: Path) -> None:
         """RED: JSON output must include only kind_name, not numeric kind."""
@@ -383,9 +383,9 @@ class TestSymbolsToJsonCompactRange:
         parsed = json.loads(result)
 
         # MUST have kind_name
-        assert parsed[0]["kind_name"] == "Class"
+        assert parsed["items"][0]["kind_name"] == "Class"
         # MUST NOT have numeric kind
-        assert "kind" not in parsed[0]
+        assert "kind" not in parsed["items"][0]
 
     def test_json_selection_range_is_compact_string(self, temp_dir: Path) -> None:
         """RED: JSON output must include selectionRange as compact string."""
@@ -413,8 +413,8 @@ class TestSymbolsToJsonCompactRange:
         parsed = json.loads(result)
 
         # selection_range must be compact string
-        assert parsed[0]["selection_range"] == "1:7-1:14"
-        assert not isinstance(parsed[0]["selection_range"], dict)
+        assert parsed["items"][0]["selection_range"] == "1:7-1:14"
+        assert not isinstance(parsed["items"][0]["selection_range"], dict)
 
     def test_json_unknown_kind_format(self, temp_dir: Path) -> None:
         """RED: Unknown kind displays as Unknown(N)."""
@@ -437,8 +437,8 @@ class TestSymbolsToJsonCompactRange:
         result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
-        assert parsed[0]["kind_name"] == "Unknown(99)"
-        assert "kind" not in parsed[0]
+        assert parsed["items"][0]["kind_name"] == "Unknown(99)"
+        assert "kind" not in parsed["items"][0]
 
 
 class TestSymbolsToYamlCompactRange:
@@ -466,8 +466,8 @@ class TestSymbolsToYamlCompactRange:
         parsed = yaml.safe_load(result)
 
         # range must be a compact string (1-based)
-        assert parsed[0]["range"] == "15:1-146:30"
-        assert not isinstance(parsed[0]["range"], dict)
+        assert parsed["items"][0]["range"] == "15:1-146:30"
+        assert not isinstance(parsed["items"][0]["range"], dict)
 
     def test_yaml_symbol_excludes_numeric_kind(self, temp_dir: Path) -> None:
         """RED: YAML output must include only kind_name, not numeric kind."""
@@ -491,9 +491,9 @@ class TestSymbolsToYamlCompactRange:
         parsed = yaml.safe_load(result)
 
         # MUST have kind_name
-        assert parsed[0]["kind_name"] == "Class"
+        assert parsed["items"][0]["kind_name"] == "Class"
         # MUST NOT have numeric kind
-        assert "kind" not in parsed[0]
+        assert "kind" not in parsed["items"][0]
 
 
 class TestLocationsToJsonCompactRange:
@@ -516,8 +516,8 @@ class TestLocationsToJsonCompactRange:
         result = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(result)
 
-        assert parsed[0]["range"] == "6:1-6:21"
-        assert not isinstance(parsed[0]["range"], dict)
+        assert parsed["items"][0]["range"] == "6:1-6:21"
+        assert not isinstance(parsed["items"][0]["range"], dict)
 
 
 class TestLocationsToYamlCompactRange:
@@ -540,7 +540,7 @@ class TestLocationsToYamlCompactRange:
         result = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(result)
 
-        assert parsed[0]["range"] == "6:1-6:21"
+        assert parsed["items"][0]["range"] == "6:1-6:21"
 
 
 # =============================================================================
@@ -1025,7 +1025,8 @@ class TestSymbolsToJson:
         ]
         result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
-        assert "detail" not in parsed[0]
+        assert "items" in parsed
+        assert "detail" not in parsed["items"][0]
 
     def test_json_omits_null_container(self, temp_dir: Path) -> None:
         """Token optimization - omit null container."""
@@ -1045,7 +1046,8 @@ class TestSymbolsToJson:
         ]
         result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
-        assert "container" not in parsed[0]
+        assert "items" in parsed
+        assert "container" not in parsed["items"][0]
 
     def test_json_omits_empty_tags(self, temp_dir: Path) -> None:
         """Token optimization - omit empty tags."""
@@ -1065,7 +1067,8 @@ class TestSymbolsToJson:
         ]
         result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
-        assert "tags" not in parsed[0]
+        assert "items" in parsed
+        assert "tags" not in parsed["items"][0]
 
     def test_json_includes_present_fields(self, temp_dir: Path) -> None:
         """Full record serialization when fields present."""
@@ -1088,16 +1091,17 @@ class TestSymbolsToJson:
         ]
         result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
         parsed = json.loads(result)
-        assert parsed[0]["detail"] == "detail text"
-        assert parsed[0]["container"] == "container"
-        assert parsed[0]["tags"] == [1]
+        assert "items" in parsed
+        assert parsed["items"][0]["detail"] == "detail text"
+        assert parsed["items"][0]["container"] == "container"
+        assert parsed["items"][0]["tags"] == [1]
 
     def test_json_empty_records(self, temp_dir: Path) -> None:
         """Empty array."""
         formatter = CompactFormatter(str(temp_dir))
         result = OutputDispatcher().format_list([], OutputFormat.JSON)
         parsed = json.loads(result)
-        assert parsed == []
+        assert parsed == {"items": []}
 
 
 class TestSymbolsToYaml:
@@ -1150,7 +1154,8 @@ class TestSymbolsToYaml:
         ]
         result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.YAML)
         parsed = yaml.safe_load(result)
-        assert "detail" not in parsed[0]
+        assert "items" in parsed
+        assert "detail" not in parsed["items"][0]
 
     def test_yaml_preserves_unicode(self, temp_dir: Path) -> None:
         """Unicode handling."""
@@ -1176,7 +1181,7 @@ class TestSymbolsToYaml:
         formatter = CompactFormatter(str(temp_dir))
         result = OutputDispatcher().format_list([], OutputFormat.YAML)
         parsed = yaml.safe_load(result)
-        assert parsed == []
+        assert parsed == {"items": []}
 
 
 class TestSymbolsToCsv:
@@ -1379,16 +1384,16 @@ class TestLocationsToJson:
         ]
         result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.JSON)
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "src/test.py"
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == 1
+        assert parsed["items"][0]["file"] == "src/test.py"
 
     def test_locations_json_empty(self, temp_dir: Path) -> None:
-        """Empty array."""
+        """Empty items array with wrapper."""
         formatter = CompactFormatter(str(temp_dir))
         result = OutputDispatcher().format_list([], OutputFormat.JSON)
         parsed = json.loads(result)
-        assert parsed == []
+        assert parsed == {"items": []}
 
 
 class TestLocationsToYaml:
@@ -1406,15 +1411,15 @@ class TestLocationsToYaml:
         ]
         result = OutputDispatcher().format_list(formatter.transform_locations(locations), OutputFormat.YAML)
         parsed = yaml.safe_load(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == 1
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == 1
 
     def test_locations_yaml_empty(self, temp_dir: Path) -> None:
-        """Empty state."""
+        """Empty items array with wrapper."""
         formatter = CompactFormatter(str(temp_dir))
         result = OutputDispatcher().format_list([], OutputFormat.YAML)
         parsed = yaml.safe_load(result)
-        assert parsed == []
+        assert parsed == {"items": []}
 
 
 class TestLocationsToCsv:

@@ -72,11 +72,12 @@ class TestDefinitionCommandWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
-        assert len(parsed) == 2
-        assert parsed[0]["file"] == "src/main.py"
-        assert parsed[0]["range"] == "11:5-11:16"
-        assert parsed[1]["file"] == "src/utils.py"
-        assert parsed[1]["range"] == "6:1-6:21"
+        items = parsed["items"]
+        assert len(items) == 2
+        assert items[0]["file"] == "src/main.py"
+        assert items[0]["range"] == "11:5-11:16"
+        assert items[1]["file"] == "src/utils.py"
+        assert items[1]["range"] == "6:1-6:21"
 
     def test_workflow_yaml_output(
         self, formatter: CompactFormatter, definition_response: dict[str, Any]
@@ -87,9 +88,10 @@ class TestDefinitionCommandWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
-        assert len(parsed) == 2
-        assert parsed[0]["file"] == "src/main.py"
-        assert parsed[0]["range"] == "11:5-11:16"
+        items = parsed["items"]
+        assert len(items) == 2
+        assert items[0]["file"] == "src/main.py"
+        assert items[0]["range"] == "11:5-11:16"
 
     def test_workflow_csv_output(
         self, formatter: CompactFormatter, definition_response: dict[str, Any]
@@ -174,22 +176,23 @@ class TestCompletionCommandWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
-        assert len(parsed) == 2
+        result_items = parsed["items"]
+        assert len(result_items) == 2
 
         # First completion
-        assert parsed[0]["file"] == "src/main.py"
-        assert parsed[0]["label"] == "my_function"
-        assert parsed[0]["kind_name"] == "Function"
-        assert parsed[0]["detail"] == "def my_function(x: int) -> str"
-        assert parsed[0]["documentation"] == "A sample function."
-        assert parsed[0]["range"] == "6:1-6:11"
-        assert parsed[0]["position"] == "6:6-6:6"  # Single point as range
+        assert result_items[0]["file"] == "src/main.py"
+        assert result_items[0]["label"] == "my_function"
+        assert result_items[0]["kind_name"] == "Function"
+        assert result_items[0]["detail"] == "def my_function(x: int) -> str"
+        assert result_items[0]["documentation"] == "A sample function."
+        assert result_items[0]["range"] == "6:1-6:11"
+        assert result_items[0]["position"] == "6:6-6:6"  # Single point as range
 
         # Second completion
-        assert parsed[1]["label"] == "MyClass"
-        assert parsed[1]["kind_name"] == "Class"
-        assert parsed[1]["range"] == "11:5-11:13"
-        assert "position" not in parsed[1]  # No position field
+        assert result_items[1]["label"] == "MyClass"
+        assert result_items[1]["kind_name"] == "Class"
+        assert result_items[1]["range"] == "11:5-11:13"
+        assert "position" not in result_items[1]  # No position field
 
     def test_workflow_yaml_output(
         self, formatter: CompactFormatter, completion_response: dict[str, Any]
@@ -200,8 +203,9 @@ class TestCompletionCommandWorkflow:
         output = OutputDispatcher().format_list(records, OutputFormat.YAML)
         parsed = yaml.safe_load(output)
 
-        assert len(parsed) == 2
-        assert parsed[0]["range"] == "6:1-6:11"
+        result_items = parsed["items"]
+        assert len(result_items) == 2
+        assert result_items[0]["range"] == "6:1-6:11"
 
     def test_workflow_csv_output(
         self, formatter: CompactFormatter, completion_response: dict[str, Any]
@@ -421,16 +425,18 @@ class TestCompactRangeFormatConsistency:
         output = OutputDispatcher().format_list(records, OutputFormat.JSON)
         parsed = json.loads(output)
 
+        result_items = parsed["items"]
+
         # Required fields should be present
-        assert "file" in parsed[0]
-        assert "label" in parsed[0]
-        assert "kind_name" in parsed[0]
+        assert "file" in result_items[0]
+        assert "label" in result_items[0]
+        assert "kind_name" in result_items[0]
 
         # Optional None fields should be omitted
-        assert "detail" not in parsed[0]
-        assert "documentation" not in parsed[0]
-        assert "range" not in parsed[0]
-        assert "position" not in parsed[0]
+        assert "detail" not in result_items[0]
+        assert "documentation" not in result_items[0]
+        assert "range" not in result_items[0]
+        assert "position" not in result_items[0]
 
     def test_csv_uses_empty_string_for_none(self, formatter: CompactFormatter) -> None:
         """Verify CSV uses empty string for None fields."""

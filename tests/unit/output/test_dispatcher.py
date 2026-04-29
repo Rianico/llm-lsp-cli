@@ -112,13 +112,13 @@ class TestDispatcherFormatListMethod:
 
         dispatcher = OutputDispatcher()
 
-        # JSON should return "[]" (valid empty array)
+        # JSON should return '{"items": []}' (valid empty wrapper)
         result = dispatcher.format_list([], OutputFormat.JSON)
-        assert result == "[]"
+        assert result == '{\n  "items": []\n}'
 
-        # YAML should return "[]\n" (valid empty array)
+        # YAML should return "items: []\n" (valid empty wrapper)
         result = dispatcher.format_list([], OutputFormat.YAML)
-        assert result == "[]\n"
+        assert result == "items: []\n"
 
         # CSV should return "" (no output)
         result = dispatcher.format_list([], OutputFormat.CSV)
@@ -135,11 +135,11 @@ class TestDispatcherFormatListMethod:
         dispatcher = OutputDispatcher()
         result = dispatcher.format_list(symbol_list, OutputFormat.JSON)
 
-        # Should be valid JSON array
+        # Should be valid JSON object with items key
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == len(symbol_list)
-        assert result.startswith("[")
+        assert isinstance(parsed, dict)
+        assert len(parsed["items"]) == len(symbol_list)
+        assert result.startswith("{")
 
         # Should have indent=2
         assert "  " in result

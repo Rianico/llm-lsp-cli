@@ -108,6 +108,7 @@ def definition(
                     context.output_format,
                     _source=server_name,
                     file_path=relative_path,
+                    command="definition",
                 )
             )
 
@@ -190,6 +191,7 @@ def references(
                         context.output_format,
                         _source=server_name,
                         file_path=relative_path,
+                        command="references",
                     )
                 )
 
@@ -261,6 +263,7 @@ def document_symbol(
                     context.output_format,
                     _source=server_name,
                     file_path=relative_path,
+                    command="document-symbol",
                 )
             )
 
@@ -430,6 +433,7 @@ def incoming_calls(
                         context.output_format,
                         _source=server_name,
                         file_path=relative_path,
+                        command="incoming-calls",
                     )
                 )
 
@@ -513,6 +517,7 @@ def outgoing_calls(
                         context.output_format,
                         _source=server_name,
                         file_path=relative_path,
+                        command="outgoing-calls",
                     )
                 )
 
@@ -581,6 +586,7 @@ def completion(
                     context.output_format,
                     _source=server_name,
                     file_path=relative_path,
+                    command="completion",
                 )
             )
 
@@ -648,6 +654,7 @@ def hover(
                         context.output_format,
                         _source=server_name,
                         file_path=relative_path,
+                        command="hover",
                     )
                 )
         else:
@@ -721,6 +728,7 @@ def diagnostics(
                     effective_format,
                     _source=server_name,
                     file_path=relative_path,
+                    command="diagnostics",
                 )
             )
 
@@ -932,6 +940,7 @@ def rename(
                     context.output_format,
                     _source=server_name,
                     file_path=relative_path,
+                    command="rename",
                 )
             )
 

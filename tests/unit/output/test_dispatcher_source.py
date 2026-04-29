@@ -138,7 +138,8 @@ class TestFormatListWithSource:
         import json
 
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
+        assert isinstance(parsed, dict)
+        assert "items" in parsed
         assert "_source" not in parsed
 
 

@@ -226,11 +226,11 @@ class TestDiagnosticsToJson:
         json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert data[0]["range"] == "10:5-15:20"
-        assert "line" not in data[0]
-        assert "character" not in data[0]
-        assert "end_line" not in data[0]
-        assert "end_character" not in data[0]
+        assert data["items"][0]["range"] == "10:5-15:20"
+        assert "line" not in data["items"][0]
+        assert "character" not in data["items"][0]
+        assert "end_line" not in data["items"][0]
+        assert "end_character" not in data["items"][0]
 
     def test_diagnostics_to_json_no_severity_int(
         self, sample_diagnostic_record: DiagnosticRecord
@@ -240,8 +240,8 @@ class TestDiagnosticsToJson:
         json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert data[0]["severity_name"] == "Error"
-        assert "severity" not in data[0]
+        assert data["items"][0]["severity_name"] == "Error"
+        assert "severity" not in data["items"][0]
 
     def test_diagnostics_to_json_translates_tags(
         self, sample_diagnostic_record: DiagnosticRecord
@@ -251,9 +251,9 @@ class TestDiagnosticsToJson:
         json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
-        assert 1 not in data[0]["tags"]
-        assert 2 not in data[0]["tags"]
+        assert data["items"][0]["tags"] == ["Unnecessary", "Deprecated"]
+        assert 1 not in data["items"][0]["tags"]
+        assert 2 not in data["items"][0]["tags"]
 
     def test_diagnostics_to_json_omits_empty_tags(self) -> None:
         """JSON output omits tags field when tags list is empty."""
@@ -275,7 +275,7 @@ class TestDiagnosticsToJson:
         json_str = OutputDispatcher().format_list([rec], OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert "tags" not in data[0]
+        assert "tags" not in data["items"][0]
 
     def test_diagnostics_to_json_unknown_tag_fallback(
         self, sample_lsp_diagnostic_unknown_tag: dict[str, Any]
@@ -288,7 +288,7 @@ class TestDiagnosticsToJson:
         json_str = OutputDispatcher().format_list(records, OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert data[0]["tags"] == ["Unknown(99)"]
+        assert data["items"][0]["tags"] == ["Unknown(99)"]
 
 
 # =============================================================================
@@ -307,7 +307,7 @@ class TestDiagnosticsToYaml:
         yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
-        assert data[0]["range"] == "10:5-15:20"
+        assert data["items"][0]["range"] == "10:5-15:20"
 
     def test_diagnostics_to_yaml_no_severity_int(
         self, sample_diagnostic_record: DiagnosticRecord
@@ -317,8 +317,8 @@ class TestDiagnosticsToYaml:
         yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
-        assert data[0]["severity_name"] == "Error"
-        assert "severity" not in data[0]
+        assert data["items"][0]["severity_name"] == "Error"
+        assert "severity" not in data["items"][0]
 
     def test_diagnostics_to_yaml_translates_tags(
         self, sample_diagnostic_record: DiagnosticRecord
@@ -328,7 +328,7 @@ class TestDiagnosticsToYaml:
         yaml_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.YAML)
         data = yaml.safe_load(yaml_str)
 
-        assert data[0]["tags"] == ["Unnecessary", "Deprecated"]
+        assert data["items"][0]["tags"] == ["Unnecessary", "Deprecated"]
 
 
 # =============================================================================
@@ -509,8 +509,8 @@ class TestNegativeCases:
                 if output_format == OutputFormat.JSON
                 else yaml.safe_load(output)
             )
-            assert "severity" not in data[0] or not isinstance(
-                data[0].get("severity"), int
+            assert "severity" not in data["items"][0] or not isinstance(
+                data["items"][0].get("severity"), int
             )
         else:
             # TEXT/CSV: check raw string doesn't contain "severity": 1 pattern
@@ -535,10 +535,10 @@ class TestNegativeCases:
         json_str = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.JSON)
         data = json.loads(json_str)
 
-        assert "line" not in data[0]
-        assert "character" not in data[0]
-        assert "end_line" not in data[0]
-        assert "end_character" not in data[0]
+        assert "line" not in data["items"][0]
+        assert "character" not in data["items"][0]
+        assert "end_line" not in data["items"][0]
+        assert "end_character" not in data["items"][0]
 
 
 # =============================================================================
