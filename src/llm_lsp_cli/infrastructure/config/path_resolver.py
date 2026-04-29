@@ -149,10 +149,7 @@ class ServerPathResolver:
             return True
 
         # Starts with . or .. (relative path)
-        if original.startswith(".") or original.startswith(".."):
-            return True
-
-        return False
+        return original.startswith(".") or original.startswith("..")
 
     @staticmethod
     def _validate_executable(path: str, original_command: str) -> str:

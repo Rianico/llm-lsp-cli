@@ -18,6 +18,34 @@ PREFIX_CONTINUE = "│   "
 PREFIX_TERMINATE = "    "
 
 
+def format_symbol_text_line(
+    name: str,
+    kind_name: str,
+    range_str: str,
+    selection_range: str | None = None,
+) -> str:
+    """Format a symbol as a single-line text representation.
+
+    This is the canonical formatter for symbol text output, used by both
+    SymbolRecord.get_text_line() and _render_symbol_line() to ensure
+    consistent formatting.
+
+    Args:
+        name: Symbol name
+        kind_name: Symbol kind name (e.g., "Class", "Function")
+        range_str: Compact range string (e.g., "1:1-10:5")
+        selection_range: Optional compact selection range string
+
+    Returns:
+        Formatted string: "name (kind_name), range: <range>, selection_range: <selection_range>"
+        Selection range is omitted if None.
+    """
+    parts: list[str] = [f"{name} ({kind_name})", f"range: {range_str}"]
+    if selection_range:
+        parts.append(f"selection_range: {selection_range}")
+    return ", ".join(parts)
+
+
 def _render_node_line(node: SymbolNode) -> str:
     """Render a single SymbolNode as a text line.
 
@@ -157,22 +185,12 @@ def _render_symbol_line(symbol: dict[str, Any]) -> str:
     Returns:
         Formatted string with comma-separated fields
     """
-    name = symbol.get("name", "")
-    kind_name = symbol.get("kind_name", "")
-    range_str = symbol.get("range", "")
-
-    # Build parts: name (kind_name) first, then range
-    parts: list[str] = [f"{name} ({kind_name})"]
-
-    # Always include range with prefix
-    parts.append(f"range: {range_str}")
-
-    # Add selection_range only if present and not None/empty
-    selection_range = symbol.get("selection_range")
-    if selection_range:
-        parts.append(f"selection_range: {selection_range}")
-
-    return ", ".join(parts)
+    return format_symbol_text_line(
+        name=symbol.get("name", ""),
+        kind_name=symbol.get("kind_name", ""),
+        range_str=symbol.get("range", ""),
+        selection_range=symbol.get("selection_range"),
+    )
 
 
 def _render_diagnostic_line(diag: dict[str, Any]) -> str:

@@ -55,21 +55,23 @@ class OutputDispatcher:
                     data = {**top_level, **data}
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
-                data = record.to_compact_dict()
-                top_level: dict[str, Any] = {}
+                yaml_data = record.to_compact_dict()
+                yaml_top_level: dict[str, Any] = {}
                 if _source is not None:
-                    top_level["_source"] = _source
+                    yaml_top_level["_source"] = _source
                 if file_path is not None:
-                    top_level["file"] = file_path
+                    yaml_top_level["file"] = file_path
                 if command is not None:
-                    top_level["command"] = command
-                if top_level:
-                    data = {**top_level, **data}
-                return yaml.dump(
-                    data,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
+                    yaml_top_level["command"] = command
+                if yaml_top_level:
+                    yaml_data = {**yaml_top_level, **yaml_data}
+                return str(
+                    yaml.dump(
+                        yaml_data,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    )
                 )
             case OutputFormat.CSV:
                 return self._format_csv_single(record)
@@ -110,20 +112,22 @@ class OutputDispatcher:
                 data["items"] = items
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
-                items = [r.to_compact_dict() for r in records]
-                data: dict[str, Any] = {}
+                yaml_items = [r.to_compact_dict() for r in records]
+                yaml_data: dict[str, Any] = {}
                 if _source is not None:
-                    data["_source"] = _source
+                    yaml_data["_source"] = _source
                 if file_path is not None:
-                    data["file"] = file_path
+                    yaml_data["file"] = file_path
                 if command is not None:
-                    data["command"] = command
-                data["items"] = items
-                return yaml.dump(
-                    data,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
+                    yaml_data["command"] = command
+                yaml_data["items"] = yaml_items
+                return str(
+                    yaml.dump(
+                        yaml_data,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    )
                 )
             case OutputFormat.CSV:
                 return self._format_csv_list(records)
@@ -198,17 +202,19 @@ class OutputDispatcher:
                 data["files"] = grouped_data
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
-                data: dict[str, Any] = {}
+                grouped_yaml_data: dict[str, Any] = {}
                 if _source is not None:
-                    data["_source"] = _source
+                    grouped_yaml_data["_source"] = _source
                 if command is not None:
-                    data["command"] = command
-                data["files"] = grouped_data
-                return yaml.dump(
-                    data,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
+                    grouped_yaml_data["command"] = command
+                grouped_yaml_data["files"] = grouped_data
+                return str(
+                    yaml.dump(
+                        grouped_yaml_data,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    )
                 )
             case _:
                 # For other formats, delegate to format_grouped_text

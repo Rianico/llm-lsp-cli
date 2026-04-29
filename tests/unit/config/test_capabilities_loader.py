@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -68,7 +69,7 @@ class TestGetCapabilitiesForServerPath:
         assert "default" in caplog.text.lower() or "fallback" in caplog.text.lower()
 
     def test_get_capabilities_caching(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """Second call returns cached value without disk read."""
         from llm_lsp_cli.config.capabilities import (
@@ -81,15 +82,14 @@ class TestGetCapabilitiesForServerPath:
         result1 = get_capabilities_for_server_path("basedpyright-langserver")
 
         # Mock file operations to verify cache is used
-        mock_load = mocker.patch(
+        with patch(
             "llm_lsp_cli.config.capabilities._load_server_capability"
-        )
+        ) as mock_load:
+            # Second call - should use cache
+            result2 = get_capabilities_for_server_path("basedpyright-langserver")
 
-        # Second call - should use cache
-        result2 = get_capabilities_for_server_path("basedpyright-langserver")
-
-        mock_load.assert_not_called()
-        assert result1 == result2
+            mock_load.assert_not_called()
+            assert result1 == result2
 
     def test_get_capabilities_different_servers_return_different_capabilities(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

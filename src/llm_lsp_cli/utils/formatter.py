@@ -8,7 +8,7 @@ import json
 from enum import Enum
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 # LSP SymbolKind mapping (3.17 spec)
 # Maps numeric kind values to human-readable names

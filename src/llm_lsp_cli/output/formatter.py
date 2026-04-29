@@ -106,11 +106,16 @@ class SymbolRecord:
         Format: "name (kind_name), range: <range>, selection_range: <selection_range>"
         Omit selection_range if not present.
         """
-        parts: list[str] = [f"{self.name} ({self.kind_name})"]
-        parts.append(f"range: {self.range.to_compact()}")
-        if self.selection_range:
-            parts.append(f"selection_range: {self.selection_range.to_compact()}")
-        return ", ".join(parts)
+        from llm_lsp_cli.output.text_renderer import format_symbol_text_line
+
+        return format_symbol_text_line(
+            name=self.name,
+            kind_name=self.kind_name,
+            range_str=self.range.to_compact(),
+            selection_range=(
+                self.selection_range.to_compact() if self.selection_range else None
+            ),
+        )
 
 
 @dataclass

@@ -254,34 +254,42 @@ class DaemonClient:
 
         # Capture stderr to a temp file for diagnostics
         # This preserves immediate crash output (e.g., import errors)
-        stderr_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.log')
-        stderr_path = Path(stderr_file.name)
+        # Note: delete=False is required because the async subprocess needs
+        # the file to persist after the context manager exits
+        with tempfile.NamedTemporaryFile(
+            mode='w+', delete=False, suffix='.log'
+        ) as stderr_file:
+            stderr_path = Path(stderr_file.name)
 
-        try:
-            # Spawn as detached subprocess
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=stderr_file.fileno(),
-                stdin=asyncio.subprocess.DEVNULL,
-                start_new_session=True,  # Detach from parent session
-            )
+            try:
+                # Spawn as detached subprocess
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=stderr_file.fileno(),
+                    stdin=asyncio.subprocess.DEVNULL,
+                    start_new_session=True,  # Detach from parent session
+                )
 
-            # Give the daemon a moment to start
-            await asyncio.sleep(self.SUBPROCESS_STARTUP_DELAY)
+                # Give the daemon a moment to start
+                await asyncio.sleep(self.SUBPROCESS_STARTUP_DELAY)
 
-            # Check if process died immediately
-            if process.returncode is not None:
-                # Read stderr for diagnostics
-                stderr_content = stderr_path.read_text() if stderr_path.exists() else ""
-                error_detail = f"Daemon process exited immediately with code {process.returncode}"
-                if stderr_content:
-                    error_detail += f"\nstderr: {stderr_content.strip()}"
-                raise RuntimeError(error_detail)
-        finally:
-            # Clean up temp file
-            if stderr_path.exists():
-                stderr_path.unlink()
+                # Check if process died immediately
+                if process.returncode is not None:
+                    # Read stderr for diagnostics
+                    stderr_content = (
+                        stderr_path.read_text() if stderr_path.exists() else ""
+                    )
+                    error_detail = (
+                        f"Daemon process exited immediately with code {process.returncode}"
+                    )
+                    if stderr_content:
+                        error_detail += f"\nstderr: {stderr_content.strip()}"
+                    raise RuntimeError(error_detail)
+            finally:
+                # Clean up temp file
+                if stderr_path.exists():
+                    stderr_path.unlink()
 
     async def _wait_for_socket(self) -> None:
         """Wait for socket to appear using exponential backoff.

@@ -48,7 +48,9 @@ def _load_server_capability(
         return None
     content = file_path.read_text()
     with contextlib.suppress(json.JSONDecodeError):
-        return json.loads(content)
+        loaded = json.loads(content)
+        if isinstance(loaded, dict):
+            return loaded
     return None
 
 
@@ -60,10 +62,14 @@ def _match_server_filter(
     """Check if server_filter matches a server.
 
     Matching strategy (in priority order):
-    1. Exact match: server_filter equals server_file, server_name, or server_file_base
-    2. Server name prefix: server_filter starts with server_name (e.g., "basedpyright" in "basedpyright-langserver")
-    3. Suffix match with separator: server_filter ends with "-{server_file_base}" to avoid false positives
-    4. Substring match: server_name is in server_filter (for custom paths like "custom-pyright" containing "pyright")
+    1. Exact match: server_filter equals server_file, server_name, or
+       server_file_base
+    2. Server name prefix: server_filter starts with server_name
+       (e.g., "basedpyright" in "basedpyright-langserver")
+    3. Suffix match with separator: server_filter ends with "-{server_file_base}"
+       to avoid false positives
+    4. Substring match: server_name is in server_filter (for custom paths like
+       "custom-pyright" containing "pyright")
 
     Args:
         server_filter: Filter string to match
@@ -235,7 +241,9 @@ def format_capabilities(
     if format == "json":
         return json.dumps(capabilities, indent=2)
     elif format == "yaml":
-        return yaml.safe_dump(capabilities, default_flow_style=False, sort_keys=False)
+        return str(
+            yaml.safe_dump(capabilities, default_flow_style=False, sort_keys=False)
+        )
     elif format == "text":
         lines = []
         for server_name, server_caps in capabilities.items():

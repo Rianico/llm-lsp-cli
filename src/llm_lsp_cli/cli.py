@@ -2,6 +2,7 @@
 
 import typer
 
+from llm_lsp_cli.commands import config, daemon, lsp
 from llm_lsp_cli.commands.shared import GlobalOptions
 from llm_lsp_cli.utils import OutputFormat
 
@@ -43,9 +44,6 @@ def version() -> None:
 
     typer.echo(f"llm-lsp-cli version {__version__}")
 
-
-# Register command groups
-from llm_lsp_cli.commands import config, daemon, lsp
 
 app.add_typer(daemon.app, name="daemon")
 app.add_typer(lsp.app, name="lsp")

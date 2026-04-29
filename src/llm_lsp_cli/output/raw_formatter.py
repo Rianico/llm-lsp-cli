@@ -49,8 +49,10 @@ class RawFormatter:
             case OutputFormat.JSON:
                 return json.dumps(response, indent=2)
             case OutputFormat.YAML:
-                return yaml.safe_dump(
-                    response, default_flow_style=False, sort_keys=False, allow_unicode=True
+                return str(
+                    yaml.safe_dump(
+                        response, default_flow_style=False, sort_keys=False, allow_unicode=True
+                    )
                 )
             case OutputFormat.CSV | OutputFormat.TEXT:
                 # CSV and TEXT not suitable for raw LSP response structure,

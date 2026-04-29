@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from llm_lsp_cli.domain.progress import WorkDoneProgressState
 
@@ -22,7 +23,7 @@ class ProgressHandler:
         self._progress_states: dict[str, WorkDoneProgressState] = {}
         self._callbacks: list[Callable[[WorkDoneProgressState], None]] = []
 
-    def handle_progress(self, params: dict) -> None:
+    def handle_progress(self, params: dict[str, Any]) -> None:
         """Handle $/progress notification."""
         token = params.get("token", "")
         value = params.get("value", {})
@@ -45,7 +46,7 @@ class ProgressHandler:
         elif kind == "end":
             self._handle_end(token)
 
-    def _handle_begin(self, token: str, value: dict) -> None:
+    def _handle_begin(self, token: str, value: dict[str, Any]) -> None:
         """Handle progress begin notification."""
         state = WorkDoneProgressState(
             token=token,
@@ -59,7 +60,7 @@ class ProgressHandler:
         logger.info(f"Work started: {state.title} - {state.message} ({state.percentage}%)")
         self._notify_callbacks(state)
 
-    def _handle_report(self, token: str, value: dict) -> None:
+    def _handle_report(self, token: str, value: dict[str, Any]) -> None:
         """Handle progress report notification."""
         if token not in self._progress_states:
             logger.warning(f"Progress report for unknown token: {token}")

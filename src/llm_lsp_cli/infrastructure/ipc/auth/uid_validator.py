@@ -78,6 +78,7 @@ class UidValidator:
                 socket.SOL_SOCKET,
                 getattr(socket, "SO_PEERCRED", 0),
             )
+            uid: int
             uid, _, _ = struct.unpack("iii", peer_creds[:12])
             return uid
         except Exception:

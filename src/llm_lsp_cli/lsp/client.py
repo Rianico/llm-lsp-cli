@@ -1059,7 +1059,7 @@ class LSPClient:
             timeout=self.timeout,
         )
 
-        return result
+        return cast(dict[str, Any] | None, result)
 
     async def request_rename(
         self,
@@ -1094,7 +1094,7 @@ class LSPClient:
             timeout=self.timeout,
         )
 
-        return result
+        return cast(dict[str, Any] | None, result)
 
     def _is_method_not_found_error(self, error: Any) -> bool:
         """Check if error is a MethodNotFound (-32601) error.
@@ -1107,17 +1107,17 @@ class LSPClient:
         """
         # Check for LSPError from transport
         if isinstance(error, LSPError):
-            return error.code == LSPConstants.ERROR_METHOD_NOT_FOUND
+            return bool(error.code == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         # Check for error response dict
         if isinstance(error, dict):
             error_info = error.get("error", {})
-            return error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND
+            return bool(error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         # Check for exception with error response
         if hasattr(error, "response"):
             response = getattr(error, "response", {})
             error_info = response.get("error", {})
-            return error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND
+            return bool(error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         return False

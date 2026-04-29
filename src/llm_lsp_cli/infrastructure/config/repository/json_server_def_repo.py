@@ -112,7 +112,8 @@ class JsonServerDefinitionRepository:
 
         try:
             content = self._config_file.read_text()
-            return json.loads(content)
+            loaded: dict[str, Any] = json.loads(content)
+            return loaded
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Failed to load config from %s: %s", self._config_file, e)
             return {LANGUAGES_KEY: {}}

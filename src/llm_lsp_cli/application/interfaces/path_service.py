@@ -14,7 +14,9 @@ class PathServicePort(Protocol):
     """
 
     @staticmethod
-    def build_socket_path(workspace_path: str, language: str, lsp_server_name: str | None = None) -> Path:
+    def build_socket_path(
+        workspace_path: str, language: str, lsp_server_name: str | None = None
+    ) -> Path:
         """Build the socket file path.
 
         Args:
@@ -28,7 +30,9 @@ class PathServicePort(Protocol):
         ...
 
     @staticmethod
-    def build_pid_file(workspace_path: str, language: str, lsp_server_name: str | None = None) -> Path:
+    def build_pid_file(
+        workspace_path: str, language: str, lsp_server_name: str | None = None
+    ) -> Path:
         """Build the PID file path.
 
         Args:
@@ -42,7 +46,9 @@ class PathServicePort(Protocol):
         ...
 
     @staticmethod
-    def build_log_file(workspace_path: str, language: str, lsp_server_name: str | None = None) -> Path:
+    def build_log_file(
+        workspace_path: str, language: str, lsp_server_name: str | None = None
+    ) -> Path:
         """Build the log file path.
 
         Args:
