@@ -101,11 +101,16 @@ class SymbolRecord:
         }
 
     def get_text_line(self) -> str:
-        """Return a single-line text representation."""
-        line = f"{self.file}: {self.name} ({self.kind_name}) [{self.range.to_compact()}]"
-        if self.detail:
-            line += f" -> {self.detail}"
-        return line
+        """Return a single-line text representation.
+
+        Format: "name (kind_name), range: <range>, selection_range: <selection_range>"
+        Omit selection_range if not present.
+        """
+        parts: list[str] = [f"{self.name} ({self.kind_name})"]
+        parts.append(f"range: {self.range.to_compact()}")
+        if self.selection_range:
+            parts.append(f"selection_range: {self.selection_range.to_compact()}")
+        return ", ".join(parts)
 
 
 @dataclass
@@ -170,11 +175,19 @@ class DiagnosticRecord:
         }
 
     def get_text_line(self) -> str:
-        """Return a single-line text representation."""
-        code_str = f" [{self.code}]" if self.code else ""
-        source_str = f" ({self.source})" if self.source else ""
-        compact = self.range.to_compact()
-        return f"{self.severity_name}: {self.message}{code_str}{source_str} {compact}"
+        """Return a single-line text representation.
+
+        Format: "severity: message, code: <code>, range: <range>, tags: [<tags>]"
+        Omit code, tags if not present.
+        """
+        parts: list[str] = [f"{self.severity_name}: {self.message}"]
+        if self.code is not None and self.code != "":
+            parts.append(f"code: {self.code}")
+        parts.append(f"range: {self.range.to_compact()}")
+        if self.tags:
+            tag_names = [get_diagnostic_tag_name(t) for t in self.tags]
+            parts.append(f"tags: [{', '.join(tag_names)}]")
+        return ", ".join(parts)
 
 
 @dataclass

@@ -507,8 +507,9 @@ class TestCrossFormatConsistency:
             csv.DictReader(io.StringIO(OutputDispatcher().format_list(records, OutputFormat.CSV)))
         )
 
-        # TEXT format has file in output lines
-        assert expected_file in text_output
+        # TEXT format no longer includes file in output lines (new format)
+        # File is at top level in JSON/YAML only
+        assert expected_file not in text_output
 
         # JSON/YAML have file at top level
         assert json_data["file"] == expected_file

@@ -352,13 +352,13 @@ class TestDiagnosticsToText:
     def test_diagnostics_to_text_format_structure(
         self, sample_diagnostic_record: DiagnosticRecord
     ) -> None:
-        """TEXT format: '{severity_name}: {message} [{code}] ({source}) {range}'."""
-        formatter = CompactFormatter("/tmp/test")
+        """TEXT format: 'severity: message, code: <code>, range: <range>, tags: [<tags>]'."""
         text = OutputDispatcher().format_list([sample_diagnostic_record], OutputFormat.TEXT)
 
+        # New format: "Error: message, code: <code>, range: <range>, tags: [<tags>]"
         expected = (
-            "Error: Type 'int' is not assignable to type 'str' "
-            "[reportGeneralTypeIssues] (Pyright) 10:5-15:20"
+            "Error: Type 'int' is not assignable to type 'str', "
+            "code: reportGeneralTypeIssues, range: 10:5-15:20, tags: [Unnecessary, Deprecated]"
         )
         assert expected in text
 
@@ -440,7 +440,7 @@ class TestSymbolsToTextBareRange:
     """Tests for symbols TEXT format."""
 
     def test_symbols_to_text_bare_range(self) -> None:
-        """Symbol TEXT output uses bracketed range format."""
+        """Symbol TEXT output uses new format: 'name (kind_name), range: <range>'."""
         rec = SymbolRecord(
             file="test.py",
             name="foo",
@@ -452,11 +452,10 @@ class TestSymbolsToTextBareRange:
             ),
         )
 
-        formatter = CompactFormatter("/tmp/test")
         text = OutputDispatcher().format_list([rec], OutputFormat.TEXT)
 
-        # New format: "file: name (kind_name) [range]"
-        assert "test.py: foo (Function) [10:5-10:20]" in text
+        # New format: "name (kind_name), range: <range>"
+        assert "foo (Function), range: 10:5-10:20" in text
 
 
 # =============================================================================

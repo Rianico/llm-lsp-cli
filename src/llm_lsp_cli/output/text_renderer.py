@@ -21,9 +21,8 @@ PREFIX_TERMINATE = "    "
 def _render_node_line(node: SymbolNode) -> str:
     """Render a single SymbolNode as a text line.
 
-    Format: name (kind_name) range sel[selection_range] [tags] detail
+    Format: name (kind_name), range: <range>, selection_range: <selection_range>
     Null/empty fields are omitted.
-    Range uses bare format (no brackets) for token efficiency.
 
     Args:
         node: SymbolNode to render
@@ -31,22 +30,23 @@ def _render_node_line(node: SymbolNode) -> str:
     Returns:
         Formatted string without tree prefix
     """
-    parts: list[str] = [f"{node.name} ({node.kind_name}) {node.range}"]
+    parts: list[str] = [f"{node.name} ({node.kind_name})"]
+    parts.append(f"range: {node.range}")
 
     # Add selection range if present
     if node.selection_range:
-        parts.append(f"sel[{node.selection_range}]")
+        parts.append(f"selection_range: {node.selection_range}")
 
     # Add tags if present
     if node.tags:
         tag_str = " ".join(node.tags)
-        parts.append(f"[{tag_str}]")
+        parts.append(f"tags: [{tag_str}]")
 
     # Add detail if present
     if node.detail:
         parts.append(node.detail)
 
-    return " ".join(parts)
+    return ", ".join(parts)
 
 
 def _render_tree(
@@ -148,33 +148,67 @@ def _render_group_with_tree_connectors(
 def _render_symbol_line(symbol: dict[str, Any]) -> str:
     """Render a single symbol as a text line.
 
+    Format: "name (kind_name), range: <range>, selection_range: <selection_range>"
+    Omit selection_range if not present. Name/kind/range always included.
+
     Args:
-        symbol: Symbol dict with name, kind_name, range
+        symbol: Symbol dict with name, kind_name, range, selection_range
 
     Returns:
-        Formatted string: "name (kind_name) range"
+        Formatted string with comma-separated fields
     """
     name = symbol.get("name", "")
     kind_name = symbol.get("kind_name", "")
     range_str = symbol.get("range", "")
-    return f"{name} ({kind_name}) {range_str}"
+
+    # Build parts: name (kind_name) first, then range
+    parts: list[str] = [f"{name} ({kind_name})"]
+
+    # Always include range with prefix
+    parts.append(f"range: {range_str}")
+
+    # Add selection_range only if present and not None/empty
+    selection_range = symbol.get("selection_range")
+    if selection_range:
+        parts.append(f"selection_range: {selection_range}")
+
+    return ", ".join(parts)
 
 
 def _render_diagnostic_line(diag: dict[str, Any]) -> str:
     """Render a single diagnostic as a text line.
 
+    Format: "severity: message, code: <code>, range: <range>, tags: [<tags>]"
+    Omit code, tags if not present. Range always included.
+
     Args:
-        diag: Diagnostic dict with severity_name, message, code, range
+        diag: Diagnostic dict with severity_name, message, code, range, tags
 
     Returns:
-        Formatted string: "severity: message [code] range"
+        Formatted string with comma-separated fields
     """
     severity = diag.get("severity_name", "Error")
     message = diag.get("message", "")
     range_str = diag.get("range", "")
-    code = diag.get("code", "")
-    code_str = f" [{code}]" if code else ""
-    return f"{severity}: {message}{code_str} {range_str}"
+
+    # Build parts: severity: message first
+    parts: list[str] = [f"{severity}: {message}"]
+
+    # Add code if present and non-empty
+    code = diag.get("code")
+    if code is not None and code != "":
+        parts.append(f"code: {code}")
+
+    # Always include range with prefix
+    parts.append(f"range: {range_str}")
+
+    # Add tags if present and non-empty list
+    tags = diag.get("tags")
+    if tags:
+        tag_str = ", ".join(tags)
+        parts.append(f"tags: [{tag_str}]")
+
+    return ", ".join(parts)
 
 
 def render_workspace_symbols_grouped(

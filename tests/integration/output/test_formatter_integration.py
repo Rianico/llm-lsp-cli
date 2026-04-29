@@ -74,10 +74,10 @@ class TestWorkspaceSymbolWorkflow:
         records = formatter.transform_symbols(workspace_symbols_response)
         output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
-        # Verify symbols are present with new format: "file: name (kind_name) [range] -> detail"
-        assert "src/models.py: MyClass (Class) [1:1-51:1] -> class MyClass" in output
-        assert "src/utils.py: my_function (Function) [11:1-31:1] -> def my_function(x: int) -> str" in output
-        assert "tests/test_models.py: TestClass (Class) [6:1-26:1] -> class TestClass" in output
+        # New format: "name (kind_name), range: <range>"
+        assert "MyClass (Class), range: 1:1-51:1" in output
+        assert "my_function (Function), range: 11:1-31:1" in output
+        assert "TestClass (Class), range: 6:1-26:1" in output
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
@@ -231,9 +231,9 @@ class TestDocumentSymbolWorkflow:
         records = formatter.transform_symbols(document_symbols_response)
         output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
 
-        # New format: "file: name (kind_name) [range] -> detail"
-        assert "MyClass (Class) [1:1-51:1] -> class MyClass" in output
-        assert "helper_function (Function) [53:1-71:1] -> def helper_function(x: int) -> int" in output
+        # New format: "name (kind_name), range: <range>, selection_range: <sel>"
+        assert "MyClass (Class), range: 1:1-51:1" in output
+        assert "helper_function (Function), range: 53:1-71:1" in output
 
     def test_workflow_json_with_nested_children(
         self, formatter: CompactFormatter, document_symbols_response: list[dict[str, Any]]

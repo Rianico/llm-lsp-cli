@@ -855,7 +855,8 @@ class TestSymbolsToText:
         ]
         records = formatter.transform_symbols(symbols)
         result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        assert "src/file.py: Sym1 (Class) [1:1-10:1]" in result
+        # New format: "name (kind_name), range: <range>"
+        assert "Sym1 (Class), range: 1:1-10:1" in result
 
     def test_text_multiple_symbols(self, temp_dir: Path) -> None:
         """Multiple symbols in text output."""
@@ -887,8 +888,9 @@ class TestSymbolsToText:
         ]
         records = formatter.transform_symbols(symbols)
         result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        assert "src/file.py: Sym1 (Class) [1:1-10:1]" in result
-        assert "src/file.py: Sym2 (Function) [20:1-30:1]" in result
+        # New format: "name (kind_name), range: <range>"
+        assert "Sym1 (Class), range: 1:1-10:1" in result
+        assert "Sym2 (Function), range: 20:1-30:1" in result
 
     def test_text_multiple_files(self, temp_dir: Path) -> None:
         """Multiple files in text output."""
@@ -920,12 +922,12 @@ class TestSymbolsToText:
         ]
         records = formatter.transform_symbols(symbols)
         result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        # Both symbols should be present
-        assert "src/a_file.py: SymA (Class) [1:1-2:1]" in result
-        assert "src/b_file.py: SymB (Class) [1:1-2:1]" in result
+        # New format: "name (kind_name), range: <range>"
+        assert "SymA (Class), range: 1:1-2:1" in result
+        assert "SymB (Class), range: 1:1-2:1" in result
 
     def test_text_includes_detail(self, temp_dir: Path) -> None:
-        """Detail formatting with arrow."""
+        """Detail field is omitted in new format (not included in text line)."""
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
             {
@@ -943,8 +945,8 @@ class TestSymbolsToText:
         ]
         records = formatter.transform_symbols(symbols)
         result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        # Format: "file: name (kind) [range] -> detail"
-        assert "src/utils.py: MyFunc (Function) [1:1-2:1] -> def my_func() -> str" in result
+        # New format: "name (kind_name), range: <range>" (detail not in text line)
+        assert "MyFunc (Function), range: 1:1-2:1" in result
 
     def test_text_omits_none_detail(self, temp_dir: Path) -> None:
         """Conditional detail omission."""
@@ -964,8 +966,8 @@ class TestSymbolsToText:
         ]
         records = formatter.transform_symbols(symbols)
         result = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        # Format: "file: name (kind) [range]" (no detail)
-        assert "src/models.py: MyClass (Class) [1:1-2:1]" in result
+        # New format: "name (kind_name), range: <range>" (no file prefix)
+        assert "MyClass (Class), range: 1:1-2:1" in result
 
     def test_text_empty_records(self, temp_dir: Path) -> None:
         """Empty list returns empty string."""
