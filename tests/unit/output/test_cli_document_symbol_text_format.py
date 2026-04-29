@@ -277,7 +277,8 @@ class TestDocumentSymbolTextFormat:
             catch_exceptions=False,
         )
 
-        assert result.output.strip() == "No symbols found."
+        # Now shows header even for empty results
+        assert "Basedpyright: document-symbol" in result.output
 
 
 class TestDocumentSymbolOtherFormats:
@@ -333,10 +334,13 @@ class TestDocumentSymbolOtherFormats:
         )
 
         data = json.loads(result.output)
-        assert len(data) == 1
-        assert data[0]["name"] == "test_func"
-        assert "file" in data[0], "CompactFormatter JSON should have file field"
-        assert "children" in data[0], "CompactFormatter JSON should have children field"
+        # Now wrapped with _source field
+        assert "_source" in data
+        items = data["items"]
+        assert len(items) == 1
+        assert items[0]["name"] == "test_func"
+        assert "file" in items[0], "CompactFormatter JSON should have file field"
+        assert "children" in items[0], "CompactFormatter JSON should have children field"
 
     def test_yaml_format_uses_compact_formatter(
         self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch
@@ -372,9 +376,12 @@ class TestDocumentSymbolOtherFormats:
         )
 
         data = yaml.safe_load(result.output)
-        assert len(data) == 1
-        assert data[0]["name"] == "test_func"
-        assert "file" in data[0], "CompactFormatter YAML should have file field"
+        # Now wrapped with _source field
+        assert "_source" in data
+        items = data["items"]
+        assert len(items) == 1
+        assert items[0]["name"] == "test_func"
+        assert "file" in items[0], "CompactFormatter YAML should have file field"
 
     def test_csv_format_uses_compact_formatter(
         self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch

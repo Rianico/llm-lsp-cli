@@ -59,8 +59,11 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
             # Helper function to recursively check kind_names
-            kind_names = self._extract_kind_names(parsed)
+            kind_names = self._extract_kind_names(items)
             # With depth=1 (default), all symbols are included (no variable filtering at CLI level)
             assert "Class" in kind_names
 
@@ -101,9 +104,12 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
             # All symbols should be included (no variable filtering at CLI level)
-            kind_names = [item["kind_name"] for item in parsed]
-            names = [item["name"] for item in parsed]
+            kind_names = [item["kind_name"] for item in items]
+            names = [item["name"] for item in items]
             # Should include Variable since no filtering at CLI level
             assert "Variable" in kind_names
             assert "module_variable" in names
@@ -145,8 +151,11 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
             # Verify symbols are included in output
-            names = [item["name"] for item in parsed]
+            names = [item["name"] for item in items]
             # module_variable should be present (no variable filtering at CLI level)
             assert "module_variable" in names
             # MyClass should always be present
@@ -189,7 +198,10 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert isinstance(parsed, list)
+            # Now wrapped with _source field
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            assert "items" in parsed
 
     def test_depth_yaml_format(self, test_file_in_workspace: Path) -> None:
         """Verify --depth with YAML output works."""
@@ -228,7 +240,10 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = yaml.safe_load(result.output)
-            assert isinstance(parsed, list)
+            # Now wrapped with _source field
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            assert "items" in parsed
 
     def test_depth_csv_format(self, test_file_in_workspace: Path) -> None:
         """Verify --depth with CSV output works."""
@@ -381,10 +396,13 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
             # Only top-level symbols, no children
-            assert len(parsed) == 1
-            assert parsed[0]["name"] == "MyClass"
-            assert len(parsed[0]["children"]) == 0
+            assert len(items) == 1
+            assert items[0]["name"] == "MyClass"
+            assert len(items[0]["children"]) == 0
 
     def test_depth_unlimited_shows_all(self, test_file_in_workspace: Path) -> None:
         """Verify --depth -1 shows all nested levels."""
@@ -434,13 +452,16 @@ class TestDocumentSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
             # All nested levels should be included
-            assert len(parsed) == 1
-            assert parsed[0]["name"] == "MyClass"
-            assert len(parsed[0]["children"]) == 2
+            assert len(items) == 1
+            assert items[0]["name"] == "MyClass"
+            assert len(items[0]["children"]) == 2
 
             # Method should have children
-            method = [c for c in parsed[0]["children"] if c["name"] == "method"][0]
+            method = [c for c in items[0]["children"] if c["name"] == "method"][0]
             assert len(method["children"]) == 1
             assert method["children"][0]["name"] == "local_var"
 

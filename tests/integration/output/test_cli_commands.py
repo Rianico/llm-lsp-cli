@@ -96,14 +96,22 @@ class TestWorkspaceSymbolCommand:
             )
 
             assert result.exit_code == 0
-            # Compact JSON format returns flat array directly
+            # Wrapped format: {"_source": "...", "files": [{"file": "...", "symbols": [...]}]}
             parsed = json.loads(result.output)
-            assert isinstance(parsed, list)
-            assert len(parsed) == 2
-            assert "file" in parsed[0]
-            assert "name" in parsed[0]
-            assert "kind_name" in parsed[0]  # kind_name, not numeric kind
-            assert "range" in parsed[0]
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Each group has "file" and "symbols" keys
+            assert "file" in files[0]
+            assert "symbols" in files[0]
+            # Flatten symbols from all groups to check content
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 2
+            assert "name" in all_symbols[0]
+            assert "kind_name" in all_symbols[0]  # kind_name, not numeric kind
+            assert "range" in all_symbols[0]
 
     def test_workspace_symbol_yaml_format(self, mock_symbols_response: list[dict]) -> None:
         """Test workspace-symbol with YAML output format."""
@@ -127,14 +135,22 @@ class TestWorkspaceSymbolCommand:
             )
 
             assert result.exit_code == 0
-            # Compact YAML format returns flat array directly
+            # Wrapped format: {"_source": "...", "files": [{"file": "...", "symbols": [...]}]}
             parsed = yaml.safe_load(result.output)
-            assert isinstance(parsed, list)
-            assert len(parsed) == 2
-            assert "file" in parsed[0]
-            assert "name" in parsed[0]
-            assert "kind_name" in parsed[0]  # kind_name, not numeric kind
-            assert "range" in parsed[0]
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Each group has "file" and "symbols" keys
+            assert "file" in files[0]
+            assert "symbols" in files[0]
+            # Flatten symbols from all groups to check content
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 2
+            assert "name" in all_symbols[0]
+            assert "kind_name" in all_symbols[0]  # kind_name, not numeric kind
+            assert "range" in all_symbols[0]
 
     def test_workspace_symbol_csv_format(self, mock_symbols_response: list[dict]) -> None:
         """Test workspace-symbol with CSV output format."""

@@ -18,8 +18,15 @@ from llm_lsp_cli.commands.shared import (
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
-from llm_lsp_cli.output.formatter import CompactFormatter
+from llm_lsp_cli.output.formatter import (
+    CompactFormatter,
+    group_diagnostics_by_file,
+    group_symbols_by_file,
+)
+from llm_lsp_cli.output.header_builder import CommandInfo, build_alert_header
+from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative, resolve_path_for_header
 from llm_lsp_cli.output.raw_formatter import RawFormatter
+from llm_lsp_cli.output.server_name import get_server_display_name
 from llm_lsp_cli.test_filter import (
     _filter_test_diagnostic_items,
     _filter_test_locations,
@@ -81,7 +88,21 @@ def definition(
         formatter = CompactFormatter(context.workspace_path)
         records = formatter.transform_locations(filtered)
         dispatcher = OutputDispatcher()
-        typer.echo(dispatcher.format_list(records, context.output_format))
+
+        # Build header for all formats
+        # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
+        server_name = get_server_display_name(None, "", language=context.language)
+        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+        header = build_alert_header(CommandInfo(server_name, "definition", relative_path))
+
+        if context.output_format == OutputFormat.TEXT:
+            output = dispatcher.format_list(records, context.output_format)
+            if output:
+                typer.echo(f"{header}\n{output}")
+            else:
+                typer.echo(header)
+        else:
+            typer.echo(dispatcher.format_list(records, context.output_format, _source=header))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -143,7 +164,21 @@ def references(
             formatter = CompactFormatter(context.workspace_path)
             records = formatter.transform_locations(filtered)
             dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format_list(records, context.output_format))
+
+            # Build source header
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            source = f"{server_name}: references of {relative_path}"
+
+            if context.output_format == OutputFormat.TEXT:
+                header = build_alert_header(CommandInfo(server_name, "references", relative_path))
+                output = dispatcher.format_list(records, context.output_format)
+                if output:
+                    typer.echo(f"{header}\n{output}")
+                else:
+                    typer.echo(header)
+            else:
+                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -195,12 +230,20 @@ def document_symbol(
                 symbols, depth_limit=depth, workspace=Path(context.workspace_path)
             )
             file_header = f"{context.file_path}:" if context.file_path else None
-            typer.echo(render_text(nodes, file_header=file_header))
+            # Add header for TEXT format
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            header = build_alert_header(CommandInfo(server_name, "document-symbol", relative_path))
+            typer.echo(f"{header}\n{render_text(nodes, file_header=file_header)}")
         else:
             formatter = CompactFormatter(context.workspace_path)
             records = formatter.transform_symbols(symbols, depth=depth)
             dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format_list(records, context.output_format))
+            # Build source for JSON/YAML
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            source = f"{server_name}: document-symbol of {relative_path}"
+            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -257,7 +300,31 @@ def workspace_symbol(
             formatter = CompactFormatter(workspace_path)
             records = formatter.transform_symbols(filtered, depth=depth)
             dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format_list(records, effective_format))
+
+            # Use grouped output for workspace-symbol
+            grouped = group_symbols_by_file(records)
+
+            if effective_format == OutputFormat.TEXT:
+                # Build header for TEXT format
+                # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
+                server_name = get_server_display_name(None, "", language=language_value)
+                header = build_alert_header(
+                    CommandInfo(server_name, "workspace-symbol", None)
+                )
+                typer.echo(
+                    dispatcher.format_grouped_text(grouped, items_key="symbols", header=header)
+                )
+            elif effective_format == OutputFormat.CSV:
+                typer.echo(
+                    dispatcher.format_grouped_flat(grouped, effective_format, items_key="symbols")
+                )
+            else:
+                # Build header for JSON/YAML _source field
+                server_name = get_server_display_name(None, "", language=language_value)
+                header = build_alert_header(CommandInfo(server_name, "workspace-symbol", None))
+                typer.echo(
+                    dispatcher.format_grouped(grouped, effective_format, items_key="symbols", _source=header)
+                )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -317,11 +384,24 @@ def incoming_calls(
         else:
             formatter = CompactFormatter(context.workspace_path)
             records = formatter.transform_call_hierarchy_incoming(calls)
-            if not records:
-                typer.echo("No calls found.")
+            dispatcher = OutputDispatcher()
+
+            # Build source header
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            source = f"{server_name}: incoming-calls of {relative_path}"
+
+            if context.output_format == OutputFormat.TEXT:
+                header = build_alert_header(
+                    CommandInfo(server_name, "incoming-calls", relative_path)
+                )
+                output = dispatcher.format_list(records, context.output_format)
+                if output:
+                    typer.echo(f"{header}\n{output}")
+                else:
+                    typer.echo(header)
             else:
-                dispatcher = OutputDispatcher()
-                typer.echo(dispatcher.format_list(records, context.output_format))
+                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -381,11 +461,24 @@ def outgoing_calls(
         else:
             formatter = CompactFormatter(context.workspace_path)
             records = formatter.transform_call_hierarchy_outgoing(calls)
-            if not records:
-                typer.echo("No calls found.")
+            dispatcher = OutputDispatcher()
+
+            # Build source header
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            source = f"{server_name}: outgoing-calls of {relative_path}"
+
+            if context.output_format == OutputFormat.TEXT:
+                header = build_alert_header(
+                    CommandInfo(server_name, "outgoing-calls", relative_path)
+                )
+                output = dispatcher.format_list(records, context.output_format)
+                if output:
+                    typer.echo(f"{header}\n{output}")
+                else:
+                    typer.echo(header)
             else:
-                dispatcher = OutputDispatcher()
-                typer.echo(dispatcher.format_list(records, context.output_format))
+                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -433,7 +526,21 @@ def completion(
         formatter = CompactFormatter(context.workspace_path)
         records = formatter.transform_completions(items, file_path=str(context.file_path))
         dispatcher = OutputDispatcher()
-        typer.echo(dispatcher.format_list(records, context.output_format))
+
+        # Build source header
+        server_name = get_server_display_name(None, "", language=context.language)
+        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+        source = f"{server_name}: completion of {relative_path}"
+
+        if context.output_format == OutputFormat.TEXT:
+            header = build_alert_header(CommandInfo(server_name, "completion", relative_path))
+            output = dispatcher.format_list(records, context.output_format)
+            if output:
+                typer.echo(f"{header}\n{output}")
+            else:
+                typer.echo(header)
+        else:
+            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -482,7 +589,19 @@ def hover(
         record = formatter.transform_hover(hover_data, file_path=str(context.file_path))
         if record:
             dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format(record, context.output_format))
+
+            # Build source header
+            # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
+            server_name = get_server_display_name(None, "", language=context.language)
+            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            source = f"{server_name}: hover of {relative_path}"
+
+            if context.output_format == OutputFormat.TEXT:
+                header = build_alert_header(CommandInfo(server_name, "hover", relative_path))
+                output = dispatcher.format(record, context.output_format)
+                typer.echo(f"{header}\n{output}")
+            else:
+                typer.echo(dispatcher.format(record, context.output_format, _source=source))
         else:
             typer.echo("No hover information available.")
 
@@ -534,7 +653,21 @@ def diagnostics(
         formatter = CompactFormatter(workspace_path)
         records = formatter.transform_diagnostics(diagnostics_list, file_path=str(file_path))
         dispatcher = OutputDispatcher()
-        typer.echo(dispatcher.format_list(records, effective_format))
+
+        # Build header for all formats
+        # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
+        server_name = get_server_display_name(None, "", language=effective_language)
+        relative_path = resolve_path_for_header(str(file_path), workspace_path)
+        header = build_alert_header(CommandInfo(server_name, "diagnostics", relative_path))
+
+        if effective_format == OutputFormat.TEXT:
+            output = dispatcher.format_list(records, effective_format)
+            if output:
+                typer.echo(f"{header}\n{output}")
+            else:
+                typer.echo(header)
+        else:
+            typer.echo(dispatcher.format_list(records, effective_format, _source=header))
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -591,15 +724,38 @@ def workspace_diagnostics(
         for item in diagnostics_items:
             uri = item.get("uri", "")
             file_diagnostics = item.get("diagnostics", [])
-            from urllib.parse import urlparse
 
-            parsed = urlparse(uri)
-            file_path = parsed.path if parsed.scheme == "file" else uri
+            # Use normalize_uri_to_relative for proper relative paths
+            file_path = normalize_uri_to_relative(uri, Path(workspace_path))
             records = formatter.transform_diagnostics(file_diagnostics, file_path=file_path)
             all_records.extend(records)
 
         dispatcher = OutputDispatcher()
-        typer.echo(dispatcher.format_list(all_records, effective_format))
+
+        # Use grouped output for workspace-diagnostics
+        grouped = group_diagnostics_by_file(all_records)
+
+        if effective_format == OutputFormat.TEXT:
+            # Build header for TEXT format
+            # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
+            server_name = get_server_display_name(None, "", language=language_value)
+            header = build_alert_header(
+                CommandInfo(server_name, "workspace-diagnostics", None)
+            )
+            typer.echo(
+                dispatcher.format_grouped_text(grouped, items_key="diagnostics", header=header)
+            )
+        elif effective_format == OutputFormat.CSV:
+            typer.echo(
+                dispatcher.format_grouped_flat(grouped, effective_format, items_key="diagnostics")
+            )
+        else:
+            # Build header for JSON/YAML _source field
+            server_name = get_server_display_name(None, "", language=language_value)
+            header = build_alert_header(CommandInfo(server_name, "workspace-diagnostics", None))
+            typer.echo(
+                dispatcher.format_grouped(grouped, effective_format, items_key="diagnostics", _source=header)
+            )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -688,12 +844,6 @@ def rename(
                 position=position,
                 new_name=new_name,
             )
-            if not records:
-                typer.echo("No rename changes found.")
-                return
-            dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format_list(records, context.output_format))
-            typer.echo(f"Session ID: {session.session_id}", err=True)
         else:
             records = rename_service.preview_from_edit(
                 workspace_edit=workspace_edit,
@@ -701,11 +851,26 @@ def rename(
                 position=position,
                 new_name=new_name,
             )
-            if not records:
-                typer.echo("No rename changes found.")
-                return
-            dispatcher = OutputDispatcher()
-            typer.echo(dispatcher.format_list(records, context.output_format))
+
+        dispatcher = OutputDispatcher()
+
+        # Build source header
+        server_name = get_server_display_name(None, "", language=context.language)
+        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+        source = f"{server_name}: rename of {relative_path}"
+
+        if context.output_format == OutputFormat.TEXT:
+            header = build_alert_header(CommandInfo(server_name, "rename", relative_path))
+            output = dispatcher.format_list(records, context.output_format)
+            if output:
+                typer.echo(f"{header}\n{output}")
+            else:
+                typer.echo(header)
+        else:
+            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+
+        if apply:
+            typer.echo(f"Session ID: {session.session_id}", err=True)
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)

@@ -89,15 +89,24 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
             # Should exclude test file symbols (TestMyClass, test_variable)
-            names = [item["name"] for item in parsed]
+            names = [item["name"] for item in all_symbols]
             assert "TestMyClass" not in names
             assert "test_variable" not in names
 
             # Should include source file symbols
             assert "MyClass" in names
             assert "my_variable" in names
-            assert len(parsed) == 2
+            assert len(all_symbols) == 2
 
     def test_source_file_with_all_symbols(self) -> None:
         """Verify source files return all symbols (no variable filtering at CLI level)."""
@@ -151,8 +160,17 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
             # Should include both class and variable (no variable filtering at CLI level)
-            names = [item["name"] for item in parsed]
+            names = [item["name"] for item in all_symbols]
             assert "my_variable" in names
             assert "MyClass" in names
 
@@ -207,8 +225,17 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
             # Should include test class
-            names = [item["name"] for item in parsed]
+            names = [item["name"] for item in all_symbols]
             assert "TestMyClass" in names
 
     def test_filter_order_preserves_semantics(self) -> None:
@@ -289,8 +316,17 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
             # SourceClass and source_var should remain (test symbols filtered)
-            names = [item["name"] for item in parsed]
+            names = [item["name"] for item in all_symbols]
             assert set(names) == {"SourceClass", "source_var"}
 
     def test_include_tests_includes_all_source_files(self) -> None:
@@ -357,9 +393,18 @@ class TestFilterChainIntegration:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
             # All 3 symbols should be present
-            names = [item["name"] for item in parsed]
-            assert len(parsed) == 3
+            names = [item["name"] for item in all_symbols]
+            assert len(all_symbols) == 3
             assert "MyClass" in names
             assert "my_variable" in names
             assert "my_field" in names

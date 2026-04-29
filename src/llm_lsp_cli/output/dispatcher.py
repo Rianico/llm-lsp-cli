@@ -6,7 +6,7 @@ import csv
 import io
 import json
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import yaml
 
@@ -21,22 +21,33 @@ class OutputDispatcher:
     commands. Uses match/case for exhaustive handling of OutputFormat enum.
     """
 
-    def format(self, record: FormattableRecord, fmt: OutputFormat) -> str:
+    def format(
+        self, record: FormattableRecord, fmt: OutputFormat, _source: str | None = None
+    ) -> str:
         """Format a single record in the specified format.
 
         Args:
             record: Any object implementing FormattableRecord protocol
             fmt: Output format (JSON, YAML, CSV, TEXT)
+            _source: Optional source header for JSON/YAML output (ignored for TEXT/CSV)
 
         Returns:
             Formatted string representation
         """
         match fmt:
             case OutputFormat.JSON:
-                return json.dumps(record.to_compact_dict(), indent=2)
+                data = record.to_compact_dict()
+                if _source is not None:
+                    # _source must be first field
+                    data = {"_source": _source, **data}
+                return json.dumps(data, indent=2)
             case OutputFormat.YAML:
+                data = record.to_compact_dict()
+                if _source is not None:
+                    # _source must be first field
+                    data = {"_source": _source, **data}
                 return yaml.dump(
-                    record.to_compact_dict(),
+                    data,
                     default_flow_style=False,
                     sort_keys=False,
                     allow_unicode=True,
@@ -46,12 +57,18 @@ class OutputDispatcher:
             case OutputFormat.TEXT:
                 return record.get_text_line()
 
-    def format_list(self, records: Sequence[FormattableRecord], fmt: OutputFormat) -> str:
+    def format_list(
+        self,
+        records: Sequence[FormattableRecord],
+        fmt: OutputFormat,
+        _source: str | None = None,
+    ) -> str:
         """Format a list of records in the specified format.
 
         Args:
             records: Sequence of objects implementing FormattableRecord protocol
             fmt: Output format (JSON, YAML, CSV, TEXT)
+            _source: Optional source header for JSON/YAML output (ignored for TEXT/CSV)
 
         Returns:
             Formatted string representation. For JSON/YAML, returns "[]" for empty lists.
@@ -59,10 +76,20 @@ class OutputDispatcher:
         """
         match fmt:
             case OutputFormat.JSON:
-                data = [r.to_compact_dict() for r in records]
+                items = [r.to_compact_dict() for r in records]
+                if _source is not None:
+                    # _source must be first field, items in "items" key
+                    data: dict[str, Any] = {"_source": _source, "items": items}
+                else:
+                    data = items  # type: ignore[assignment]
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
-                data = [r.to_compact_dict() for r in records]
+                items = [r.to_compact_dict() for r in records]
+                data = (
+                    {"_source": _source, "items": items}
+                    if _source is not None
+                    else items  # type: ignore[assignment]
+                )
                 return yaml.dump(
                     data,
                     default_flow_style=False,
@@ -110,4 +137,120 @@ class OutputDispatcher:
         writer.writeheader()
         for record in records:
             writer.writerow(record.get_csv_row())
+        return output.getvalue()
+
+    def format_grouped(
+        self,
+        grouped_data: list[dict[str, Any]],
+        fmt: OutputFormat,
+        items_key: str = "symbols",
+        _source: str | None = None,
+    ) -> str:
+        """Format grouped data for JSON/YAML output.
+
+        Args:
+            grouped_data: List of group dicts with 'file' and items_key
+            fmt: Output format (JSON or YAML)
+            items_key: Key name for items ('symbols' or 'diagnostics')
+            _source: Optional source header for JSON/YAML output
+
+        Returns:
+            Formatted string representation
+        """
+        match fmt:
+            case OutputFormat.JSON:
+                if _source is not None:
+                    # _source must be first field, data in "files" key
+                    data: dict[str, Any] = {"_source": _source, "files": grouped_data}
+                else:
+                    data = grouped_data  # type: ignore[assignment]
+                return json.dumps(data, indent=2)
+            case OutputFormat.YAML:
+                if _source is not None:
+                    # _source must be first field, data in "files" key
+                    data = {"_source": _source, "files": grouped_data}
+                else:
+                    data = grouped_data  # type: ignore[assignment]
+                return yaml.dump(
+                    data,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
+                )
+            case _:
+                # For other formats, delegate to format_grouped_text
+                raise ValueError(f"Use format_grouped_text for {fmt} format")
+
+    def format_grouped_text(
+        self,
+        grouped_data: list[dict[str, Any]],
+        items_key: str = "symbols",
+        header: str | None = None,
+    ) -> str:
+        """Format grouped data for TEXT output with hierarchical structure.
+
+        Args:
+            grouped_data: List of group dicts with 'file' and items_key
+            items_key: Key name for items ('symbols' or 'diagnostics')
+            header: Optional alert header to prepend
+
+        Returns:
+            Formatted TEXT string with file headers and tree connectors
+        """
+        from llm_lsp_cli.output.text_renderer import (
+            render_workspace_diagnostics_grouped,
+            render_workspace_symbols_grouped,
+        )
+
+        if items_key == "symbols":
+            return render_workspace_symbols_grouped(grouped_data, header=header)
+        else:
+            return render_workspace_diagnostics_grouped(grouped_data, header=header)
+
+    def format_grouped_flat(
+        self,
+        grouped_data: list[dict[str, Any]],
+        fmt: OutputFormat,
+        items_key: str = "symbols",
+        headers: list[str] | None = None,
+    ) -> str:
+        """Format grouped data as flat table for CSV output.
+
+        Flattens the grouped structure into a single table with file column.
+
+        Args:
+            grouped_data: List of group dicts with 'file' and items_key
+            fmt: Output format (CSV)
+            items_key: Key name for items ('symbols' or 'diagnostics')
+            headers: CSV column headers
+
+        Returns:
+            Flattened CSV string
+        """
+        if not grouped_data:
+            return ""
+
+        # Flatten the grouped data
+        flat_rows: list[dict[str, Any]] = []
+        for group in grouped_data:
+            file_path = group.get("file", "")
+            items = group.get(items_key, [])
+            for item in items:
+                row = {"file": file_path, **item}
+                flat_rows.append(row)
+
+        if not flat_rows:
+            return ""
+
+        # Determine headers from first row
+        if headers is None:
+            headers = list(flat_rows[0].keys())
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=headers, lineterminator="\n")
+        writer.writeheader()
+        for row in flat_rows:
+            # Convert all values to strings
+            str_row = {k: str(v) if v is not None else "" for k, v in row.items()}
+            writer.writerow(str_row)
         return output.getvalue()

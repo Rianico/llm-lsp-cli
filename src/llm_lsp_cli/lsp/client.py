@@ -58,6 +58,8 @@ class LSPClient:
         self._work_done_token: str | None = None
         # Progress handler for work done progress
         self._progress_handler = ProgressHandler()
+        # Server info from initialize response
+        self._server_info: dict[str, Any] = {}
 
     async def initialize(self) -> lsp.InitializeResult:
         """Initialize the LSP connection."""
@@ -105,6 +107,9 @@ class LSPClient:
 
         self._capabilities = response.get("capabilities", {})
 
+        # Capture server info if present
+        self._server_info = response.get("serverInfo", {}) or {}
+
         # Send initialized notification
         assert self._transport is not None
         await self._transport.send_notification(LSPConstants.INITIALIZED, {})
@@ -148,6 +153,16 @@ class LSPClient:
             for use by services like RenameService.
         """
         return self._capabilities or {}
+
+    @property
+    def server_info(self) -> dict[str, Any]:
+        """Get the server info from initialize response.
+
+        Returns:
+            Server info dict containing 'name' and optionally 'version',
+            or empty dict if serverInfo was not provided.
+        """
+        return self._server_info
 
     async def _wait_for_workspace_index(self) -> None:
         """Wait for workspace to be indexed by the LSP server.

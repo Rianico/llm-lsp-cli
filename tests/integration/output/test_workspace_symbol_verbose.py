@@ -50,9 +50,16 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
             # All symbols should be included (workspace symbols are flat, no filtering by kind)
-            assert len(parsed) == 4
-            kind_names = [item["kind_name"] for item in parsed]
+            assert len(all_symbols) == 4
+            kind_names = [item["kind_name"] for item in all_symbols]
             assert "Class" in kind_names
             assert "Function" in kind_names
             assert "Variable" in kind_names
@@ -84,7 +91,14 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert len(parsed) == 4
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 4
 
     def test_depth_with_include_tests(self) -> None:
         """Verify --depth works together with --include-tests."""
@@ -123,7 +137,14 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert len(parsed) == 4
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 4
 
     def test_depth_json_format(self) -> None:
         """Verify --depth with JSON output works."""
@@ -151,8 +172,18 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert isinstance(parsed, list)
-            assert len(parsed) == 4
+            # Wrapped with _source and files
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Each group has "file" and "symbols" keys
+            assert "file" in files[0]
+            assert "symbols" in files[0]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 4
 
     def test_depth_yaml_format(self) -> None:
         """Verify --depth with YAML output works."""
@@ -180,8 +211,18 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = yaml.safe_load(result.output)
-            assert isinstance(parsed, list)
-            assert len(parsed) == 4
+            # Wrapped with _source and files
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Each group has "file" and "symbols" keys
+            assert "file" in files[0]
+            assert "symbols" in files[0]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 4
 
     def test_depth_csv_format(self) -> None:
         """Verify --depth with CSV output works."""
@@ -279,4 +320,7 @@ class TestWorkspaceSymbolDepth:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert parsed == []
+            # Wrapped with _source and files
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            assert parsed["files"] == []

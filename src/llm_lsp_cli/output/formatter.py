@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, TypeVar
 
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative
 from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
@@ -795,3 +795,92 @@ class CompactFormatter:
             content=content,
             range=range_val,
         )
+
+
+# =============================================================================
+# Grouping Functions for Workspace Output
+# =============================================================================
+
+
+class _HasFile(Protocol):
+    """Protocol for records with a file attribute and compact dict conversion."""
+
+    file: str
+
+    def to_compact_dict(self) -> dict[str, Any]:
+        """Convert to compact dict representation."""
+        ...
+
+
+_T = TypeVar("_T", bound=_HasFile)
+
+
+def _group_records_by_file(
+    records: list[_T],
+    items_key: str,
+) -> list[dict[str, Any]]:
+    """Group records by file path.
+
+    This is the shared implementation for grouping SymbolRecords and
+    DiagnosticRecords by their file attribute.
+
+    Args:
+        records: List of records with a 'file' attribute
+        items_key: Key name for items in output ('symbols' or 'diagnostics')
+
+    Returns:
+        List of group dicts with 'file' and items_key keys,
+        sorted alphabetically by file path.
+    """
+    if not records:
+        return []
+
+    # Group by file
+    groups: dict[str, list[_T]] = {}
+    for record in records:
+        file_path = record.file
+        if file_path not in groups:
+            groups[file_path] = []
+        groups[file_path].append(record)
+
+    # Sort by file path and build result
+    result: list[dict[str, Any]] = []
+    for file_path in sorted(groups.keys()):
+        result.append({
+            "file": file_path,
+            items_key: [r.to_compact_dict() for r in groups[file_path]],
+        })
+
+    return result
+
+
+def group_symbols_by_file(symbols: list[SymbolRecord]) -> list[dict[str, Any]]:
+    """Group SymbolRecords by file path for workspace-symbol output.
+
+    Groups are sorted alphabetically by file path.
+
+    Args:
+        symbols: List of SymbolRecord objects to group
+
+    Returns:
+        List of group dicts with 'file' and 'symbols' keys.
+        Each symbol is converted via to_compact_dict().
+    """
+    return _group_records_by_file(symbols, "symbols")
+
+
+def group_diagnostics_by_file(
+    diagnostics: list[DiagnosticRecord],
+) -> list[dict[str, Any]]:
+    """Group DiagnosticRecords by file path for workspace-diagnostics output.
+
+    Groups are sorted alphabetically by file path.
+
+    Args:
+        diagnostics: List of DiagnosticRecord objects to group
+
+    Returns:
+        List of group dicts with 'file' and 'diagnostics' keys.
+        Each diagnostic is converted via to_compact_dict().
+    """
+    return _group_records_by_file(diagnostics, "diagnostics")

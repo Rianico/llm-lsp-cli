@@ -1054,18 +1054,20 @@ class TestCsvCrossFormatConsistency:
         assert csv_output is not None
         assert json_output is not None
 
-        # Parse both and verify same data - compact format
+        # Parse both and verify same data - wrapped format
         csv_rows = parse_csv_output(csv_output)
         import json
 
         json_data = json.loads(json_output)
 
-        # JSON is now a flat list, not {"locations": [...]}
-        assert isinstance(json_data, list)
-        assert len(csv_rows) == len(json_data)
+        # JSON is now wrapped with _source field
+        assert isinstance(json_data, dict)
+        assert "_source" in json_data
+        json_items = json_data["items"]
+        assert len(csv_rows) == len(json_items)
         # Both CSV and JSON use 'file' and 'range' in compact format
-        assert csv_rows[0]["file"] == json_data[0]["file"]
-        assert csv_rows[0]["range"] == json_data[0]["range"]
+        assert csv_rows[0]["file"] == json_items[0]["file"]
+        assert csv_rows[0]["range"] == json_items[0]["range"]
 
     def test_csv_json_same_data_completions(self, temp_file: Path) -> None:
         """Test CSV and JSON contain same data for completions."""
@@ -1114,11 +1116,13 @@ class TestCsvCrossFormatConsistency:
 
         json_data = json.loads(json_output)
 
-        # JSON is now a flat list, not {"items": [...]}
-        assert isinstance(json_data, list)
-        assert len(csv_rows) == len(json_data)
+        # JSON is now wrapped with _source field
+        assert isinstance(json_data, dict)
+        assert "_source" in json_data
+        json_items = json_data["items"]
+        assert len(csv_rows) == len(json_items)
         # Both CSV and JSON use 'label' in compact format
-        assert csv_rows[0]["label"] == json_data[0]["label"]
+        assert csv_rows[0]["label"] == json_items[0]["label"]
 
 
 # =============================================================================
@@ -1292,8 +1296,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            # New schema: kind_name instead of kind, selection_range and parent added
-            expected_columns = ["file", "name", "kind_name", "range", "selection_range", "detail", "tags", "parent"]
+            # CSV format for workspace-symbol is flat with simplified columns
+            expected_columns = ["file", "name", "kind_name", "range", "children"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_hover_columns(self, temp_file: Path) -> None:

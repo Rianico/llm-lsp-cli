@@ -183,7 +183,10 @@ class TestDepthCLIEdgeCases:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert parsed == []
+            # Wrapped with _source and files
+            assert isinstance(parsed, dict)
+            assert "_source" in parsed
+            assert parsed["files"] == []
 
     def test_depth_unlimited(self) -> None:
         """Verify --depth -1 (unlimited) works correctly."""
@@ -216,8 +219,15 @@ class TestDepthCLIEdgeCases:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
             # Should include all symbols
-            assert len(parsed) == 2
+            assert len(all_symbols) == 2
 
     def test_depth_zero(self) -> None:
         """Verify --depth 0 (top-level only) works correctly."""
@@ -250,7 +260,14 @@ class TestDepthCLIEdgeCases:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
-            assert len(parsed) == 2
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+            assert len(all_symbols) == 2
 
     def test_depth_combined_with_all_options(self) -> None:
         """Verify --depth works when combined with all available options."""
@@ -303,9 +320,16 @@ class TestDepthCLIEdgeCases:
 
             assert result.exit_code == 0
             parsed = json.loads(result.output)
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
             # Should include all symbols
-            assert len(parsed) == 2
-            names = [item["name"] for item in parsed]
+            assert len(all_symbols) == 2
+            names = [item["name"] for item in all_symbols]
             assert "var" in names
             assert "class" in names
 

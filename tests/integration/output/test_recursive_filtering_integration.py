@@ -73,8 +73,11 @@ class TestDocumentSymbolDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            class_symbol = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            class_symbol = items[0]
             assert class_symbol["name"] == "MyClass"
             assert "children" in class_symbol
 
@@ -141,8 +144,11 @@ class TestDocumentSymbolDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            class_symbol = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            class_symbol = items[0]
             assert class_symbol["name"] == "MyClass"
             # No children with depth 0
             assert len(class_symbol["children"]) == 0
@@ -221,8 +227,11 @@ class TestDocumentSymbolDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            module = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            module = items[0]
             assert module["name"] == "mymodule"
 
             my_class = module["children"][0]
@@ -312,8 +321,11 @@ class TestDeepNestedDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            module = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            module = items[0]
             assert module["name"] == "mymodule"
             assert len(module["children"]) == 1
 
@@ -393,8 +405,11 @@ class TestDeepNestedDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            module = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            module = items[0]
             assert module["name"] == "mymodule"
 
             my_class = module["children"][0]
@@ -472,8 +487,11 @@ class TestMultiBranchDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 1
-            my_class = parsed[0]
+            # Now wrapped with _source field
+            assert "_source" in parsed
+            items = parsed["items"]
+            assert len(items) == 1
+            my_class = items[0]
             assert my_class["name"] == "MyClass"
             # All 3 children at depth 1
             assert len(my_class["children"]) == 3
@@ -549,11 +567,20 @@ class TestWorkspaceSymbolDepthControl:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            names = [item["name"] for item in parsed]
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
+            names = [item["name"] for item in all_symbols]
             assert "MyClass" in names
             assert "my_function" in names
             assert "module_var" in names  # Included (no variable filtering at CLI level)
-            assert len(parsed) == 3
+            assert len(all_symbols) == 3
 
 
 class TestDepthControlWithTestData:
@@ -622,17 +649,26 @@ class TestDepthControlWithTestData:
             assert result.exit_code == 0
             parsed = json.loads(result.output)
 
-            assert len(parsed) == 2
+            # Wrapped with _source and files
+            assert "_source" in parsed
+            files = parsed["files"]
+
+            # Flatten symbols from grouped output
+            all_symbols = []
+            for group in files:
+                all_symbols.extend(group.get("symbols", []))
+
+            assert len(all_symbols) == 2
 
             # MyClass children included
-            my_class = [s for s in parsed if s["name"] == "MyClass"][0]
+            my_class = [s for s in all_symbols if s["name"] == "MyClass"][0]
             assert len(my_class["children"]) == 2
             children_names = [c["name"] for c in my_class["children"]]
             assert "field" in children_names
             assert "method" in children_names
 
             # TestMyClass children included
-            test_class = [s for s in parsed if s["name"] == "TestMyClass"][0]
+            test_class = [s for s in all_symbols if s["name"] == "TestMyClass"][0]
             assert len(test_class["children"]) == 2
             test_children_names = [c["name"] for c in test_class["children"]]
             assert "test_field" in test_children_names

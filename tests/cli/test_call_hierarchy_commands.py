@@ -173,7 +173,8 @@ class TestIncomingCallsCommand:
             )
 
         assert result.exit_code == 0
-        assert "No calls found" in result.output or result.output == "[]"
+        # JSON output now shows wrapped structure with empty items
+        assert '"items": []' in result.output or "Basedpyright: incoming-calls" in result.output
 
     def test_incoming_calls_include_tests(
         self, mock_daemon_client: MagicMock, tmp_path: Path
@@ -349,7 +350,8 @@ class TestOutgoingCallsCommand:
             )
 
         assert result.exit_code == 0
-        assert "No calls found" in result.output or result.output == "[]"
+        # JSON output now shows wrapped structure with empty items
+        assert '"items": []' in result.output or "Basedpyright: outgoing-calls" in result.output
 
     def test_outgoing_calls_csv_format(
         self, mock_daemon_client: MagicMock, tmp_path: Path

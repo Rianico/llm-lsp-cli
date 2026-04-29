@@ -604,13 +604,15 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - wrapped with _source and items
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert "file" in output[0]
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 1
+        assert "file" in items[0]
+        assert "range" in items[0]
 
 
 def test_cli_references_yaml_output(temp_file: Path) -> None:
@@ -633,12 +635,14 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - now wrapped with _source field
         output = yaml.safe_load(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 3
-        assert "file" in output[0]
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 3
+        assert "file" in items[0]
+        assert "range" in items[0]
 
 
 def test_cli_completion_yaml_output(temp_file: Path) -> None:
@@ -661,16 +665,18 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - now wrapped with _source field
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 2
         # Verify key fields are preserved in compact format
-        assert output[0]["label"] == "my_function"
-        assert output[0]["kind_name"] == "Function"
-        assert output[0]["detail"] == "def my_function(x: int) -> str"
-        assert output[0]["documentation"] == "A sample function"
+        assert items[0]["label"] == "my_function"
+        assert items[0]["kind_name"] == "Function"
+        assert items[0]["detail"] == "def my_function(x: int) -> str"
+        assert items[0]["documentation"] == "A sample function"
 
 
 def test_cli_hover_yaml_output(temp_file: Path) -> None:
@@ -724,14 +730,16 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - now wrapped with _source field
         output = yaml.safe_load(result.output)
-        assert isinstance(output, list)
-        assert len(output) >= 1  # At least MyClass (children may be flattened or omitted)
-        assert "file" in output[0]
-        assert "name" in output[0]
-        assert "kind_name" in output[0]  # Compact format uses kind_name
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) >= 1  # At least MyClass (children may be flattened or omitted)
+        assert "file" in items[0]
+        assert "name" in items[0]
+        assert "kind_name" in items[0]  # Compact format uses kind_name
+        assert "range" in items[0]
 
 
 def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
@@ -754,14 +762,22 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - wrapped with _source and files
         output = yaml.safe_load(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
-        assert "file" in output[0]
-        assert "name" in output[0]
-        assert "kind_name" in output[0]  # Compact format uses kind_name
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        files = output["files"]
+        # Grouped format: {"_source": ..., "files": [{"file": "...", "symbols": [...]}]}
+        assert "file" in files[0]
+        assert "symbols" in files[0]
+        # Flatten symbols to check content
+        all_symbols = []
+        for group in files:
+            all_symbols.extend(group.get("symbols", []))
+        assert len(all_symbols) == 2
+        assert "name" in all_symbols[0]
+        assert "kind_name" in all_symbols[0]  # Compact format uses kind_name
+        assert "range" in all_symbols[0]
 
 
 def test_cli_format_explicit_text(temp_file: Path) -> None:
@@ -858,13 +874,15 @@ def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - now wrapped with _source field
         output = yaml.safe_load(result.output)
         assert output is not None
-        assert isinstance(output, list)
+        assert isinstance(output, dict)
+        assert "_source" in output
 
         # Verify key fields are preserved in compact format
-        item = output[0]
+        items = output["items"]
+        item = items[0]
         assert item["label"] == "complex_function"
         assert item["kind_name"] == "Namespace"  # kind 3 maps to Namespace
         assert item["detail"] == "def complex_function(x: int, y: str) -> tuple"
@@ -909,14 +927,16 @@ def test_cli_definition_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns flat array
+        # Parse JSON output - wrapped with _source and items
         output = json.loads(result.output)
         assert output is not None
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert "file" in output[0]
-        assert "range" in output[0]
-        assert output[0]["range"] == "11:5-11:21"  # 0-based (10,4)-(10,20) -> 1-based
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 1
+        assert "file" in items[0]
+        assert "range" in items[0]
+        assert items[0]["range"] == "11:5-11:21"  # 0-based (10,4)-(10,20) -> 1-based
 
 
 def test_cli_references_json_output(temp_file: Path) -> None:
@@ -958,12 +978,15 @@ def test_cli_references_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns flat array
+        # Parse JSON output - now wrapped with _source field
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
-        assert "file" in output[0]
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        assert "items" in output
+        items = output["items"]
+        assert len(items) == 2
+        assert "file" in items[0]
+        assert "range" in items[0]
 
 
 def test_cli_completion_json_output(temp_file: Path) -> None:
@@ -1009,13 +1032,15 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns flat array
+        # Parse JSON output - now wrapped with _source field
         output = json.loads(result.output)
         assert output is not None
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 2
         # Verify key fields are preserved in compact format
-        item = output[0]
+        item = items[0]
         assert item["label"] == "my_function"
         assert item["kind_name"] == "Function"
         assert "range" in item
@@ -1056,10 +1081,11 @@ def test_cli_hover_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns single object
+        # Parse JSON output - now wrapped with _source field
         output = json.loads(result.output)
         assert output is not None
         assert isinstance(output, dict)
+        assert "_source" in output
         assert "file" in output
         assert "content" in output
         assert "range" in output
@@ -1105,14 +1131,16 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns flat array
+        # Parse JSON output - now wrapped with _source field
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) >= 1
-        assert "file" in output[0]
-        assert "name" in output[0]
-        assert "kind_name" in output[0]  # Compact format uses kind_name
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) >= 1
+        assert "file" in items[0]
+        assert "name" in items[0]
+        assert "kind_name" in items[0]  # Compact format uses kind_name
+        assert "range" in items[0]
 
 
 def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
@@ -1160,14 +1188,22 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - compact format returns flat array
+        # Parse JSON output - wrapped with _source and files
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
-        assert "file" in output[0]
-        assert "name" in output[0]
-        assert "kind_name" in output[0]  # Compact format uses kind_name
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        files = output["files"]
+        # Grouped format: {"_source": ..., "files": [{"file": "...", "symbols": [...]}]}
+        assert "file" in files[0]
+        assert "symbols" in files[0]
+        # Flatten symbols to check content
+        all_symbols = []
+        for group in files:
+            all_symbols.extend(group.get("symbols", []))
+        assert len(all_symbols) == 2
+        assert "name" in all_symbols[0]
+        assert "kind_name" in all_symbols[0]  # Compact format uses kind_name
+        assert "range" in all_symbols[0]
 
 
 # =============================================================================
@@ -1445,13 +1481,15 @@ def test_cli_default_format_is_json(temp_file: Path) -> None:
         result = runner.invoke(app, ["lsp", "definition", str(temp_file), "10", "5", "-w", workspace])
         assert result.exit_code == 0
 
-        # Output should be valid JSON (compact format - flat array)
+        # Output should be valid JSON (wrapped with _source and items)
         output = json.loads(result.output)
         assert output is not None
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert "file" in output[0]
-        assert "range" in output[0]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 1
+        assert "file" in items[0]
+        assert "range" in items[0]
 
 
 # =============================================================================
@@ -1675,11 +1713,13 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # Without flag, test locations should be filtered
-        # Compact format returns flat array directly
+        # Now wrapped with _source field
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert "test_file.py" not in output[0]["file"]
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 1
+        assert "test_file.py" not in items[0]["file"]
 
 
 def test_cli_references_include_tests_flag(temp_file: Path) -> None:
@@ -1704,10 +1744,12 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # With flag, all locations should be included
-        # Compact format returns flat array directly
+        # Now wrapped with _source field
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 2
 
 
 def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
@@ -1730,11 +1772,13 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
         # Without flag, test symbols should be filtered
-        # Compact format returns flat array directly
+        # Wrapped with _source and files
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert "test" not in output[0]["file"].lower()
+        assert isinstance(output, dict)
+        assert "_source" in output
+        files = output["files"]
+        assert len(files) == 1
+        assert "test" not in files[0]["file"].lower()
 
 
 def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
@@ -1757,10 +1801,12 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
         # With flag, all symbols should be included
-        # Compact format returns flat array directly
+        # Wrapped with _source and files
         output = json.loads(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        files = output["files"]
+        assert len(files) == 2
 
 
 def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
@@ -1796,10 +1842,12 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - now wrapped with _source field
         output = yaml.safe_load(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        items = output["items"]
+        assert len(items) == 2
 
 
 def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
@@ -1832,10 +1880,12 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - compact format returns flat array
+        # Parse YAML output - wrapped with _source and files
         output = yaml.safe_load(result.output)
-        assert isinstance(output, list)
-        assert len(output) == 2
+        assert isinstance(output, dict)
+        assert "_source" in output
+        files = output["files"]
+        assert len(files) == 2
 
 
 # =============================================================================
