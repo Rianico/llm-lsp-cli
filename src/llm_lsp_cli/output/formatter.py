@@ -518,10 +518,9 @@ class CompactFormatter:
             rec: SymbolRecord to convert
 
         Returns:
-            Dictionary with only present fields
+            Dictionary with only present fields (excludes file - it's at top level)
         """
         obj: dict[str, Any] = {
-            "file": rec.file,
             "name": rec.name,
             "kind_name": rec.kind_name,
             "range": rec.range.to_compact(),
@@ -583,15 +582,15 @@ class CompactFormatter:
 
         Translates tags to names and uses compact range format.
         Omits severity integer (keeps severity_name only).
+        Excludes file - it's at top level.
 
         Args:
             rec: DiagnosticRecord to convert
 
         Returns:
-            Dictionary with only present fields
+            Dictionary with only present fields (excludes file)
         """
         obj: dict[str, Any] = {
-            "file": rec.file,
             "range": rec.range.to_compact(),
             "severity_name": rec.severity_name,
             "message": rec.message,

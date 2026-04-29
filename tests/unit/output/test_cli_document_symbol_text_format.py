@@ -334,12 +334,13 @@ class TestDocumentSymbolOtherFormats:
         )
 
         data = json.loads(result.output)
-        # Now wrapped with _source field
+        # Now wrapped with _source and file fields
         assert "_source" in data
+        assert "file" in data  # File path at top level
         items = data["items"]
         assert len(items) == 1
         assert items[0]["name"] == "test_func"
-        assert "file" in items[0], "CompactFormatter JSON should have file field"
+        assert "file" not in items[0], "File should be at top level, not in items"
         assert "children" in items[0], "CompactFormatter JSON should have children field"
 
     def test_yaml_format_uses_compact_formatter(
@@ -376,12 +377,13 @@ class TestDocumentSymbolOtherFormats:
         )
 
         data = yaml.safe_load(result.output)
-        # Now wrapped with _source field
+        # Now wrapped with _source and file fields
         assert "_source" in data
+        assert "file" in data  # File path at top level
         items = data["items"]
         assert len(items) == 1
         assert items[0]["name"] == "test_func"
-        assert "file" in items[0], "CompactFormatter YAML should have file field"
+        assert "file" not in items[0], "File should be at top level, not in items"
 
     def test_csv_format_uses_compact_formatter(
         self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch

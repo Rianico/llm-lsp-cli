@@ -18,7 +18,7 @@ class TestFormatGrouped:
     """Test format_grouped method for workspace output."""
 
     def test_json_format_grouped_symbols(self) -> None:
-        """JSON format produces grouped array."""
+        """JSON format produces grouped array with _source and command."""
         from llm_lsp_cli.output.dispatcher import OutputDispatcher
 
         grouped_data = [
@@ -38,14 +38,22 @@ class TestFormatGrouped:
         ]
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped(grouped_data, OutputFormat.JSON, items_key="symbols")
+        result = dispatcher.format_grouped(
+            grouped_data,
+            OutputFormat.JSON,
+            items_key="symbols",
+            _source="TestServer",
+            command="workspace-symbol",
+        )
 
-        # Should be valid JSON array
+        # Should be valid JSON dict with _source, command, files
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == 2
-        assert parsed[0]["file"] == "src/main.py"
-        assert len(parsed[0]["symbols"]) == 2
+        assert isinstance(parsed, dict)
+        assert parsed["_source"] == "TestServer"
+        assert parsed["command"] == "workspace-symbol"
+        assert len(parsed["files"]) == 2
+        assert parsed["files"][0]["file"] == "src/main.py"
+        assert len(parsed["files"][0]["symbols"]) == 2
 
     def test_json_format_grouped_diagnostics(self) -> None:
         """JSON format produces grouped array for diagnostics."""
@@ -61,12 +69,20 @@ class TestFormatGrouped:
         ]
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped(grouped_data, OutputFormat.JSON, items_key="diagnostics")
+        result = dispatcher.format_grouped(
+            grouped_data,
+            OutputFormat.JSON,
+            items_key="diagnostics",
+            _source="TestServer",
+            command="workspace-diagnostics",
+        )
 
         parsed = json.loads(result)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "src/main.py"
-        assert "diagnostics" in parsed[0]
+        assert parsed["_source"] == "TestServer"
+        assert parsed["command"] == "workspace-diagnostics"
+        assert len(parsed["files"]) == 1
+        assert parsed["files"][0]["file"] == "src/main.py"
+        assert "diagnostics" in parsed["files"][0]
 
     def test_yaml_format_grouped(self) -> None:
         """YAML format produces grouped structure."""
@@ -82,11 +98,19 @@ class TestFormatGrouped:
         ]
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped(grouped_data, OutputFormat.YAML, items_key="symbols")
+        result = dispatcher.format_grouped(
+            grouped_data,
+            OutputFormat.YAML,
+            items_key="symbols",
+            _source="TestServer",
+            command="workspace-symbol",
+        )
 
         parsed = yaml.safe_load(result)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "src/main.py"
+        assert parsed["_source"] == "TestServer"
+        assert parsed["command"] == "workspace-symbol"
+        assert len(parsed["files"]) == 1
+        assert parsed["files"][0]["file"] == "src/main.py"
 
     def test_csv_format_stays_flat(self) -> None:
         """CSV format produces flat table, not grouped."""
@@ -203,22 +227,32 @@ class TestFormatGrouped:
         assert "Basedpyright" not in lines[0]
 
     def test_empty_grouped_data_json(self) -> None:
-        """Empty grouped data produces empty array in JSON."""
+        """Empty grouped data produces empty files array in JSON."""
         from llm_lsp_cli.output.dispatcher import OutputDispatcher
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped([], OutputFormat.JSON, items_key="symbols")
+        result = dispatcher.format_grouped(
+            [], OutputFormat.JSON, items_key="symbols", _source="TestServer", command="workspace-symbol"
+        )
 
-        assert result == "[]"
+        parsed = json.loads(result)
+        assert parsed["_source"] == "TestServer"
+        assert parsed["command"] == "workspace-symbol"
+        assert parsed["files"] == []
 
     def test_empty_grouped_data_yaml(self) -> None:
-        """Empty grouped data produces empty array in YAML."""
+        """Empty grouped data produces empty files array in YAML."""
         from llm_lsp_cli.output.dispatcher import OutputDispatcher
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped([], OutputFormat.YAML, items_key="symbols")
+        result = dispatcher.format_grouped(
+            [], OutputFormat.YAML, items_key="symbols", _source="TestServer", command="workspace-symbol"
+        )
 
-        assert result == "[]\n"
+        parsed = yaml.safe_load(result)
+        assert parsed["_source"] == "TestServer"
+        assert parsed["command"] == "workspace-symbol"
+        assert parsed["files"] == []
 
     def test_items_key_respected_symbols(self) -> None:
         """items_key='symbols' produces correct structure."""
@@ -232,11 +266,13 @@ class TestFormatGrouped:
         ]
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped(grouped_data, OutputFormat.JSON, items_key="symbols")
+        result = dispatcher.format_grouped(
+            grouped_data, OutputFormat.JSON, items_key="symbols", _source="TestServer", command="workspace-symbol"
+        )
 
         parsed = json.loads(result)
-        assert "symbols" in parsed[0]
-        assert "diagnostics" not in parsed[0]
+        assert "symbols" in parsed["files"][0]
+        assert "diagnostics" not in parsed["files"][0]
 
     def test_items_key_respected_diagnostics(self) -> None:
         """items_key='diagnostics' produces correct structure."""
@@ -250,11 +286,13 @@ class TestFormatGrouped:
         ]
 
         dispatcher = OutputDispatcher()
-        result = dispatcher.format_grouped(grouped_data, OutputFormat.JSON, items_key="diagnostics")
+        result = dispatcher.format_grouped(
+            grouped_data, OutputFormat.JSON, items_key="diagnostics", _source="TestServer", command="workspace-diagnostics"
+        )
 
         parsed = json.loads(result)
-        assert "diagnostics" in parsed[0]
-        assert "symbols" not in parsed[0]
+        assert "diagnostics" in parsed["files"][0]
+        assert "symbols" not in parsed["files"][0]
 
 
 class TestDispatcherGroupedMethods:

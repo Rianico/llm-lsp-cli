@@ -730,13 +730,14 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - now wrapped with _source field
+        # Parse YAML output - now wrapped with _source and file fields
         output = yaml.safe_load(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
+        assert "file" in output  # File path at top level
         items = output["items"]
         assert len(items) >= 1  # At least MyClass (children may be flattened or omitted)
-        assert "file" in items[0]
+        assert "file" not in items[0]  # File not in items anymore
         assert "name" in items[0]
         assert "kind_name" in items[0]  # Compact format uses kind_name
         assert "range" in items[0]
@@ -1131,13 +1132,14 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - now wrapped with _source field
+        # Parse JSON output - now wrapped with _source and file fields
         output = json.loads(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
+        assert "file" in output  # File path at top level
         items = output["items"]
         assert len(items) >= 1
-        assert "file" in items[0]
+        assert "file" not in items[0]  # File not in items anymore
         assert "name" in items[0]
         assert "kind_name" in items[0]  # Compact format uses kind_name
         assert "range" in items[0]

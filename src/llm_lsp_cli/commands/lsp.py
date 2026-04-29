@@ -102,7 +102,14 @@ def definition(
             else:
                 typer.echo(header)
         else:
-            typer.echo(dispatcher.format_list(records, context.output_format, _source=header))
+            typer.echo(
+                dispatcher.format_list(
+                    records,
+                    context.output_format,
+                    _source=server_name,
+                    file_path=relative_path,
+                )
+            )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -168,7 +175,6 @@ def references(
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            source = f"{server_name}: references of {relative_path}"
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(CommandInfo(server_name, "references", relative_path))
@@ -178,7 +184,14 @@ def references(
                 else:
                     typer.echo(header)
             else:
-                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+                typer.echo(
+                    dispatcher.format_list(
+                        records,
+                        context.output_format,
+                        _source=server_name,
+                        file_path=relative_path,
+                    )
+                )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -242,8 +255,14 @@ def document_symbol(
             # Build source for JSON/YAML
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            source = f"{server_name}: document-symbol of {relative_path}"
-            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+            typer.echo(
+                dispatcher.format_list(
+                    records,
+                    context.output_format,
+                    _source=server_name,
+                    file_path=relative_path,
+                )
+            )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -319,11 +338,16 @@ def workspace_symbol(
                     dispatcher.format_grouped_flat(grouped, effective_format, items_key="symbols")
                 )
             else:
-                # Build header for JSON/YAML _source field
+                # JSON/YAML: _source is server name, command is separate
                 server_name = get_server_display_name(None, "", language=language_value)
-                header = build_alert_header(CommandInfo(server_name, "workspace-symbol", None))
                 typer.echo(
-                    dispatcher.format_grouped(grouped, effective_format, items_key="symbols", _source=header)
+                    dispatcher.format_grouped(
+                        grouped,
+                        effective_format,
+                        items_key="symbols",
+                        _source=server_name,
+                        command="workspace-symbol",
+                    )
                 )
 
     except CLIError as e:
@@ -389,7 +413,6 @@ def incoming_calls(
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            source = f"{server_name}: incoming-calls of {relative_path}"
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(
@@ -401,7 +424,14 @@ def incoming_calls(
                 else:
                     typer.echo(header)
             else:
-                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+                typer.echo(
+                    dispatcher.format_list(
+                        records,
+                        context.output_format,
+                        _source=server_name,
+                        file_path=relative_path,
+                    )
+                )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -466,7 +496,6 @@ def outgoing_calls(
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            source = f"{server_name}: outgoing-calls of {relative_path}"
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(
@@ -478,7 +507,14 @@ def outgoing_calls(
                 else:
                     typer.echo(header)
             else:
-                typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+                typer.echo(
+                    dispatcher.format_list(
+                        records,
+                        context.output_format,
+                        _source=server_name,
+                        file_path=relative_path,
+                    )
+                )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -530,7 +566,6 @@ def completion(
         # Build source header
         server_name = get_server_display_name(None, "", language=context.language)
         relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-        source = f"{server_name}: completion of {relative_path}"
 
         if context.output_format == OutputFormat.TEXT:
             header = build_alert_header(CommandInfo(server_name, "completion", relative_path))
@@ -540,7 +575,14 @@ def completion(
             else:
                 typer.echo(header)
         else:
-            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+            typer.echo(
+                dispatcher.format_list(
+                    records,
+                    context.output_format,
+                    _source=server_name,
+                    file_path=relative_path,
+                )
+            )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -594,14 +636,20 @@ def hover(
             # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            source = f"{server_name}: hover of {relative_path}"
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(CommandInfo(server_name, "hover", relative_path))
                 output = dispatcher.format(record, context.output_format)
                 typer.echo(f"{header}\n{output}")
             else:
-                typer.echo(dispatcher.format(record, context.output_format, _source=source))
+                typer.echo(
+                    dispatcher.format(
+                        record,
+                        context.output_format,
+                        _source=server_name,
+                        file_path=relative_path,
+                    )
+                )
         else:
             typer.echo("No hover information available.")
 
@@ -667,7 +715,14 @@ def diagnostics(
             else:
                 typer.echo(header)
         else:
-            typer.echo(dispatcher.format_list(records, effective_format, _source=header))
+            typer.echo(
+                dispatcher.format_list(
+                    records,
+                    effective_format,
+                    _source=server_name,
+                    file_path=relative_path,
+                )
+            )
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -750,11 +805,16 @@ def workspace_diagnostics(
                 dispatcher.format_grouped_flat(grouped, effective_format, items_key="diagnostics")
             )
         else:
-            # Build header for JSON/YAML _source field
+            # JSON/YAML: _source is server name, command is separate
             server_name = get_server_display_name(None, "", language=language_value)
-            header = build_alert_header(CommandInfo(server_name, "workspace-diagnostics", None))
             typer.echo(
-                dispatcher.format_grouped(grouped, effective_format, items_key="diagnostics", _source=header)
+                dispatcher.format_grouped(
+                    grouped,
+                    effective_format,
+                    items_key="diagnostics",
+                    _source=server_name,
+                    command="workspace-diagnostics",
+                )
             )
 
     except CLIError as e:
@@ -857,7 +917,6 @@ def rename(
         # Build source header
         server_name = get_server_display_name(None, "", language=context.language)
         relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-        source = f"{server_name}: rename of {relative_path}"
 
         if context.output_format == OutputFormat.TEXT:
             header = build_alert_header(CommandInfo(server_name, "rename", relative_path))
@@ -867,7 +926,14 @@ def rename(
             else:
                 typer.echo(header)
         else:
-            typer.echo(dispatcher.format_list(records, context.output_format, _source=source))
+            typer.echo(
+                dispatcher.format_list(
+                    records,
+                    context.output_format,
+                    _source=server_name,
+                    file_path=relative_path,
+                )
+            )
 
         if apply:
             typer.echo(f"Session ID: {session.session_id}", err=True)

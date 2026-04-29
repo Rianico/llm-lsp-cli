@@ -22,14 +22,19 @@ class OutputDispatcher:
     """
 
     def format(
-        self, record: FormattableRecord, fmt: OutputFormat, _source: str | None = None
+        self,
+        record: FormattableRecord,
+        fmt: OutputFormat,
+        _source: str | None = None,
+        file_path: str | None = None,
     ) -> str:
         """Format a single record in the specified format.
 
         Args:
             record: Any object implementing FormattableRecord protocol
             fmt: Output format (JSON, YAML, CSV, TEXT)
-            _source: Optional source header for JSON/YAML output (ignored for TEXT/CSV)
+            _source: Server name for JSON/YAML output (ignored for TEXT/CSV)
+            file_path: Optional file path to include at top level
 
         Returns:
             Formatted string representation
@@ -37,15 +42,24 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 data = record.to_compact_dict()
-                if _source is not None:
-                    # _source must be first field
-                    data = {"_source": _source, **data}
+                if _source is not None or file_path is not None:
+                    # _source and file must be first fields
+                    top_level: dict[str, Any] = {}
+                    if _source is not None:
+                        top_level["_source"] = _source
+                    if file_path is not None:
+                        top_level["file"] = file_path
+                    data = {**top_level, **data}
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
                 data = record.to_compact_dict()
-                if _source is not None:
-                    # _source must be first field
-                    data = {"_source": _source, **data}
+                if _source is not None or file_path is not None:
+                    top_level: dict[str, Any] = {}
+                    if _source is not None:
+                        top_level["_source"] = _source
+                    if file_path is not None:
+                        top_level["file"] = file_path
+                    data = {**top_level, **data}
                 return yaml.dump(
                     data,
                     default_flow_style=False,
@@ -62,13 +76,15 @@ class OutputDispatcher:
         records: Sequence[FormattableRecord],
         fmt: OutputFormat,
         _source: str | None = None,
+        file_path: str | None = None,
     ) -> str:
         """Format a list of records in the specified format.
 
         Args:
             records: Sequence of objects implementing FormattableRecord protocol
             fmt: Output format (JSON, YAML, CSV, TEXT)
-            _source: Optional source header for JSON/YAML output (ignored for TEXT/CSV)
+            _source: Server name for JSON/YAML output (ignored for TEXT/CSV)
+            file_path: Optional file path to include at top level
 
         Returns:
             Formatted string representation. For JSON/YAML, returns "[]" for empty lists.
@@ -77,19 +93,28 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 items = [r.to_compact_dict() for r in records]
-                if _source is not None:
-                    # _source must be first field, items in "items" key
-                    data: dict[str, Any] = {"_source": _source, "items": items}
+                if _source is not None or file_path is not None:
+                    # _source and file must be first fields
+                    data: dict[str, Any] = {}
+                    if _source is not None:
+                        data["_source"] = _source
+                    if file_path is not None:
+                        data["file"] = file_path
+                    data["items"] = items
                 else:
                     data = items  # type: ignore[assignment]
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
                 items = [r.to_compact_dict() for r in records]
-                data = (
-                    {"_source": _source, "items": items}
-                    if _source is not None
-                    else items  # type: ignore[assignment]
-                )
+                if _source is not None or file_path is not None:
+                    data: dict[str, Any] = {}
+                    if _source is not None:
+                        data["_source"] = _source
+                    if file_path is not None:
+                        data["file"] = file_path
+                    data["items"] = items
+                else:
+                    data = items  # type: ignore[assignment]
                 return yaml.dump(
                     data,
                     default_flow_style=False,
@@ -145,6 +170,7 @@ class OutputDispatcher:
         fmt: OutputFormat,
         items_key: str = "symbols",
         _source: str | None = None,
+        command: str | None = None,
     ) -> str:
         """Format grouped data for JSON/YAML output.
 
@@ -152,25 +178,28 @@ class OutputDispatcher:
             grouped_data: List of group dicts with 'file' and items_key
             fmt: Output format (JSON or YAML)
             items_key: Key name for items ('symbols' or 'diagnostics')
-            _source: Optional source header for JSON/YAML output
+            _source: Server name for JSON/YAML output
+            command: Command name for workspace-level commands
 
         Returns:
             Formatted string representation
         """
         match fmt:
             case OutputFormat.JSON:
+                data: dict[str, Any] = {}
                 if _source is not None:
-                    # _source must be first field, data in "files" key
-                    data: dict[str, Any] = {"_source": _source, "files": grouped_data}
-                else:
-                    data = grouped_data  # type: ignore[assignment]
+                    data["_source"] = _source
+                if command is not None:
+                    data["command"] = command
+                data["files"] = grouped_data
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
+                data: dict[str, Any] = {}
                 if _source is not None:
-                    # _source must be first field, data in "files" key
-                    data = {"_source": _source, "files": grouped_data}
-                else:
-                    data = grouped_data  # type: ignore[assignment]
+                    data["_source"] = _source
+                if command is not None:
+                    data["command"] = command
+                data["files"] = grouped_data
                 return yaml.dump(
                     data,
                     default_flow_style=False,

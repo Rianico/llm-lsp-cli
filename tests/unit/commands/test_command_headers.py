@@ -43,6 +43,7 @@ class TestDocumentSymbolHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {
             "symbols": [
@@ -107,7 +108,8 @@ class TestDocumentSymbolHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "document-symbol" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestReferencesHeaders:
@@ -120,6 +122,7 @@ class TestReferencesHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\nx = foo()\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {
             "locations": [
@@ -187,7 +190,8 @@ class TestReferencesHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "references" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestIncomingCallsHeaders:
@@ -200,6 +204,7 @@ class TestIncomingCallsHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {"calls": []}
 
@@ -263,7 +268,8 @@ class TestIncomingCallsHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "incoming-calls" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestOutgoingCallsHeaders:
@@ -276,6 +282,7 @@ class TestOutgoingCallsHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {"calls": []}
 
@@ -339,7 +346,8 @@ class TestOutgoingCallsHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "outgoing-calls" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestCompletionHeaders:
@@ -352,6 +360,7 @@ class TestCompletionHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {"items": []}
 
@@ -407,7 +416,8 @@ class TestCompletionHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "completion" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestHoverHeaders:
@@ -420,6 +430,7 @@ class TestHoverHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         mock_response = {
             "hover": {"contents": {"kind": "plaintext", "value": "def foo() -> None"}}
@@ -479,7 +490,8 @@ class TestHoverHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "hover" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate
 
 
 class TestRenameHeaders:
@@ -492,6 +504,7 @@ class TestRenameHeaders:
         test_file = tmp_path / "test.py"
         test_file.write_text("def foo(): pass\n")
         mock_ctx.obj.workspace = str(tmp_path)
+        mock_ctx.obj.output_format = OutputFormat.TEXT
 
         # Empty workspace_edit means no changes - but we need something
         mock_response = {
@@ -566,4 +579,5 @@ class TestRenameHeaders:
         output = output_lines[0]
         data = json.loads(output)
         assert "_source" in data
-        assert "rename" in data["_source"]
+        assert data["_source"] == "Basedpyright"  # Server name only
+        assert "file" in data  # File path is separate

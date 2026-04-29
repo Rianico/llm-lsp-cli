@@ -178,7 +178,7 @@ class TestFormatGroupedWithSource:
         assert "files" in parsed
 
     def test_format_grouped_without_source_unchanged(self) -> None:
-        """No _source when param omitted for grouped."""
+        """Grouped output always has files key, _source and command optional."""
         grouped_data = [
             {"file": "src/main.py", "symbols": [{"name": "func1"}]},
         ]
@@ -187,8 +187,10 @@ class TestFormatGroupedWithSource:
         import json
 
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
-        assert "_source" not in parsed
+        assert isinstance(parsed, dict)
+        assert "files" in parsed
+        assert "_source" not in parsed  # Not provided
+        assert "command" not in parsed  # Not provided
 
     def test_source_field_first_in_yaml(self) -> None:
         """_source appears first in YAML output."""

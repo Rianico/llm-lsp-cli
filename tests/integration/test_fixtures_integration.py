@@ -489,18 +489,35 @@ class TestCrossFormatConsistency:
         formatter = CompactFormatter(temp_dir)
         records = formatter.transform_symbols(sample_symbols)
 
-        # Get file from each format
-        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
-        json_data = json.loads(OutputDispatcher().format_list(records, OutputFormat.JSON))
-        yaml_data = yaml.safe_load(OutputDispatcher().format_list(records, OutputFormat.YAML))
-        csv_data = list(csv.DictReader(io.StringIO(OutputDispatcher().format_list(records, OutputFormat.CSV))))
-
         expected_file = "src/test.py"
 
-        # All should have same file
+        # Get file from each format with file_path passed to dispatcher
+        text_output = OutputDispatcher().format_list(records, OutputFormat.TEXT)
+        json_data = json.loads(
+            OutputDispatcher().format_list(
+                records, OutputFormat.JSON, _source="TestServer", file_path=expected_file
+            )
+        )
+        yaml_data = yaml.safe_load(
+            OutputDispatcher().format_list(
+                records, OutputFormat.YAML, _source="TestServer", file_path=expected_file
+            )
+        )
+        csv_data = list(
+            csv.DictReader(io.StringIO(OutputDispatcher().format_list(records, OutputFormat.CSV)))
+        )
+
+        # TEXT format has file in output lines
         assert expected_file in text_output
-        assert json_data[0]["file"] == expected_file
-        assert yaml_data[0]["file"] == expected_file
+
+        # JSON/YAML have file at top level
+        assert json_data["file"] == expected_file
+        assert "file" not in json_data["items"][0]  # Not in items
+
+        assert yaml_data["file"] == expected_file
+        assert "file" not in yaml_data["items"][0]  # Not in items
+
+        # CSV keeps file column (flat format)
         assert csv_data[0]["file"] == expected_file
 
 

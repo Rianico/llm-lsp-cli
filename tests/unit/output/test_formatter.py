@@ -978,7 +978,7 @@ class TestSymbolsToJson:
     """Tests for symbols_to_json method."""
 
     def test_json_flat_array(self, temp_dir: Path) -> None:
-        """Flat array structure."""
+        """Flat array structure with file_path at top level."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -994,12 +994,18 @@ class TestSymbolsToJson:
                 },
             },
         ]
-        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.JSON)
+        result = OutputDispatcher().format_list(
+            formatter.transform_symbols(symbols),
+            OutputFormat.JSON,
+            _source="TestServer",
+            file_path="src/test.py",
+        )
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == 1
-        assert "file" in parsed[0]
-        assert "name" in parsed[0]
+        assert parsed["_source"] == "TestServer"
+        assert parsed["file"] == "src/test.py"
+        assert len(parsed["items"]) == 1
+        assert "file" not in parsed["items"][0]
+        assert parsed["items"][0]["name"] == "Test"
 
     def test_json_omits_null_detail(self, temp_dir: Path) -> None:
         """Token optimization - omit null detail."""
@@ -1098,7 +1104,7 @@ class TestSymbolsToYaml:
     """Tests for symbols_to_yaml method."""
 
     def test_yaml_flat_array(self, temp_dir: Path) -> None:
-        """YAML structure."""
+        """YAML structure with file_path at top level."""
         (temp_dir / "src").mkdir()
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -1114,11 +1120,17 @@ class TestSymbolsToYaml:
                 },
             },
         ]
-        result = OutputDispatcher().format_list(formatter.transform_symbols(symbols), OutputFormat.YAML)
+        result = OutputDispatcher().format_list(
+            formatter.transform_symbols(symbols),
+            OutputFormat.YAML,
+            _source="TestServer",
+            file_path="src/test.py",
+        )
         parsed = yaml.safe_load(result)
-        assert isinstance(parsed, list)
-        assert len(parsed) == 1
-        assert parsed[0]["file"] == "src/test.py"
+        assert parsed["_source"] == "TestServer"
+        assert parsed["file"] == "src/test.py"
+        assert len(parsed["items"]) == 1
+        assert "file" not in parsed["items"][0]
 
     def test_yaml_omits_null_fields(self, temp_dir: Path) -> None:
         """Token optimization - omit null fields."""

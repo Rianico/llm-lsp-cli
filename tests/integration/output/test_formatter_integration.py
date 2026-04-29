@@ -82,24 +82,32 @@ class TestWorkspaceSymbolWorkflow:
     def test_workflow_json_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
     ) -> None:
-        """Test complete JSON output workflow."""
+        """Test complete JSON output workflow with grouped output."""
+        from llm_lsp_cli.output.dispatcher import OutputDispatcher
+        from llm_lsp_cli.output.formatter import group_symbols_by_file
+
         records = formatter.transform_symbols(workspace_symbols_response)
-        output = OutputDispatcher().format_list(records, OutputFormat.JSON)
+        dispatcher = OutputDispatcher()
+
+        # Group symbols by file for workspace-level output
+        grouped = group_symbols_by_file(records)
+        output = dispatcher.format_grouped(
+            grouped, OutputFormat.JSON, items_key="symbols", _source="TestServer"
+        )
         parsed = json.loads(output)
 
-        assert isinstance(parsed, list)
-        assert len(parsed) == 3
+        assert "_source" in parsed
+        assert "files" in parsed
+        assert len(parsed["files"]) == 3  # 3 files
 
         # Verify structure (kind_name, not numeric kind)
-        for item in parsed:
-            assert "file" in item
-            assert "name" in item
-            assert "kind_name" in item
-            assert "range" in item
-
-        # Verify null omission
-        for item in parsed:
-            assert "container" not in item  # All were None
+        for file_group in parsed["files"]:
+            assert "file" in file_group
+            for item in file_group["symbols"]:
+                assert "file" not in item  # File is at group level
+                assert "name" in item
+                assert "kind_name" in item
+                assert "range" in item
 
     def test_workflow_yaml_output(
         self, formatter: CompactFormatter, workspace_symbols_response: list[dict[str, Any]]
