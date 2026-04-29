@@ -90,7 +90,6 @@ def definition(
         dispatcher = OutputDispatcher()
 
         # Build header for all formats
-        # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
         server_name = get_server_display_name(None, "", language=context.language)
         relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
         header = build_alert_header(CommandInfo(server_name, "definition", relative_path))
@@ -328,7 +327,6 @@ def workspace_symbol(
 
             if effective_format == OutputFormat.TEXT:
                 # Build header for TEXT format
-                # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
                 server_name = get_server_display_name(None, "", language=language_value)
                 header = build_alert_header(
                     CommandInfo(server_name, "workspace-symbol", None)
@@ -639,7 +637,6 @@ def hover(
             dispatcher = OutputDispatcher()
 
             # Build source header
-            # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
 
@@ -710,7 +707,6 @@ def diagnostics(
         dispatcher = OutputDispatcher()
 
         # Build header for all formats
-        # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
         server_name = get_server_display_name(None, "", language=effective_language)
         relative_path = resolve_path_for_header(str(file_path), workspace_path)
         header = build_alert_header(CommandInfo(server_name, "diagnostics", relative_path))
@@ -800,7 +796,6 @@ def workspace_diagnostics(
 
         if effective_format == OutputFormat.TEXT:
             # Build header for TEXT format
-            # TODO: Pass actual server_info.name from LSPClient when daemon response includes it
             server_name = get_server_display_name(None, "", language=language_value)
             header = build_alert_header(
                 CommandInfo(server_name, "workspace-diagnostics", None)

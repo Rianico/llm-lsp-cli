@@ -9,11 +9,11 @@ It replaces the dual-cache system with a single cache using:
 """
 
 import asyncio
-import contextlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+
+from llm_lsp_cli.utils.uri import uri_to_relative_path
 
 from . import types as lsp
 
@@ -73,6 +73,8 @@ class DiagnosticCache:
     def _uri_to_relative_path(self, uri: str) -> str:
         """Convert a file URI to a project-relative path.
 
+        Delegates to the shared utility function.
+
         Args:
             uri: File URI (e.g., "file:///workspace/src/module/file.py")
 
@@ -80,28 +82,7 @@ class DiagnosticCache:
             Relative path within workspace (e.g., "src/module/file.py"),
             or absolute path if file is outside workspace (fallback)
         """
-        parsed = urlparse(uri)
-        if parsed.scheme != "file":
-            # Non-file URI, return as-is
-            return uri
-
-        file_path = Path(parsed.path)
-
-        # Handle Windows paths (if applicable)
-        if file_path.exists():
-            file_path = file_path.resolve()
-        else:
-            # For non-existent files, try to resolve anyway
-            with contextlib.suppress(OSError, ValueError):
-                file_path = file_path.resolve()
-
-        # Try to make relative to workspace root
-        try:
-            relative = file_path.relative_to(self._workspace_root)
-            return str(relative)
-        except ValueError:
-            # File is outside workspace, return absolute path as fallback
-            return str(file_path)
+        return uri_to_relative_path(uri, self._workspace_root)
 
     async def update_diagnostics(
         self,

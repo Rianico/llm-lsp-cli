@@ -4,6 +4,24 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from llm_lsp_cli.lsp.types import (
+    ClientCapabilities,
+    TextDocumentClientCapabilities,
+)
+
+# Re-export types from lsp.types for backward compatibility
+__all__ = [
+    "ClientCapabilities",
+    "TextDocumentClientCapabilities",
+    "ServerConfig",
+    "InitializeParams",
+    "WorkspaceFolder",
+    "CapabilityConfig",
+    "LspMethodConfigDict",
+    "LanguageConfig",
+    "RuntimePaths",
+]
+
 
 class ServerConfig(TypedDict, total=False):
     """Server configuration TypedDict.
@@ -56,38 +74,7 @@ class WorkspaceFolder(TypedDict):
     name: str
 
 
-class ClientCapabilities(TypedDict, total=False):
-    """Client capabilities TypedDict."""
-
-    workspace: dict[str, Any]
-    textDocument: TextDocumentClientCapabilities
-    window: dict[str, Any]
-    general: dict[str, Any]
-    experimental: Any
-
-
-class TextDocumentClientCapabilities(TypedDict, total=False):
-    """Text document client capabilities TypedDict."""
-
-    synchronization: dict[str, Any]
-    completion: dict[str, Any]
-    hover: dict[str, Any]
-    signatureHelp: dict[str, Any]
-    definition: dict[str, Any]
-    references: dict[str, Any]
-    documentHighlight: dict[str, Any]
-    documentSymbol: dict[str, Any]
-    codeAction: dict[str, Any]
-    codeLens: dict[str, Any]
-    documentLink: dict[str, Any]
-    colorProvider: dict[str, Any]
-    formatting: dict[str, Any]
-    rangeFormatting: dict[str, Any]
-    onTypeFormatting: dict[str, Any]
-    rename: dict[str, Any]
-    foldingRange: dict[str, Any]
-    selectionRange: dict[str, Any]
-    publishDiagnostics: dict[str, Any]
+# ClientCapabilities and TextDocumentClientCapabilities are imported from lsp.types
 
 
 class CapabilityConfig(TypedDict, total=False):

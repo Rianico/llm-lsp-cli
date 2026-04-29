@@ -88,7 +88,23 @@ class TestUnusedImports:
 
         # Allow common typing imports
         allowed_unused = {"Any", "TypedDict", "annotations"}
-        actual_unused = imports - used - allowed_unused
+        # Also allow names used in __all__ (re-exports)
+        all_names = self._get_all_names(tree)
+        actual_unused = imports - used - allowed_unused - all_names
 
         # This should pass - no unused imports
         assert len(actual_unused) == 0, f"config/types.py has unused imports: {actual_unused}"
+
+    def _get_all_names(self, tree: ast.AST) -> set[str]:
+        """Extract names from __all__ assignment."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "__all__":
+                        if isinstance(node.value, ast.List):
+                            names = set()
+                            for elt in node.value.elts:
+                                if isinstance(elt, ast.Constant):
+                                    names.add(str(elt.value))
+                            return names
+        return set()

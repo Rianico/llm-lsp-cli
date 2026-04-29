@@ -597,28 +597,26 @@ class LSPClient:
     def _uri_to_relative_path(self, uri: str) -> str:
         """Convert URI to relative path for cleaner log output.
 
+        Delegates to the shared utility function.
+
         Args:
             uri: File URI
 
         Returns:
             Relative path string within workspace
         """
-        from urllib.parse import urlparse
-
-        parsed = urlparse(uri)
-        if parsed.scheme != "file":
-            return uri
-
-        file_path = Path(parsed.path)
+        from llm_lsp_cli.utils.uri import uri_to_relative_path
 
         # Handle case where workspace_path is not set (mock clients in tests)
         if not hasattr(self, "workspace_path") or self.workspace_path is None:
-            return str(file_path)
+            from urllib.parse import urlparse
 
-        try:
-            return str(file_path.relative_to(self.workspace_path))
-        except ValueError:
-            return str(file_path)
+            parsed = urlparse(uri)
+            if parsed.scheme != "file":
+                return uri
+            return parsed.path
+
+        return uri_to_relative_path(uri, self.workspace_path)
 
     async def request_workspace_diagnostics(
         self,
