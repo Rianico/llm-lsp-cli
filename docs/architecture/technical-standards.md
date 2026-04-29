@@ -192,6 +192,45 @@ class FormattableRecord(Protocol):
 - `csv`: Tabular with headers
 - `text`: Human-readable plain text
 
+## Configuration Patterns
+
+### Layered Configuration (ADR-0021)
+
+Configuration uses three-tier priority with deep merge:
+
+```
+Defaults (code) → Global (~/.config/llm-lsp-cli/config.yaml) → Project (./.llm-lsp-cli.yaml)
+```
+
+**Merge Rules:**
+- Deep merge for nested dicts (recursive)
+- List replacement (not concatenation)
+- Top-level scalars: override
+
+**File Locations:**
+- Global: XDG Base Directory compliant (`$XDG_CONFIG_HOME/llm-lsp-cli/config.yaml`)
+- Project: `./.llm-lsp-cli.yaml` (current directory only, no parent traversal)
+
+**Implementation Pattern:**
+```python
+# config/merge.py - Pure function, no I/O
+def deep_merge(base: dict, override: dict) -> dict:
+    """Deep merge two dictionaries. Override takes precedence."""
+    result = dict(base)
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+```
+
+**Clean Architecture Compliance:**
+- `deep_merge()` is pure function (testable without filesystem)
+- `ConfigManager` stays in infrastructure layer
+- Domain defines structure via Pydantic models
+- Auto-initialization with first-run notice (zero-friction for uvx users)
+
 ## Diagnostic Cache
 
 The diagnostic cache implements mtime-based invalidation for LSP diagnostic responses (ADR-0008).

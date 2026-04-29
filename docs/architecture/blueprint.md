@@ -84,6 +84,79 @@ infrastructure/
 └── logging/
 ```
 
+## Configuration System
+
+The configuration system implements a three-tier priority model with deep merge semantics (ADR-0021).
+
+### Configuration Priority
+
+```
+Defaults (code) → Global (~/.config/llm-lsp-cli/config.yaml) → Project (./.llm-lsp-cli.yaml)
+     Lowest                    Medium                                 Highest
+```
+
+| Layer | Source | Merge Behavior |
+|-------|--------|----------------|
+| Defaults | `DEFAULT_CONFIG` dict in code | Base layer, always present |
+| Global | XDG config dir (`~/.config/llm-lsp-cli/config.yaml`) | Deep merge over defaults |
+| Project | Current directory (`.llm-lsp-cli.yaml`) | Deep merge over global |
+
+### Merge Strategy
+
+**Deep merge** for nested dictionaries:
+```python
+# Default: languages.python.command = "basedpyright"
+# Project config: languages.python.args = ["--pythonversion", "3.12"]
+# Result: languages.python has both command AND args
+```
+
+**List replacement** (not concatenation):
+```python
+# Default: args = ["--stdio"]
+# Project config: args = ["--tcp"]
+# Result: args = ["--tcp"] (replaced, not merged)
+```
+
+### Auto-Initialization
+
+**Zero-friction flow for uvx users:**
+1. Missing global config → Auto-created with defaults
+2. First-run notice displayed (one-time, yellow console output)
+3. Project config optional → Discovered if exists
+
+**Discovery scope:**
+- Project config: Current directory only (no parent traversal)
+- Global config: XDG Base Directory compliant
+
+### Configuration Architecture
+
+```
++------------------+      loads       +-----------------------+
+| ConfigManager    | ---------------> |  DEFAULT_CONFIG       |
+| (Infrastructure) |                  |  (Domain constant)    |
++------------------+                  +-----------------------+
+         |
+         | delegates
+         v
++------------------+      pure        +-----------------------+
+| deep_merge()     | <-------------> |  Config merge logic   |
+| (Pure function)  |    function     |  (No I/O, testable)   |
++------------------+                  +-----------------------+
+         |
+         | file I/O
+         v
++------------------+                  +-----------------------+
+| ConfigLoader     | <-------------> |  Filesystem           |
+| (Infrastructure) |                  |  (XDG paths)          |
++------------------+                  +-----------------------+
+```
+
+**Clean Architecture alignment:**
+- `deep_merge()` is pure function (no side effects, no framework deps)
+- `ConfigManager` stays in infrastructure layer
+- Domain layer defines config structure via Pydantic models (`ClientConfig`)
+- Testable without filesystem via dependency injection
+
 ## Output Formatter Architecture
 
 The output formatting system uses a Protocol-based Strategy pattern with centralized dispatch to eliminate format logic duplication across CLI commands.
@@ -275,6 +348,18 @@ llm-lsp-cli <group> <command>
 9. Response flows back through layers
 ```
 
+## Data Flow: Configuration Loading
+
+```
+1. CLI/ Daemon: ConfigManager.load()
+2. config/manager.py: Load DEFAULT_CONFIG as base
+3. config/manager.py: If missing, auto-create global config
+4. config/merge.py: deep_merge(base, global_config)
+5. config/manager.py: If exists, load .llm-lsp-cli.yaml from CWD
+6. config/merge.py: deep_merge(current, project_config)
+7. Return ClientConfig(**merged)
+```
+
 ## Extension Points
 
 1. **New LSP server:** Add JSON to `config/capabilities/`
@@ -283,6 +368,7 @@ llm-lsp-cli <group> <command>
 4. **New output format:** Extend `OutputDispatcher`, update `FormattableRecord` protocol
 5. **New record type:** Implement `FormattableRecord`, use `CompactFormatter.transform_*`
 6. **Workspace-level command with grouping:** Use `format_grouped()` for JSON/YAML, hierarchical renderer for TEXT
+7. **New config merge strategy:** Update `deep_merge()` in `config/merge.py`
 
 ## Key Invariants
 
@@ -297,3 +383,7 @@ llm-lsp-cli <group> <command>
 | No format logic in CLI | OutputDispatcher | ADR-0018 |
 | CSV stays flat (no grouping) | OutputDispatcher | This blueprint |
 | Server name resolution chain | output/server_name.py | This blueprint |
+| Config priority: Project > Global > Defaults | ConfigManager.load() | ADR-0021 |
+| Deep merge for nested config | deep_merge() | ADR-0021 |
+| Auto-create global config on first run | ConfigManager.load() | ADR-0021 |
+| Current-directory-only project config | ConfigManager.load() | ADR-0021 |

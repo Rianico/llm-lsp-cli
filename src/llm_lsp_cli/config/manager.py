@@ -4,14 +4,17 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import typer
 import yaml
 
+from llm_lsp_cli.infrastructure.config.exceptions import ConfigParseError
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
 
 from .defaults import DEFAULT_CONFIG
 from .initialize_params import build_initialize_params
+from .merge import deep_merge
 from .path_builder import RuntimePathBuilder
 from .schema import ClientConfig, LanguageServerConfig
 
@@ -119,17 +122,70 @@ class ConfigManager:
 
     @classmethod
     def load(cls) -> ClientConfig:
-        """Load configuration from file."""
+        """Load configuration with layer merge: Defaults -> Global -> Project."""
+        # 1. Start with defaults
+        merged = dict(DEFAULT_CONFIG)
+
+        # 2. Global config (auto-create if missing)
+        global_data, global_created_now = cls._load_global_config()
+        merged = deep_merge(merged, global_data)
+
+        # Show first-run notice only when config was just created
+        if global_created_now:
+            cls._show_first_run_notice()
+
+        # 3. Project config (if exists in CWD)
+        project_data = cls._load_project_config()
+        if project_data:
+            merged = deep_merge(merged, project_data)
+
+        return ClientConfig(**merged)
+
+    @classmethod
+    def _load_global_config(cls) -> tuple[dict[str, Any], bool]:
+        """Load global config, creating it if missing.
+
+        Returns:
+            Tuple of (config_data, was_just_created)
+        """
         paths = cls._get_xdg_paths()
-        config_file = paths.config_dir / "config.yaml"
-        if not config_file.exists():
-            config_file.parent.mkdir(parents=True, exist_ok=True)
-            config_file.write_text(yaml.dump(
+        global_path = paths.config_dir / "config.yaml"
+
+        if not global_path.exists():
+            global_path.parent.mkdir(parents=True, exist_ok=True)
+            global_path.write_text(yaml.dump(
                 DEFAULT_CONFIG, default_flow_style=False, sort_keys=False
             ))
-            return ClientConfig(**DEFAULT_CONFIG)
-        data = ConfigLoader.load(config_file, defaults={})
-        return ClientConfig(**data)
+            return ConfigLoader.load(global_path, defaults={}), True
+
+        return ConfigLoader.load(global_path, defaults={}), False
+
+    @classmethod
+    def _load_project_config(cls) -> dict[str, Any] | None:
+        """Load project config from CWD if it exists.
+
+        Returns:
+            Config dict if file exists and is valid, None otherwise.
+            Raises ConfigParseError for invalid YAML.
+        """
+        project_path = Path.cwd() / ".llm-lsp-cli.yaml"
+        if not project_path.exists():
+            return None
+
+        try:
+            content = project_path.read_text()
+            return yaml.safe_load(content) or {}
+        except yaml.YAMLError as e:
+            raise ConfigParseError(str(project_path), str(e)) from e
+
+    @classmethod
+    def _show_first_run_notice(cls) -> None:
+        """Show first-run notice about config options."""
+        typer.secho(
+            "Created default config at ~/.config/llm-lsp-cli/config.yaml\n"
+            "Create .llm-lsp-cli.yaml in your project to override settings.",
+            fg=typer.colors.YELLOW,
+        )
 
     @classmethod
     def save(cls, config: ClientConfig) -> None:

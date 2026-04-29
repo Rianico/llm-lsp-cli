@@ -8,6 +8,7 @@ import typer
 import yaml
 
 from llm_lsp_cli.config import ConfigManager
+from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
 
 app = typer.Typer(name="config", help="Manage configuration.")
 
@@ -66,29 +67,41 @@ def config_list(
 
 
 @app.command("init")
-def config_init() -> None:
-    """Initialize default configuration file.
+def config_init(
+    project: bool = typer.Option(
+        False,
+        "--project",
+        "-p",
+        help="Create .llm-lsp-cli.yaml in current directory instead of global config",
+    ),
+) -> None:
+    """Initialize configuration file.
 
-    Creates a default config.yaml file in the XDG config directory
-    (~/.config/llm-lsp-cli/config.yaml or $XDG_CONFIG_HOME/llm-lsp-cli/config.yaml).
-
-    If the configuration file already exists, this command is idempotent and
-    will not modify the existing file.
+    Creates either:
+    - Global config: ~/.config/llm-lsp-cli/config.yaml (default)
+    - Project config: ./.llm-lsp-cli.yaml (with --project)
     """
-    config_path = ConfigManager.get_config_dir() / "config.yaml"
+    if project:
+        config_path = Path.cwd() / ".llm-lsp-cli.yaml"
+        if config_path.exists():
+            typer.echo(f"Project config already exists at: {config_path}")
+            return
+        config_path.write_text(
+            yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
+        )
+        typer.echo(f"Created project config at: {config_path}")
+    else:
+        config_path = ConfigManager.get_config_dir() / "config.yaml"
 
-    if config_path.exists():
-        typer.echo(f"Configuration already exists at: {config_path}")
-        return
+        if config_path.exists():
+            typer.echo(f"Configuration already exists at: {config_path}")
+            return
 
-    # Create config directory if needed
-    config_path.parent.mkdir(parents=True, exist_ok=True)
+        # Create config directory if needed
+        config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Write default config
-    from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
+        config_path.write_text(
+            yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
+        )
 
-    config_path.write_text(
-        yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False)
-    )
-
-    typer.echo(f"Created default configuration at: {config_path}")
+        typer.echo(f"Created default configuration at: {config_path}")
