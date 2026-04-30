@@ -6,16 +6,35 @@ from .schema import LanguageTestFilterConfig, TestFilterConfig
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "languages": {
+        # Python:
+        #   - basedpyright-langserver (Recommended) - https://github.com/DetachHead/basedpyright
+        #   - pyright-langserver (Alternative) - https://github.com/microsoft/pyright
         "python": {
-            "command": "pyright-langserver",
+            "command": "basedpyright-langserver",
             "args": ["--stdio"],
         },
+        # TypeScript:
+        #   - typescript-language-server (Recommended) - https://github.com/typescript-language-server/typescript-language-server
         "typescript": {"command": "typescript-language-server", "args": ["--stdio"]},
+        # JavaScript:
+        #   - typescript-language-server (Recommended) - https://github.com/typescript-language-server/typescript-language-server
         "javascript": {"command": "typescript-language-server", "args": ["--stdio"]},
+        # Rust:
+        #   - rust-analyzer (Recommended) - https://github.com/rust-lang/rust-analyzer
         "rust": {"command": "rust-analyzer"},
+        # Go:
+        #   - gopls (Recommended) - https://github.com/golang/tools/tree/master/gopls
         "go": {"command": "gopls"},
+        # Java:
+        #   - jdtls (Recommended) - https://github.com/eclipse-jdtls/eclipse.jdt.ls
         "java": {"command": "jdtls"},
+        # C/C++:
+        #   - clangd (Recommended) - https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clangd
+        #   - ccls (Alternative) - https://github.com/MaskRay/ccls
         "cpp": {"command": "clangd"},
+        # C#:
+        #   - OmniSharp (Recommended) - https://github.com/OmniSharp/omnisharp-roslyn
+        #   - csharp-ls (Alternative) - https://github.com/razzmatazz/csharp-language-server
         "csharp": {"command": "OmniSharp"},
     },
     "trace_lsp": False,

@@ -9,7 +9,6 @@ import yaml
 
 from llm_lsp_cli.infrastructure.config.exceptions import ConfigParseError
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
-from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
 
 from .defaults import DEFAULT_CONFIG
@@ -17,6 +16,10 @@ from .initialize_params import build_initialize_params
 from .merge import deep_merge
 from .path_builder import RuntimePathBuilder
 from .schema import ClientConfig, LanguageServerConfig
+from .server_validation import (
+    ServerNotFoundError as ValidationServerError,
+)
+from .server_validation import validate_server_installed
 
 
 class ConfigManager:
@@ -248,28 +251,32 @@ class ConfigManager:
             FileNotFoundError: If server executable cannot be resolved
         """
         if cli_arg:
-            # CLI arg goes through path resolver
+            # CLI arg is treated as custom path
             try:
-                resolved = ServerPathResolver.resolve(cli_arg)
+                resolved = validate_server_installed(cli_arg, is_custom_path=True)
                 return resolved, []
-            except Exception as e:
+            except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
 
         lang_config = cls.get_language_config(language)
         if lang_config:
             try:
-                resolved = ServerPathResolver.resolve(lang_config.command)
+                resolved = validate_server_installed(
+                    lang_config.command, language=language
+                )
                 return resolved, lang_config.args
-            except Exception as e:
+            except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
 
         # Fall back to defaults
         if language in DEFAULT_CONFIG["languages"]:
             defaults = DEFAULT_CONFIG["languages"][language]
             try:
-                resolved = ServerPathResolver.resolve(defaults["command"])
+                resolved = validate_server_installed(
+                    defaults["command"], language=language
+                )
                 return resolved, defaults.get("args", [])
-            except Exception as e:
+            except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
 
         raise FileNotFoundError(

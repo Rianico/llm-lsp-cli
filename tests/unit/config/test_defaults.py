@@ -16,7 +16,7 @@ class TestDefaultsNoInitializeParamsFile:
 
         # Should still validate as a LanguageServerConfig
         config = LanguageServerConfig(**python_config)
-        assert config.command == "pyright-langserver"
+        assert config.command == "basedpyright-langserver"
 
     def test_all_language_configs_validate(self) -> None:
         """All language configs validate against updated schema."""
