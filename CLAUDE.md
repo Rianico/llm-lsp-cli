@@ -36,15 +36,21 @@ uv run llm-lsp-cli --help  # Run CLI
 
 ```
 src/llm_lsp_cli/
-├── cli.py           # CLI entry point, command registration
-├── daemon.py        # Daemon process manager
-├── commands/        # CLI command implementations (daemon, lsp, config)
-├── lsp/             # LSP protocol (client, cache, transport, types)
-├── ipc/             # JSON-RPC over UNIX sockets
-├── config/          # Configuration management, server capabilities
-├── output/          # LLM-optimized output formatting
-├── test_filter/     # Test file exclusion patterns
-└── domain/          # Domain primitives, exceptions
+├── cli.py              # CLI entry point, command registration
+├── daemon.py           # Daemon process manager
+├── daemon_client.py    # Daemon IPC client
+├── commands/           # CLI command implementations (daemon, lsp, config)
+├── lsp/                # LSP protocol (client, cache, transport, types)
+├── ipc/                # JSON-RPC over UNIX sockets
+├── config/             # Configuration management, server capabilities
+├── output/             # LLM-optimized output formatting
+├── test_filter/        # Test file exclusion patterns
+├── domain/             # Domain layer (entities, services, repositories, value_objects)
+├── server/             # Server registry and workspace management
+├── application/        # Application interfaces (dependency injection boundaries)
+├── infrastructure/     # Infrastructure implementations (config, ipc, logging)
+├── shared/             # Shared utilities (logging)
+└── utils/              # General utilities (formatter, language_detector, uri)
 ```
 
 ## Key Conventions
@@ -73,7 +79,10 @@ LLM-optimized compact output:
 Key ADRs in `docs/adr/`:
 - **ADR-0008**: mtime-based cache invalidation
 - **ADR-0010**: External file change notification (`did-change` command)
+- **ADR-0011**: LSP call hierarchy (incoming/outgoing calls)
 - **ADR-0016**: Server-specific LSP client capabilities
+- **ADR-0019**: LSP rename feature with layered service architecture
+- **ADR-0021**: Layered configuration system (Project > Global > Defaults)
 
 ## Adding New LSP Server Support
 

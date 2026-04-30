@@ -10,6 +10,9 @@ A CLI tool that interacts with Language Server Protocol (LSP) servers to provide
 - **Hover**: Show type information and documentation
 - **Document Symbols**: List symbols in a file
 - **Workspace Symbols**: Search symbols across the workspace
+- **Diagnostics**: Get diagnostics for a file or entire workspace
+- **Call Hierarchy**: Find incoming callers and outgoing callees
+- **Rename**: Rename symbols across the workspace with preview and rollback
 
 ## Architecture
 
@@ -43,64 +46,103 @@ llm-lsp-cli config init
 
 ```bash
 # Start with default options
-llm-lsp-cli start
+llm-lsp-cli daemon start
 
 # Start with diagnostic log file (full LSP messages for debugging)
-llm-lsp-cli start --diagnostic-log
+llm-lsp-cli daemon start --diagnostic-log
+
+# Start with trace logging (most verbose, includes LSP transport)
+llm-lsp-cli daemon start --trace
 ```
 
 ### 3. Use LSP Features
 
 ```bash
 # Get definition at position (0-based line/column)
-llm-lsp-cli definition src/main.py 10 5
+llm-lsp-cli lsp definition src/main.py 10 5
 
 # Find references
-llm-lsp-cli references src/main.py 10 5
+llm-lsp-cli lsp references src/main.py 10 5
 
 # Get completions
-llm-lsp-cli completion src/main.py 10 5
+llm-lsp-cli lsp completion src/main.py 10 5
 
 # Show hover information
-llm-lsp-cli hover src/main.py 10 5
+llm-lsp-cli lsp hover src/main.py 10 5
 
 # List document symbols
-llm-lsp-cli document-symbol src/main.py
+llm-lsp-cli lsp document-symbol src/main.py
 
 # Search workspace symbols
-llm-lsp-cli workspace-symbol MyClass
+llm-lsp-cli lsp workspace-symbol MyClass
 
 # Get diagnostics for a file
-llm-lsp-cli diagnostics src/main.py
+llm-lsp-cli lsp diagnostics src/main.py
 
 # Get diagnostics for entire workspace
-llm-lsp-cli workspace-diagnostics
+llm-lsp-cli lsp workspace-diagnostics
+
+# Find incoming calls (callers)
+llm-lsp-cli lsp incoming-calls src/main.py 10 5
+
+# Find outgoing calls (callees)
+llm-lsp-cli lsp outgoing-calls src/main.py 10 5
+
+# Rename symbol (preview changes)
+llm-lsp-cli lsp rename src/main.py 10 5 new_name
+
+# Rename symbol (apply changes, creates backup for rollback)
+llm-lsp-cli lsp rename src/main.py 10 5 new_name --apply
+
+# Rollback a rename session
+llm-lsp-cli lsp rename --rollback <session-id>
 
 # Notify daemon of external file change (for file watchers, CI tools)
-llm-lsp-cli did-change src/main.py
+llm-lsp-cli lsp did-change src/main.py
 ```
 
 **Options:**
-- `--format text|json|yaml`: Output format (default: `json`)
+- `--format text|json|yaml|csv`: Output format (default: `json`)
 - `--include-tests`: Include test files (excluded by default)
 - `--language LANG`: Override language auto-detection
+- `--raw`: Show original LSP server response (for debugging)
+- `--depth N`: Hierarchy depth for symbol commands (default: 1)
 
 ### 4. Stop the Daemon
 
 ```bash
-llm-lsp-cli stop
+llm-lsp-cli daemon stop
+```
+
+### Daemon Management Commands
+
+```bash
+# Check daemon status
+llm-lsp-cli daemon status
+
+# Restart the daemon
+llm-lsp-cli daemon restart
+
+# Start with custom LSP config
+llm-lsp-cli daemon start --lsp-conf /path/to/lsp-config.json
 ```
 
 ## Configuration
 
-Configuration is stored in `$XDG_CONFIG_HOME/llm-lsp-cli/config.yaml` (usually `~/.config/llm-lsp-cli/config.yaml`).
+Configuration follows a three-tier priority system: **Project > Global > Defaults**.
+
+| Layer | Location | Priority |
+|-------|----------|----------|
+| Project | `$PWD/.llm-lsp-cli.yaml` | Highest |
+| Global | `$XDG_CONFIG_HOME/llm-lsp-cli/config.yaml` (usually `~/.config/llm-lsp-cli/config.yaml`) | Medium |
+| Defaults | Built-in (`DEFAULT_CONFIG`) | Lowest |
 
 ### Default Configuration
 
 ```yaml
 languages:
   python:
-    command: basedpyright-langserver
+    command: pyright-langserver
     args: [--stdio]
   typescript:
     command: typescript-language-server
@@ -112,8 +154,37 @@ languages:
     command: rust-analyzer
   go:
     command: gopls
+  java:
+    command: jdtls
+  cpp:
+    command: clangd
+  csharp:
+    command: OmniSharp
 trace_lsp: false
 timeout_seconds: 30
+```
+
+### Creating Configuration
+
+```bash
+# Create global config
+llm-lsp-cli config init
+
+# Create project-local config (for team-specific settings)
+llm-lsp-cli config init --project
+```
+
+### Listing Server Capabilities
+
+```bash
+# List capabilities for all LSP servers
+llm-lsp-cli config list
+
+# List capabilities for a specific server
+llm-lsp-cli config list --lsp-server pyright-langserver
+
+# Output in different formats
+llm-lsp-cli config list --format yaml
 ```
 
 ### Configuration Files
@@ -128,32 +199,29 @@ timeout_seconds: 30
 
 ## Test Filtering
 
-The test filtering system automatically detects and filters test files from LSP results using glob-based pattern matching. By default, `definition`, `references`, and `workspace-symbol` commands exclude test files.
-
-### Glob Pattern Syntax
-
-| Pattern | Description | Example |
-|---------|-------------|---------|
-| `*` | Matches any characters except `/` | `test_*.py` matches `test_utils.py` |
-| `**` | Matches any number of directory levels | `**/tests/**` matches `src/tests/test.py` |
+The test filtering system automatically detects and filters test files from LSP results using glob-based pattern matching. By default, `definition`, `references`, `workspace-symbol`, and `workspace-diagnostics` commands exclude test files.
 
 ### Default Patterns by Language
 
-| Language | Patterns |
-|----------|----------|
-| Python | `**/tests/**`, `test_*.py`, `*_test.py` |
-| TypeScript | `**/__tests__/**`, `*.test.ts`, `*.spec.ts` |
-| Go | `*_test.go` |
-| Rust | `**/tests/**` |
+| Language | Directory Patterns | File Patterns |
+|----------|-------------------|---------------|
+| Python | `**/tests/**`, `**/test/**` | `test_*.py`, `*_test.py`, `.test.py` |
+| TypeScript | `**/__tests__/**`, `**/spec/**` | `*.test.ts`, `*.spec.ts` |
+| JavaScript | `**/__tests__/**`, `**/spec/**` | `*.test.js`, `*.spec.js` |
+| Go | - | `*_test.go` |
+| Rust | `**/tests/**` | - |
+| Java | `**/src/test/**`, `**/src/tests/**` | - |
+| C# | `**/Tests/**`, `**/Test/**` | `*.test.cs`, `*.spec.cs` |
+| C/C++ | `**/tests/**`, `**/test/**`, `**/unittests/**` | `*_test.c`, `*_test.cpp` |
 
 ### Usage
 
 ```bash
 # Exclude test files (default)
-llm-lsp-cli definition src/main.py 10 5
+llm-lsp-cli lsp definition src/main.py 10 5
 
 # Include test files
-llm-lsp-cli definition src/main.py 10 5 --include-tests
+llm-lsp-cli lsp definition src/main.py 10 5 --include-tests
 ```
 
 ## External File Change Notification
@@ -162,10 +230,10 @@ The `did-change` command notifies the LSP server when files are modified externa
 
 ```bash
 # Notify daemon of external file change
-llm-lsp-cli did-change src/main.py
+llm-lsp-cli lsp did-change src/main.py
 
 # Then get updated diagnostics
-llm-lsp-cli diagnostics src/main.py
+llm-lsp-cli lsp diagnostics src/main.py
 ```
 
 The command automatically handles:
@@ -178,26 +246,29 @@ The command automatically handles:
 For debugging LSP server issues, enable the diagnostic log file:
 
 ```bash
-llm-lsp-cli start --diagnostic-log
+llm-lsp-cli daemon start --diagnostic-log
 # Creates: $PWD/.llm-lsp-cli/diagnostics.log
 ```
 
-This writes full (unmasked) LSP diagnostic messages to a separate file. Cache HIT messages are logged at INFO level in `daemon.log` for observability.
+This writes full (unmasked) LSP diagnostic messages to a separate file. Use `--trace` for maximum verbosity (includes LSP transport messages).
 
 ## Language Server Requirements
 
 | Language | Server | Install |
 |----------|--------|---------|
-| Python | basedpyright-langserver | `pip install basedpyright` |
-| TypeScript/JavaScript | typescript-language-server | `npm install -g typescript-language-server` |
+| Python | pyright-langserver | `pip install pyright` |
+| TypeScript/JavaScript | typescript-language-server | `npm install -g typescript-language-server typescript` |
 | Rust | rust-analyzer | `rustup component add rust-analyzer` |
 | Go | gopls | `go install golang.org/x/tools/gopls@latest` |
+| Java | jdtls | Download from Eclipse JDT Language Server releases |
+| C/C++ | clangd | `brew install llvm` (macOS) or system package manager |
+| C# | OmniSharp | Download from OmniSharp releases |
 
 ## Troubleshooting
 
 ### Daemon won't start
 
-1. Check if already running: `llm-lsp-cli status`
+1. Check if already running: `llm-lsp-cli daemon status`
 2. Check log file: `cat $PWD/.llm-lsp-cli/daemon.log`
 3. Clean up stale PID: `rm $PWD/.llm-lsp-cli/daemon.pid`
 
