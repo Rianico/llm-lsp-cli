@@ -261,26 +261,6 @@ class TestDocumentSyncExceptionSafety:
         mock_client.close_document.assert_not_called()
 
 
-class TestSendLspRequestHelper:
-    """Tests for _send_lsp_request helper method (P2).
-
-    Note: _send_lsp_request is an internal helper tested indirectly through
-    the main integration tests. These tests are skipped as the method
-    signature is designed for internal use only.
-    """
-
-    @pytest.mark.asyncio
-    async def test_send_lsp_request_calls_registry(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        """Skip - tested indirectly through integration tests."""
-        pytest.skip("_send_lsp_request is tested indirectly via integration tests")
-
-    @pytest.mark.asyncio
-    async def test_send_lsp_request_formats_diagnostic_response(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        """Skip - tested indirectly through integration tests."""
-        pytest.skip("_send_lsp_request is tested indirectly via integration tests")
+# Note: TestSendLspRequestHelper class removed.
+# _send_lsp_request is an internal helper tested indirectly through
+# the main integration tests. Explicit unit tests would be redundant.

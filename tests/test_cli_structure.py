@@ -383,8 +383,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_text_document_definition(self):
         """No hardcoded 'textDocument/definition' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         # Should not have the hardcoded string (but may have the constant reference)
         # We check for the literal string in quotes
@@ -394,8 +393,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_text_document_references(self):
         """No hardcoded 'textDocument/references' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/references"' not in content
         assert "'textDocument/references'" not in content
@@ -403,8 +401,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_document_symbol(self):
         """No hardcoded 'textDocument/documentSymbol' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/documentSymbol"' not in content
         assert "'textDocument/documentSymbol'" not in content
@@ -412,8 +409,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_workspace_symbol(self):
         """No hardcoded 'workspace/symbol' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"workspace/symbol"' not in content
         assert "'workspace/symbol'" not in content
@@ -421,8 +417,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_call_hierarchy_incoming(self):
         """No hardcoded 'callHierarchy/incomingCalls' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"callHierarchy/incomingCalls"' not in content
         assert "'callHierarchy/incomingCalls'" not in content
@@ -430,8 +425,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_call_hierarchy_outgoing(self):
         """No hardcoded 'callHierarchy/outgoingCalls' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"callHierarchy/outgoingCalls"' not in content
         assert "'callHierarchy/outgoingCalls'" not in content
@@ -439,8 +433,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_completion(self):
         """No hardcoded 'textDocument/completion' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/completion"' not in content
         assert "'textDocument/completion'" not in content
@@ -448,8 +441,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_hover(self):
         """No hardcoded 'textDocument/hover' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/hover"' not in content
         assert "'textDocument/hover'" not in content
@@ -457,8 +449,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_diagnostics(self):
         """No hardcoded 'textDocument/diagnostic' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/diagnostic"' not in content
         assert "'textDocument/diagnostic'" not in content
@@ -466,8 +457,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_workspace_diagnostics(self):
         """No hardcoded 'workspace/diagnostic' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"workspace/diagnostic"' not in content
         assert "'workspace/diagnostic'" not in content
@@ -475,8 +465,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_rename(self):
         """No hardcoded 'textDocument/rename' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/rename"' not in content
         assert "'textDocument/rename'" not in content
@@ -484,8 +473,7 @@ class TestLSPConstantsUsage:
     def test_no_hardcoded_did_change(self):
         """No hardcoded 'textDocument/didChange' string in lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert '"textDocument/didChange"' not in content
         assert "'textDocument/didChange'" not in content
@@ -493,8 +481,7 @@ class TestLSPConstantsUsage:
     def test_lspconstants_imported(self):
         """LSPConstants is imported in commands/lsp.py."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        if not lsp_path.exists():
-            pytest.skip("lsp.py does not exist yet")
+        assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
         assert "LSPConstants" in content, "LSPConstants should be imported in lsp.py"
 
@@ -663,8 +650,7 @@ class TestSkillFiles:
     def test_main_skill_has_frontmatter(self):
         """Main skill has YAML frontmatter with required fields."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert content.startswith("---"), "Skill must start with YAML frontmatter"
         assert "name:" in content
@@ -674,16 +660,14 @@ class TestSkillFiles:
     def test_main_skill_type_domain_knowledge(self):
         """Main skill has type: domain-knowledge."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "type: domain-knowledge" in content or "type: 'domain-knowledge'" in content
 
     def test_main_skill_uses_hyphenated_names(self):
         """Main skill uses hyphenated command names."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         # Should have hyphenated names
         assert "document-symbol" in content
@@ -696,56 +680,49 @@ class TestSkillFiles:
     def test_skill_has_document_symbol_hyphen(self):
         """Skill contains 'document-symbol' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "document-symbol" in content
 
     def test_skill_has_workspace_symbol_hyphen(self):
         """Skill contains 'workspace-symbol' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "workspace-symbol" in content
 
     def test_skill_has_incoming_calls_hyphen(self):
         """Skill contains 'incoming-calls' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "incoming-calls" in content
 
     def test_skill_has_outgoing_calls_hyphen(self):
         """Skill contains 'outgoing-calls' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "outgoing-calls" in content
 
     def test_skill_has_workspace_diagnostics_hyphen(self):
         """Skill contains 'workspace-diagnostics' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "workspace-diagnostics" in content
 
     def test_skill_has_did_change_hyphen(self):
         """Skill contains 'did-change' (hyphenated)."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         assert "did-change" in content
 
     def test_skill_no_underscore_document_symbol(self):
         """Skill does NOT contain underscore variant 'document_symbol'."""
         skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        if not skill_path.exists():
-            pytest.skip("Skill file does not exist yet")
+        assert skill_path.exists(), "Skill file must exist"
         content = skill_path.read_text()
         # Should not have the underscore variant as a command reference
         # (may appear in code blocks as Python function names, but not as CLI commands)
@@ -759,8 +736,7 @@ class TestSkillFiles:
     def test_reference_has_daemon_section(self):
         """Reference file has daemon lifecycle content."""
         ref_path = Path(".claude/skills/references/llm-lsp-cli-config.md")
-        if not ref_path.exists():
-            pytest.skip("Reference file does not exist yet")
+        assert ref_path.exists(), "Reference file must exist"
         content = ref_path.read_text()
         assert "daemon" in content.lower()
 

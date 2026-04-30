@@ -80,8 +80,13 @@ class TestLoadGlobalCreatesFile:
     def test_load_shows_first_run_notice_when_created(
         self, clean_xdg_env: dict[str, Path], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """First-run notice is displayed when global config is auto-created."""
+        """First-run notice is displayed when global config is auto-created (in TTY context)."""
+        import sys
+
         from llm_lsp_cli.config.manager import ConfigManager
+
+        # Mock stdout to appear as a TTY so notice is shown
+        monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
 
         monkeypatch.chdir(clean_xdg_env["config_dir"])
 

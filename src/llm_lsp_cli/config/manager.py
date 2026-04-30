@@ -180,7 +180,17 @@ class ConfigManager:
 
     @classmethod
     def _show_first_run_notice(cls) -> None:
-        """Show first-run notice about config options."""
+        """Show first-run notice about config options.
+
+        Only shows when stdout is a TTY (interactive terminal) to avoid
+        polluting piped/programmatic output like JSON/YAML from config list.
+        """
+        import sys
+
+        # Only show notice when stdout is a TTY (interactive terminal)
+        if not sys.stdout.isatty():
+            return
+
         typer.secho(
             "Created default config at ~/.config/llm-lsp-cli/config.yaml\n"
             "Create .llm-lsp-cli.yaml in your project to override settings.",
