@@ -1,6 +1,10 @@
 # llm-lsp-cli
 
-A CLI tool that interacts with Language Server Protocol (LSP) servers to provide code intelligence features (definitions, references, completions, symbols, hover) for LLM-assisted development.
+An LSP CLI for LLMs - a daemon-backed command-line interface supporting multiple language servers, with compact output optimized for AI consumption and Claude Code hooks/skills integration.
+
+## Why This Project
+
+Official LSP plugins for editors often fail to recognize modern Python tooling like `uv` and `venv` properly. This leads to false diagnostics such as "cannot import pytest" errors even when pytest is installed in the active virtual environment and declared in `pyproject.toml` dependencies. This CLI provides direct LSP access with proper environment detection, giving LLMs reliable code intelligence without editor-specific configuration issues.
 
 ## Features
 
@@ -13,6 +17,29 @@ A CLI tool that interacts with Language Server Protocol (LSP) servers to provide
 - **Diagnostics**: Get diagnostics for a file or entire workspace
 - **Call Hierarchy**: Find incoming callers and outgoing callees
 - **Rename**: Rename symbols across the workspace with preview and rollback
+
+## LLM-Optimized Output
+
+The CLI produces token-efficient output designed for LLM consumption:
+
+- **Compact Ranges**: `"1:1-50:1"` instead of nested `{"start": {"line": 0, "character": 0}, "end": {"line": 49, "character": 0}}`
+- **Relative Paths**: `src/main.py` instead of `file:///workspace/src/main.py`
+- **Multiple Formats**: `--format text|json|yaml|csv` for flexibility
+- **Test Filtering**: Automatic exclusion of test files (configurable with `--include-tests`)
+
+**Example output:**
+```json
+{
+  "_source": "basedpyright",
+  "file_path": "src/llm_lsp_cli/commands/lsp.py",
+  "command": "definition",
+  "result": [
+    {"file": "src/llm_lsp_cli/daemon_client.py", "range": "15:1-45:1"}
+  ]
+}
+```
+
+This format allows LLMs to immediately identify file ranges without parsing verbose LSP protocol responses.
 
 ## Architecture
 
@@ -57,8 +84,10 @@ llm-lsp-cli daemon start --trace
 
 ### 3. Use LSP Features
 
+**Indexing:** Line and column numbers are 1-based for both input and output, matching editor conventions. Use positions as they appear in your editor (e.g., if `document-symbol` shows `range: "9:1-9:4"`, pass `9 1` to other commands).
+
 ```bash
-# Get definition at position (0-based line/column)
+# Get definition at position (line 10, column 5)
 llm-lsp-cli lsp definition src/main.py 10 5
 
 # Find references
@@ -142,7 +171,7 @@ Configuration follows a three-tier priority system: **Project > Global > Default
 ```yaml
 languages:
   python:
-    command: pyright-langserver
+    command: basedpyright-langserver
     args: [--stdio]
   typescript:
     command: typescript-language-server
@@ -256,7 +285,7 @@ This writes full (unmasked) LSP diagnostic messages to a separate file. Use `--t
 
 | Language | Server | Install |
 |----------|--------|---------|
-| Python | pyright-langserver | `pip install pyright` |
+| Python | basedpyright-langserver | `pip install basedpyright` or `uv tool install basedpyright` |
 | TypeScript/JavaScript | typescript-language-server | `npm install -g typescript-language-server typescript` |
 | Rust | rust-analyzer | `rustup component add rust-analyzer` |
 | Go | gopls | `go install golang.org/x/tools/gopls@latest` |
