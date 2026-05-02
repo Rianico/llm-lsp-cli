@@ -21,6 +21,7 @@ from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import (
     CompactFormatter,
     group_diagnostics_by_file,
+    group_locations_by_file,
     group_symbols_by_file,
 )
 from llm_lsp_cli.output.header_builder import CommandInfo, build_alert_header
@@ -172,24 +173,30 @@ def references(
             records = formatter.transform_locations(filtered)
             dispatcher = OutputDispatcher()
 
+            # Use grouped output for references
+            grouped = group_locations_by_file(records)
+
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
             relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
 
             if context.output_format == OutputFormat.TEXT:
-                header = build_alert_header(CommandInfo(server_name, "references", relative_path))
-                output = dispatcher.format_list(records, context.output_format)
-                if output:
-                    typer.echo(f"{header}\n{output}")
-                else:
-                    typer.echo(header)
-            else:
+                header = build_alert_header(
+                    CommandInfo(server_name, "references", relative_path)
+                )
                 typer.echo(
-                    dispatcher.format_list(
-                        records,
+                    dispatcher.format_grouped_text(grouped, items_key="references", header=header)
+                )
+            elif context.output_format == OutputFormat.CSV:
+                typer.echo(dispatcher.format_references_csv(grouped))
+            else:
+                # JSON/YAML
+                typer.echo(
+                    dispatcher.format_grouped(
+                        grouped,
                         context.output_format,
+                        items_key="references",
                         _source=server_name,
-                        file_path=relative_path,
                         command="references",
                     )
                 )

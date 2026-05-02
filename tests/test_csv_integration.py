@@ -1168,7 +1168,7 @@ class TestCsvSchemaValidation:
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_references_columns(self, temp_file: Path) -> None:
-        """Test references CSV has correct column schema."""
+        """Test references CSV has correct column schema with grouped ranges."""
         mock_response = {
             "locations": [
                 {
@@ -1197,7 +1197,8 @@ class TestCsvSchemaValidation:
             )
 
             header = get_csv_header(result.output)
-            expected_columns = ["file", "range"]
+            # References CSV uses grouped format with file,ranges columns
+            expected_columns = ["file", "ranges"]
             assert header == ",".join(expected_columns)
 
     def test_csv_schema_completion_columns(self, temp_file: Path) -> None:

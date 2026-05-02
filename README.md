@@ -27,7 +27,7 @@ The CLI produces token-efficient output designed for LLM consumption:
 - **Multiple Formats**: `--format text|json|yaml|csv` for flexibility
 - **Test Filtering**: Automatic exclusion of test files (configurable with `--include-tests`)
 
-**Example output:**
+**Example output (definition):**
 ```json
 {
   "_source": "basedpyright",
@@ -37,6 +37,12 @@ The CLI produces token-efficient output designed for LLM consumption:
     {"file": "src/llm_lsp_cli/daemon_client.py", "range": "15:1-45:1"}
   ]
 }
+```
+
+**Example output (references, grouped by file):**
+```
+src/llm_lsp_cli/daemon.py, ranges: [15:1-15:20, 42:5-42:24]
+src/llm_lsp_cli/daemon_client.py, ranges: [8:1-8:19, 100:9-100:27]
 ```
 
 This format allows LLMs to immediately identify file ranges without parsing verbose LSP protocol responses.

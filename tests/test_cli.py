@@ -635,14 +635,15 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - now wrapped with _source field
+        # Parse YAML output - grouped format with files array
         output = yaml.safe_load(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
-        items = output["items"]
-        assert len(items) == 3
-        assert "file" in items[0]
-        assert "range" in items[0]
+        assert "files" in output
+        files = output["files"]
+        assert len(files) >= 1
+        assert "file" in files[0]
+        assert "references" in files[0]
 
 
 def test_cli_completion_yaml_output(temp_file: Path) -> None:
@@ -979,15 +980,15 @@ def test_cli_references_json_output(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse JSON output - now wrapped with _source field
+        # Parse JSON output - grouped format with files array
         output = json.loads(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
-        assert "items" in output
-        items = output["items"]
-        assert len(items) == 2
-        assert "file" in items[0]
-        assert "range" in items[0]
+        assert "files" in output
+        files = output["files"]
+        assert len(files) == 2
+        assert "file" in files[0]
+        assert "references" in files[0]
 
 
 def test_cli_completion_json_output(temp_file: Path) -> None:
@@ -1715,13 +1716,13 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # Without flag, test locations should be filtered
-        # Now wrapped with _source field
+        # Grouped format with files array
         output = json.loads(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
-        items = output["items"]
-        assert len(items) == 1
-        assert "test_file.py" not in items[0]["file"]
+        files = output["files"]
+        assert len(files) == 1
+        assert "test_file.py" not in files[0]["file"]
 
 
 def test_cli_references_include_tests_flag(temp_file: Path) -> None:
@@ -1746,12 +1747,12 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
         # With flag, all locations should be included
-        # Now wrapped with _source field
+        # Grouped format with files array
         output = json.loads(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
-        items = output["items"]
-        assert len(items) == 2
+        files = output["files"]
+        assert len(files) == 2
 
 
 def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
@@ -1844,12 +1845,12 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
         )
         assert result.exit_code == 0
 
-        # Parse YAML output - now wrapped with _source field
+        # Parse YAML output - grouped format with files array
         output = yaml.safe_load(result.output)
         assert isinstance(output, dict)
         assert "_source" in output
-        items = output["items"]
-        assert len(items) == 2
+        files = output["files"]
+        assert len(files) == 2
 
 
 def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
@@ -2005,7 +2006,7 @@ class TestReferencesCsvOutput:
             assert "range" in lines[0]
 
     def test_cli_references_csv_same_schema_as_definition(self, temp_file: Path) -> None:
-        """Test references CSV uses same schema as definition (locations)."""
+        """Test references CSV uses grouped format with file and ranges columns."""
         from llm_lsp_cli.cli import app
 
         with (
@@ -2025,8 +2026,8 @@ class TestReferencesCsvOutput:
             assert result.exit_code == 0
 
             header = result.output.strip().split("\n")[0]
-            # Compact CSV uses file,range columns for locations
-            assert header == "file,range"
+            # References CSV uses grouped format with file,ranges columns
+            assert header == "file,ranges"
 
 
 class TestCompletionCsvOutput:

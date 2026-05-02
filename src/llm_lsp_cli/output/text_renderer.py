@@ -301,3 +301,56 @@ def render_workspace_diagnostics_grouped(
         )
 
     return "\n".join(lines)
+
+
+def _render_reference_line(ref: dict[str, Any]) -> str:
+    """Render a single reference as a text line.
+
+    Format: "- <range>"
+    Simple format for references - just the range string.
+
+    Args:
+        ref: Reference dict with 'range' key
+
+    Returns:
+        Formatted string with range
+    """
+    range_str = ref.get("range", "")
+    return f"- {range_str}"
+
+
+def render_references_grouped(
+    grouped_data: list[dict[str, Any]],
+    header: str | None = None,
+) -> str:
+    """Render grouped references as compact TEXT output.
+
+    Format: `<file>, ranges: [range1, range2...]`
+
+    Args:
+        grouped_data: List of group dicts with 'file' and 'references' keys
+        header: Optional alert header to prepend
+
+    Returns:
+        Formatted TEXT string with one line per file
+    """
+    if not grouped_data:
+        return "No references found."
+
+    lines: list[str] = []
+
+    # Add alert header if provided
+    if header:
+        lines.append(header)
+
+    # Render each file group on a single line
+    for group in grouped_data:
+        file_path = group.get("file", "")
+        references = group.get("references", [])
+
+        # Extract ranges and format as bracketed list
+        ranges = [ref.get("range", "") for ref in references]
+        ranges_str = ", ".join(ranges)
+        lines.append(f"{file_path}, ranges: [{ranges_str}]")
+
+    return "\n".join(lines)

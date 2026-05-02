@@ -183,7 +183,7 @@ All LSP responses are normalized to record types implementing `FormattableRecord
 
 | Record Type | Commands | ADR |
 |-------------|----------|-----|
-| `LocationRecord` | references, definition | ADR-0018 |
+| `LocationRecord` | references (grouped), definition | ADR-0018 |
 | `SymbolRecord` | document-symbol, workspace-symbol | ADR-0013 |
 | `DiagnosticRecord` | diagnostics, workspace-diagnostics | ADR-0017 |
 | `CallHierarchyRecord` | incoming-calls, outgoing-calls | ADR-0011 |
@@ -225,7 +225,7 @@ Benefits:
 
 ## Workspace-Level Output Grouping
 
-Workspace-level commands (`workspace-symbol`, `workspace-diagnostics`) return results spanning multiple files. The output system supports file-grouped presentation for improved LLM context.
+Workspace-level commands (`workspace-symbol`, `workspace-diagnostics`, `references`) return results spanning multiple files. The output system supports file-grouped presentation for improved LLM context.
 
 ### Grouped Output Structure
 
@@ -249,6 +249,12 @@ src/main.py:
   └── helper (Function) [55:1-80:1]
 src/utils.py:
   └── process (Function) [10:1-25:1]
+```
+
+**References Format (compact, one line per file):**
+```
+src/llm_lsp_cli/daemon.py, ranges: [15:1-15:20, 42:5-42:24]
+src/llm_lsp_cli/daemon_client.py, ranges: [8:1-8:19, 100:9-100:27]
 ```
 
 ### Architecture
@@ -278,8 +284,9 @@ src/utils.py:
 |-----------|---------------|----------|
 | `server_name.py` | Resolve server display name from initialize response | `output/server_name.py` |
 | `header_builder.py` | Build alert header with server name and command context | `output/header_builder.py` |
-| `CompactFormatter.group_*_by_file()` | Group records by file path | `output/formatter.py` |
+| `CompactFormatter.group_*_by_file()` | Group records by file path (symbols, diagnostics, locations) | `output/formatter.py` |
 | `OutputDispatcher.format_grouped()` | Format grouped data by output type | `output/dispatcher.py` |
+| `OutputDispatcher.format_references_csv()` | Format grouped references as CSV with pipe-separated ranges | `output/dispatcher.py` |
 | `text_renderer.py` | Hierarchical TEXT rendering for grouped output | `output/text_renderer.py` |
 
 ### Alert Header Pattern
@@ -299,9 +306,10 @@ The header is prepended to TEXT output only (JSON/YAML remain machine-parseable)
 ### Design Invariants
 
 1. **CSV Stays Flat**: CSV format does not support nesting; uses existing flat structure with file column
-2. **Memory-Based Grouping**: Records collected in memory before grouping (acceptable for typical workspace sizes)
-3. **Server Name Resolution Chain**: `serverInfo.name` → command basename mapping → command basename fallback
-4. **Relative Paths**: All file paths normalized to workspace-relative for consistency
+2. **References CSV Uses Pipe Separator**: Ranges are pipe-separated (e.g., `1:5-1:10|5:1-5:20`) to avoid CSV quoting
+3. **Memory-Based Grouping**: Records collected in memory before grouping (acceptable for typical workspace sizes)
+4. **Server Name Resolution Chain**: `serverInfo.name` → command basename mapping → command basename fallback
+5. **Relative Paths**: All file paths normalized to workspace-relative for consistency
 
 ## Dependency Rule
 

@@ -220,6 +220,35 @@ class OutputDispatcher:
                 # For other formats, delegate to format_grouped_text
                 raise ValueError(f"Use format_grouped_text for {fmt} format")
 
+    def format_references_csv(
+        self,
+        grouped_data: list[dict[str, Any]],
+    ) -> str:
+        """Format grouped references as CSV with file and ranges columns.
+
+        Args:
+            grouped_data: List of group dicts with 'file' and 'references' keys
+
+        Returns:
+            CSV string with header row: file,ranges
+            Ranges are pipe-separated (e.g., "1:5-1:10|5:1-5:20") to avoid CSV quoting.
+        """
+        if not grouped_data:
+            return ""
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=["file", "ranges"], lineterminator="\n")
+        writer.writeheader()
+
+        for group in grouped_data:
+            file_path = group.get("file", "")
+            references = group.get("references", [])
+            ranges = [ref.get("range", "") for ref in references]
+            ranges_str = "|".join(ranges)
+            writer.writerow({"file": file_path, "ranges": ranges_str})
+
+        return output.getvalue()
+
     def format_grouped_text(
         self,
         grouped_data: list[dict[str, Any]],
@@ -230,19 +259,22 @@ class OutputDispatcher:
 
         Args:
             grouped_data: List of group dicts with 'file' and items_key
-            items_key: Key name for items ('symbols' or 'diagnostics')
+            items_key: Key name for items ('symbols', 'diagnostics', or 'references')
             header: Optional alert header to prepend
 
         Returns:
             Formatted TEXT string with file headers and tree connectors
         """
         from llm_lsp_cli.output.text_renderer import (
+            render_references_grouped,
             render_workspace_diagnostics_grouped,
             render_workspace_symbols_grouped,
         )
 
         if items_key == "symbols":
             return render_workspace_symbols_grouped(grouped_data, header=header)
+        elif items_key == "references":
+            return render_references_grouped(grouped_data, header=header)
         else:
             return render_workspace_diagnostics_grouped(grouped_data, header=header)
 

@@ -191,7 +191,8 @@ class TestReferencesHeaders:
         data = json.loads(output)
         assert "_source" in data
         assert data["_source"] == "Basedpyright"  # Server name only
-        assert "file" in data  # File path is separate
+        assert "files" in data  # Grouped format with files array
+        assert "command" in data
 
 
 class TestIncomingCallsHeaders:

@@ -901,3 +901,45 @@ def group_diagnostics_by_file(
         Each diagnostic is converted via to_compact_dict().
     """
     return _group_records_by_file(diagnostics, "diagnostics")
+
+
+def group_locations_by_file(
+    records: list[LocationRecord],
+) -> list[dict[str, Any]]:
+    """Group LocationRecords by file path for references output.
+
+    Groups are sorted alphabetically by file path. References within each
+    group are sorted by range start position (line, character).
+
+    Args:
+        records: List of LocationRecord objects to group
+
+    Returns:
+        List of group dicts with 'file' and 'references' keys.
+        Each reference is a dict with 'range' key (compact format).
+    """
+    if not records:
+        return []
+
+    # Group by file
+    groups: dict[str, list[LocationRecord]] = {}
+    for record in records:
+        file_path = record.file
+        if file_path not in groups:
+            groups[file_path] = []
+        groups[file_path].append(record)
+
+    # Sort by file path and build result with sorted references
+    result: list[dict[str, Any]] = []
+    for file_path in sorted(groups.keys()):
+        # Sort references by range start position
+        sorted_records = sorted(
+            groups[file_path],
+            key=lambda r: (r.range.start.line, r.range.start.character),
+        )
+        result.append({
+            "file": file_path,
+            "references": [{"range": r.range.to_compact()} for r in sorted_records],
+        })
+
+    return result
