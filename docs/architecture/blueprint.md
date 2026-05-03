@@ -157,6 +157,83 @@ Defaults (code) → Global (~/.config/llm-lsp-cli/config.yaml) → Project (./.l
 - Domain layer defines config structure via Pydantic models (`ClientConfig`)
 - Testable without filesystem via dependency injection
 
+## Workspace Detection with root_markers
+
+Workspace and language detection uses per-language `root_markers` configuration instead of hardcoded patterns. This enables user-customizable project root detection following Neovim's LSP pattern.
+
+### root_markers Schema
+
+```python
+class LanguageServerConfig(BaseModel):
+    command: str
+    args: list[str] = []
+    env: dict[str, str] = {}
+    root_markers: list[str] = []  # Files/dirs indicating project root
+```
+
+Default markers per language:
+- **python**: `pyproject.toml`, `setup.py`, `requirements.txt`, `.git`
+- **typescript**: `tsconfig.json`, `package.json`, `.git`
+- **rust**: `Cargo.toml`, `.git`
+- **go**: `go.mod`, `.git`
+- **json**: `.git`, `package.json`
+- **yaml**: `.git`, `.yamllint`
+
+### Detection Algorithm
+
+```
+Input: file_path, explicit_workspace?, explicit_language?
+│
+├─ explicit_workspace AND explicit_language?
+│   └─ Return (explicit_workspace, explicit_language)
+│
+├─ explicit_language?
+│   ├─ Get language's root_markers from config
+│   ├─ Search upward from file_path for any marker
+│   └─ Return (found_root or cwd, explicit_language)
+│
+└─ Auto-detect
+    ├─ Detect language from file extension
+    │   ├─ Extension found?
+    │   │   ├─ Get that language's root_markers
+    │   │   └─ Find root, return (root, language)
+    │   └─ Extension not found?
+    │       └─ Search all languages' markers from cwd
+    │           ├─ Found? Return (root, that_language)
+    │           └─ Not found? Return (cwd, None)
+    └─ Handle None language → unsupported notification
+```
+
+**Component Architecture:**
+```
++------------------+      uses       +-----------------------+
+| RootDetector     | -------------> |  ClientConfig         |
+| (Domain Service) |                |  (root_markers)       |
++------------------+                +-----------------------+
+         |
+         | implements
+         v
++------------------+      pure       +-----------------------+
+| find_root_by_    | <------------> |  Path traversal       |
+| markers()        |   function     |  (testable)           |
++------------------+                +-----------------------+
+```
+
+**Design Decisions:**
+- **Per-language markers** over global: Allows Python projects to use `pyproject.toml` while Go projects use `go.mod`
+- **Flat list syntax** over nested priority: Simpler implementation covers 95% of use cases
+- **File extension priority** over marker-only: `main.py` in a repo with both `Cargo.toml` and `.git` → python, not rust
+- **Graceful degradation**: Missing root_markers config → empty list → falls back to CWD
+
+### Unsupported File Types
+
+When no language server is configured for a file type:
+```
+Unsupported file type: 'txt'. Configured languages: python, typescript, rust, go, java, cpp, csharp, json, yaml.
+To add support, configure a language server in .llm-lsp-cli.yaml
+```
+Exit code: 0 (informational, not error)
+
 ## Output Formatter Architecture
 
 The output formatting system uses a Protocol-based Strategy pattern with centralized dispatch to eliminate format logic duplication across CLI commands.
@@ -377,6 +454,7 @@ llm-lsp-cli <group> <command>
 5. **New record type:** Implement `FormattableRecord`, use `CompactFormatter.transform_*`
 6. **Workspace-level command with grouping:** Use `format_grouped()` for JSON/YAML, hierarchical renderer for TEXT
 7. **New config merge strategy:** Update `deep_merge()` in `config/merge.py`
+8. **New language root_markers:** Add to `DEFAULT_CONFIG` in `config/defaults.py`
 
 ## Key Invariants
 
@@ -395,3 +473,4 @@ llm-lsp-cli <group> <command>
 | Deep merge for nested config | deep_merge() | ADR-0021 |
 | Auto-create global config on first run | ConfigManager.load() | ADR-0021 |
 | Current-directory-only project config | ConfigManager.load() | ADR-0021 |
+| Config-driven root detection (no hardcoded patterns) | root_detector.py | ADR-0021 |

@@ -105,3 +105,23 @@ def sample_position() -> "Position":
     from llm_lsp_cli.output.formatter import Position
 
     return Position(line=1, character=6)
+
+
+@pytest.fixture
+def xdg_test_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> typing.Generator[Path, None, None]:
+    """Set up isolated XDG environment for config tests.
+
+    Yields:
+        Path to the config directory (tmp_path / "config")
+    """
+    from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+
+    XdgPaths.reset_for_testing()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "run"))
+    yield config_dir

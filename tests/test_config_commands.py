@@ -237,15 +237,19 @@ class TestConfigListAutoDetection:
     def test_cl_007_polyglot_project_priority(
         self, polyglot_project_dir: Path, clean_config_state: None
     ) -> None:
-        """CL-007: Polyglot project priority."""
+        """CL-007: Polyglot project priority uses config order.
+
+        With root_markers, first-configured language wins when multiple
+        markers match. Python is first in DEFAULT_CONFIG order.
+        """
         with in_directory(polyglot_project_dir):
             result = runner.invoke(app, ["config", "list"])
 
         assert result.exit_code == 0
         output = json.loads(result.output)
-        # TypeScript has higher priority than Python (8 > 6)
+        # Python is first in config order, so basedpyright wins
         assert len(output) == 1
-        assert "typescript" in output
+        assert "basedpyright" in output
 
 
 # =============================================================================
@@ -574,15 +578,29 @@ class TestConfigIntegration:
     ) -> None:
         """INT-003: Language detection + config resolution."""
         from llm_lsp_cli.config import ConfigManager
-        from llm_lsp_cli.utils.language_detector import detect_language_with_fallback
+        from llm_lsp_cli.utils.root_detector import detect_workspace_and_language
+        from llm_lsp_cli.utils.language_detector import FILE_EXTENSION_MAP
 
         # Create config first
         result_init = runner.invoke(app, ["config", "init"])
         assert result_init.exit_code == 0
 
-        # Test detection chain
-        workspace_path = str(python_project_dir)
-        detected_lang = detect_language_with_fallback(workspace_path=workspace_path)
+        # Load config to get language configs with root_markers
+        config_obj = ConfigManager.load()
+        config = config_obj.model_dump(mode="json") if config_obj else {}
+        language_configs = {
+            name: {"root_markers": conf.get("root_markers", [])}
+            for name, conf in config.get("languages", {}).items()
+        }
+
+        # Test detection chain using new root_detector
+        workspace_path, detected_lang = detect_workspace_and_language(
+            file_path=None,
+            explicit_workspace=str(python_project_dir),
+            explicit_language=None,
+            language_configs=language_configs,
+            extension_map=dict(FILE_EXTENSION_MAP),
+        )
         assert detected_lang == "python"
 
         # Get language config

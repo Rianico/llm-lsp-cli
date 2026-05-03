@@ -13,9 +13,10 @@ import typer
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.utils import OutputFormat, get_symbol_kind_name
-from llm_lsp_cli.utils.language_detector import (
-    detect_language_from_file,
-    detect_language_with_fallback,
+from llm_lsp_cli.utils.language_detector import FILE_EXTENSION_MAP, detect_language_from_file
+from llm_lsp_cli.utils.root_detector import (
+    detect_workspace_and_language,
+    format_unsupported_message,
 )
 
 
@@ -139,13 +140,37 @@ def resolve_workspace_path(workspace: str | None) -> str:
 
 def resolve_language(workspace: str | None, language: str | None) -> tuple[str, str]:
     """Resolve workspace path and language, returning (workspace_path, language)."""
-    workspace_path = resolve_workspace_path(workspace)
-    detected_language = detect_language_with_fallback(
-        workspace_path=workspace_path,
+    from llm_lsp_cli.config import ConfigManager
+    from llm_lsp_cli.utils.language_detector import FILE_EXTENSION_MAP
+
+    # Get language configs with root_markers
+    try:
+        config_obj = ConfigManager.load()
+        config = config_obj.model_dump(mode="json") if config_obj else {}
+    except Exception:
+        config = {}
+
+    language_configs: dict[str, dict[str, Any]] = {}
+    for lang_name, lang_conf in config.get("languages", {}).items():
+        if isinstance(lang_conf, dict):
+            language_configs[lang_name] = {
+                "root_markers": lang_conf.get("root_markers", [])
+            }
+
+    # Build extension map from FILE_EXTENSION_MAP
+    extension_map = dict(FILE_EXTENSION_MAP)
+
+    # Detect workspace and language
+    workspace_path, detected_language = detect_workspace_and_language(
+        file_path=None,
+        explicit_workspace=workspace,
         explicit_language=language,
-        default_language="python",
+        language_configs=language_configs,
+        extension_map=extension_map,
     )
-    return workspace_path, detected_language
+
+    # Return as strings for backward compatibility
+    return str(workspace_path), detected_language or "python"
 
 
 def validate_file_in_workspace(file: str, workspace: str | None) -> Path:
@@ -188,8 +213,40 @@ def build_request_context(
         global_opts, workspace, language, output_format
     )
 
-    if effective_language is None and file is not None:
-        effective_language = detect_language_from_file(file)
+    # Get language configs with root_markers (needed for detection)
+    try:
+        config_obj = ConfigManager.load()
+        config = config_obj.model_dump(mode="json") if config_obj else {}
+    except Exception:
+        config = {}
+
+    language_configs: dict[str, dict[str, Any]] = {}
+    for lang_name, lang_conf in config.get("languages", {}).items():
+        if isinstance(lang_conf, dict):
+            language_configs[lang_name] = {
+                "root_markers": lang_conf.get("root_markers", [])
+            }
+
+    # Use detect_workspace_and_language for proper detection flow
+    if effective_language is None or effective_workspace is None:
+        detected_workspace, detected_language = detect_workspace_and_language(
+            file_path=file,
+            explicit_workspace=effective_workspace,
+            explicit_language=effective_language,
+            language_configs=language_configs,
+            extension_map=dict(FILE_EXTENSION_MAP),
+        )
+
+        if effective_workspace is None:
+            effective_workspace = str(detected_workspace)
+        if effective_language is None:
+            effective_language = detected_language
+
+    # Handle unsupported file type
+    if effective_language is None:
+        available_languages = list(language_configs.keys())
+        typer.echo(format_unsupported_message(None, available_languages))
+        raise typer.Exit(0)
 
     if effective_workspace:
         workspace_path = str(Path(effective_workspace).resolve())
@@ -199,7 +256,7 @@ def build_request_context(
 
     return RequestContext(
         workspace_path=workspace_path,
-        language=effective_language or "python",
+        language=effective_language,
         output_format=effective_format,
         file_path=file_path,
         line=line,

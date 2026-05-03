@@ -200,7 +200,11 @@ edition = "2021"
     def test_e2e_004_nested_project_detection(
         self, tmp_path: Path, clean_config_state: None
     ) -> None:
-        """E2E-004: Project detection from nested subdirectory."""
+        """E2E-004: Project detection from nested subdirectory.
+
+        With root_markers, the detector searches upward to find markers
+        in parent directories, so nested projects are properly detected.
+        """
         project = tmp_path / "monorepo" / "backend" / "python_api"
         project.mkdir(parents=True)
         (project / "pyproject.toml").touch()
@@ -209,16 +213,15 @@ edition = "2021"
         src_dir = project / "src" / "handlers"
         src_dir.mkdir(parents=True)
 
-        # Note: detect_language_from_workspace only checks the current directory,
-        # not parent directories. So from src_dir, no project file is found.
-        # This test verifies fallback behavior when no project file in cwd.
+        # With root_markers, detection searches upward and finds pyproject.toml
         with in_directory(src_dir):
             result = runner.invoke(app, ["config", "list"])
 
         assert result.exit_code == 0
         output = json.loads(result.output)
-        # Falls back to showing all servers when no project file found in cwd
-        assert len(output) > 1
+        # Detects Python from pyproject.toml in parent directory
+        assert len(output) == 1
+        assert "basedpyright" in output
 
     def test_e2e_005_config_list_yaml_format(
         self, real_python_project: Path, clean_config_state: None
@@ -313,22 +316,26 @@ class TestConfigEdgeCases:
     def test_edge_004_polyglot_project_priority(
         self, tmp_path: Path, clean_config_state: None
     ) -> None:
-        """EDGE-004: Polyglot project uses highest priority language."""
+        """EDGE-004: Polyglot project uses config order for priority.
+
+        With root_markers, first-configured language wins when multiple
+        markers match. Python is first in DEFAULT_CONFIG order.
+        """
         polyglot = tmp_path / "polyglot"
         polyglot.mkdir()
         # Create multiple project markers
-        (polyglot / "pyproject.toml").touch()  # Python (priority 6)
-        (polyglot / "tsconfig.json").write_text("{}")  # TypeScript (priority 8)
-        (polyglot / "Cargo.toml").touch()  # Rust (priority 10 - highest)
+        (polyglot / "pyproject.toml").touch()  # Python marker
+        (polyglot / "tsconfig.json").write_text("{}")  # TypeScript marker
+        (polyglot / "Cargo.toml").touch()  # Rust marker
 
         with in_directory(polyglot):
             result = runner.invoke(app, ["config", "list"])
 
         assert result.exit_code == 0
         output = json.loads(result.output)
-        # Rust has highest priority (10 > 8 > 6), so should detect rust-analyzer
+        # Python is first in config order, so basedpyright wins
         assert len(output) == 1
-        assert "rust-analyzer" in output
+        assert "basedpyright" in output
 
     def test_edge_005_empty_project_fallback(
         self, tmp_path: Path, clean_config_state: None
@@ -395,29 +402,30 @@ class TestConfigEdgeCases:
         from llm_lsp_cli.config import capabilities
 
         capabilities_dir = Path(capabilities.__file__).parent
-        pyright_file = capabilities_dir / "pyright-langserver.json"
-        backup = pyright_file.read_text()
+        # Use basedpyright-langserver.json which is the default Python server
+        basedpyright_file = capabilities_dir / "basedpyright-langserver.json"
+        backup = basedpyright_file.read_text()
 
         try:
             # Write invalid JSON
-            pyright_file.write_text("{ invalid json }")
+            basedpyright_file.write_text("{ invalid json }")
 
             with in_directory(python_project_dir):
                 result = runner.invoke(app, ["config", "list"])
 
-            # Should skip invalid file and show others
+            # Should skip invalid file and show warning
             assert result.exit_code == 0
             # Warning message may be in output, extract JSON part (starts with '{')
             json_start = result.output.find("{")
             assert json_start != -1, "No JSON found in output"
             output = json.loads(result.output[json_start:])
-            # Should have other servers but not pyright
-            assert "pyright" not in output or "rust-analyzer" in output or "typescript" in output
+            # Should have other servers but not basedpyright
+            assert "basedpyright" not in output or "rust-analyzer" in output or "typescript" in output
             # Verify warning message is present
             assert "Capabilities not found" in result.output
         finally:
             # Restore
-            pyright_file.write_text(backup)
+            basedpyright_file.write_text(backup)
 
     def test_edge_009_config_list_server_filter_substring_match(
         self, python_project_dir: Path, clean_config_state: None

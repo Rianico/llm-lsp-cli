@@ -12,30 +12,56 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "python": {
             "command": "basedpyright-langserver",
             "args": ["--stdio"],
+            "root_markers": ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", ".git"],
         },
         # TypeScript:
         #   - typescript-language-server (Recommended) - https://github.com/typescript-language-server/typescript-language-server
-        "typescript": {"command": "typescript-language-server", "args": ["--stdio"]},
+        "typescript": {
+            "command": "typescript-language-server",
+            "args": ["--stdio"],
+            "root_markers": ["tsconfig.json", "package.json", ".git"],
+        },
         # JavaScript:
         #   - typescript-language-server (Recommended) - https://github.com/typescript-language-server/typescript-language-server
-        "javascript": {"command": "typescript-language-server", "args": ["--stdio"]},
+        "javascript": {
+            "command": "typescript-language-server",
+            "args": ["--stdio"],
+            "root_markers": ["package.json", ".git"],
+        },
         # Rust:
         #   - rust-analyzer (Recommended) - https://github.com/rust-lang/rust-analyzer
-        "rust": {"command": "rust-analyzer"},
+        "rust": {
+            "command": "rust-analyzer",
+            "root_markers": ["Cargo.toml", ".git"],
+        },
         # Go:
         #   - gopls (Recommended) - https://github.com/golang/tools/tree/master/gopls
-        "go": {"command": "gopls"},
+        "go": {
+            "command": "gopls",
+            "root_markers": ["go.mod", "go.sum", ".git"],
+        },
         # Java:
         #   - jdtls (Recommended) - https://github.com/eclipse-jdtls/eclipse.jdt.ls
-        "java": {"command": "jdtls"},
+        "java": {
+            "command": "jdtls",
+            "root_markers": [
+                "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", ".git",
+            ],
+        },
         # C/C++:
         #   - clangd (Recommended) - https://github.com/llvm/llvm-project/tree/main/clang-tools-extra/clangd
         #   - ccls (Alternative) - https://github.com/MaskRay/ccls
-        "cpp": {"command": "clangd"},
+        "cpp": {
+            "command": "clangd",
+            "root_markers": ["compile_commands.json", "CMakeLists.txt", "Makefile", ".git"],
+        },
         # C#:
         #   - OmniSharp (Recommended) - https://github.com/OmniSharp/omnisharp-roslyn
         #   - csharp-ls (Alternative) - https://github.com/razzmatazz/csharp-language-server
-        "csharp": {"command": "OmniSharp"},
+        "csharp": {
+            "command": "OmniSharp",
+            "root_markers": ["*.sln", "*.csproj", ".git"],
+        },
     },
     "trace_lsp": False,
     "timeout_seconds": 30,

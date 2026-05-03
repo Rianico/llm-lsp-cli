@@ -11,6 +11,10 @@ class LanguageServerConfig(BaseModel):
     command: str = Field(..., description="Server executable command")
     args: list[str] = Field(default_factory=list, description="Command line arguments")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    root_markers: list[str] = Field(
+        default_factory=list,
+        description="Marker files or glob patterns for workspace root detection",
+    )
 
 
 class LanguageTestFilterConfig(BaseModel):
