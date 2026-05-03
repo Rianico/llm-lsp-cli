@@ -82,3 +82,29 @@ The mtime-aware open-before-change is safe because:
 **Related:**
 - ADR 004 (LSP document synchronization) - This extends the internal pattern to external API
 - ADR 008 (mtime-based cache invalidation) - Stale cache detected automatically on subsequent requests
+
+## Implementation Notes
+
+### Two-Layer Protocol Distinction
+
+The `did-change` CLI command uses a two-layer protocol pattern:
+
+| Layer | Communication | Method Type | Rationale |
+|-------|---------------|-------------|-----------|
+| CLI → Daemon | JSON-RPC over UNIX socket | **Request** (has ID, expects response) | Reliability: CLI knows if daemon received the notification |
+| Daemon → LSP Server | LSP protocol | **Notification** (no ID, fire-and-forget) | Per LSP 3.17 spec: `textDocument/didChange` is a notification |
+
+**Why CLI → Daemon uses Request:**
+- CLI needs acknowledgment that daemon processed the request
+- Error handling: CLI can report failures to the user
+- Debugging: Request/response pairs are traceable in logs
+
+**Why Daemon → LSP Server uses Notification:**
+- LSP spec defines `textDocument/didChange` as a notification
+- LSP servers don't respond to notifications
+- Fire-and-forget is appropriate for document sync
+
+**Bug History:**
+- Initial implementation used `send_notification()` for CLI → Daemon
+- Daemon's `_handle_notification()` was a no-op, so `textDocument/didChange` was never sent to LSP server
+- Fix: Changed to `send_request()` so daemon processes via `_handle_did_change()`
