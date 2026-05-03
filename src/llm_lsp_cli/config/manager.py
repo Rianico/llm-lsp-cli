@@ -10,6 +10,7 @@ import yaml
 from llm_lsp_cli.infrastructure.config.exceptions import ConfigParseError
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+from llm_lsp_cli.utils.yaml_formatter import dump_config
 
 from .defaults import DEFAULT_CONFIG
 from .initialize_params import build_initialize_params
@@ -156,9 +157,7 @@ class ConfigManager:
 
         if not global_path.exists():
             global_path.parent.mkdir(parents=True, exist_ok=True)
-            global_path.write_text(yaml.dump(
-                DEFAULT_CONFIG, default_flow_style=False, sort_keys=False
-            ))
+            global_path.write_text(dump_config(DEFAULT_CONFIG))
             return ConfigLoader.load(global_path, defaults={}), True
 
         return ConfigLoader.load(global_path, defaults={}), False
@@ -215,7 +214,7 @@ class ConfigManager:
         if config_file.exists():
             return False
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        config_file.write_text(yaml.dump(DEFAULT_CONFIG, default_flow_style=False, sort_keys=False))
+        config_file.write_text(dump_config(DEFAULT_CONFIG))
         return True
 
     @classmethod
