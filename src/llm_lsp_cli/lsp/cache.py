@@ -209,6 +209,12 @@ class DiagnosticCache:
     async def increment_version(self, uri: str) -> None:
         """Increment the document version (called on didChange).
 
+        Note: We do NOT clear last_result_id here because:
+        - The file content may change without affecting diagnostics (e.g., comments)
+        - The LSP server uses previousResultId to return "unchanged" optimization
+        - The server tracks document versions internally and will return fresh
+          diagnostics when appropriate
+
         Args:
             uri: File URI that changed
         """

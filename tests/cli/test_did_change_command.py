@@ -53,7 +53,7 @@ class TestDidChangeCommand:
         # Patch where DaemonClient is imported
         with patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_daemon_client_class:
             mock_instance = mock_daemon_client_class.return_value
-            mock_instance.send_notification = AsyncMock()
+            mock_instance.request = AsyncMock(return_value={"status": "acknowledged"})
             mock_instance.close = AsyncMock()
 
             result = runner.invoke(
@@ -77,7 +77,7 @@ class TestDidChangeCommand:
         """Verify CLI command outputs acknowledgment message."""
         with patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_daemon_client_class:
             mock_instance = mock_daemon_client_class.return_value
-            mock_instance.send_notification = AsyncMock()
+            mock_instance.request = AsyncMock(return_value={"status": "acknowledged"})
             mock_instance.close = AsyncMock()
 
             result = runner.invoke(
@@ -157,7 +157,7 @@ class TestDidChangeCommand:
         """Verify CLI command resolves relative file paths correctly."""
         with patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_daemon_client_class:
             mock_instance = mock_daemon_client_class.return_value
-            mock_instance.send_notification = AsyncMock()
+            mock_instance.request = AsyncMock(return_value={"status": "acknowledged"})
             mock_instance.close = AsyncMock()
 
             # Change to workspace directory and use relative path
@@ -188,7 +188,7 @@ class TestDidChangeCommand:
 
         with patch("llm_lsp_cli.daemon_client.DaemonClient") as mock_daemon_client_class:
             mock_instance = mock_daemon_client_class.return_value
-            mock_instance.send_notification = AsyncMock()
+            mock_instance.request = AsyncMock(return_value={"status": "acknowledged"})
             mock_instance.close = AsyncMock()
 
             result = runner.invoke(

@@ -11,7 +11,6 @@ from llm_lsp_cli.commands.shared import (
     build_request_context,
     resolve_effective_options,
     resolve_workspace_path,
-    send_notification,
     send_request,
     validate_file_in_workspace,
 )
@@ -973,7 +972,9 @@ def did_change(
     file_path = validate_file_in_workspace(file, workspace)
 
     try:
-        send_notification(
+        # Use send_request to get acknowledgment (not fire-and-forget notification)
+        # Per ADR-0010: "Return acknowledgment (not diagnostics)"
+        response = send_request(
             LSPConstants.TEXT_DOCUMENT_DID_CHANGE,
             {
                 "workspacePath": workspace_path,
@@ -981,7 +982,11 @@ def did_change(
             },
             language=language or "python",
         )
-        typer.echo("Change acknowledged.")
+        # Response should be {"status": "acknowledged"}
+        if response and response.get("status") == "acknowledged":
+            typer.echo("Change acknowledged.")
+        else:
+            typer.echo(f"Warning: Unexpected response: {response}")
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
