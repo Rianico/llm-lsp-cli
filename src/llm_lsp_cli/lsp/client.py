@@ -523,7 +523,9 @@ class LSPClient:
             - result_id string if present in response, otherwise None
 
         Note:
-            For "unchanged" responses, returns cached diagnostics with None result_id.
+            For "unchanged" responses, returns cached diagnostics with the
+            server's resultId preserved. This allows future requests to use
+            the updated resultId for incremental diagnostic updates.
             Returns ([], None) for None or unrecognized result types.
             Returns raw dicts from LSP server, typed as dict[str, Any]
             since LSP servers may return slightly different structures.
@@ -534,9 +536,10 @@ class LSPClient:
         if isinstance(result, dict):
             if result.get("kind") == "unchanged":
                 uri = result.get("uri", "")
+                result_id = result.get("resultId")  # Preserve server's resultId
                 file_state = self._diagnostic_cache.get_file_state_sync(uri)
-                self._log_cache_hit_server(uri, file_state, result.get("resultId"))
-                return (self._diagnostic_cache.get_cached(uri), None)
+                self._log_cache_hit_server(uri, file_state, result_id)
+                return (self._diagnostic_cache.get_cached(uri), result_id)
             items = result.get("items", [])
             result_id = result.get("resultId")
             logger.debug(f"[← res textDocument/diagnostic] fresh: {len(items)} diagnostics")
