@@ -703,7 +703,8 @@ class TestTransformSymbols:
         assert isinstance(result[0], SymbolRecord)
         assert result[0].name == "MyClass"
         assert result[0].kind == 5
-        assert result[0].file == "src/models.py"
+        # File path is now absolute (resolve() for macOS /var -> /private/var)
+        assert result[0].file == str((temp_dir / "src" / "models.py").resolve())
         assert isinstance(result[0].range, Range)
         assert result[0].range.to_compact() == "1:1-51:1"
 
@@ -772,7 +773,8 @@ class TestTransformSymbols:
             },
         ]
         result = formatter.transform_symbols(symbols)
-        assert result[0].file == "src/utils.py"
+        # File path is now absolute (resolve() for macOS /var -> /private/var)
+        assert result[0].file == str((temp_dir / "src" / "utils.py").resolve())
 
     def test_transform_formats_range(self, temp_dir: Path) -> None:
         """Range formatting integration."""
@@ -809,7 +811,8 @@ class TestTransformLocations:
 
         assert len(result) == 2
         assert isinstance(result[0], LocationRecord)
-        assert result[0].file == "src/main.py"
+        # File path is now absolute (resolve() for macOS /var -> /private/var)
+        assert result[0].file == str((temp_dir / "src" / "main.py").resolve())
         assert isinstance(result[0].range, Range)
         assert result[0].range.to_compact() == "6:1-6:21"
 
@@ -830,7 +833,8 @@ class TestTransformLocations:
             },
         ]
         result = formatter.transform_locations(locations)
-        assert result[0].file == "src/main.py"
+        # File path is now absolute (resolve() for macOS /var -> /private/var)
+        assert result[0].file == str((temp_dir / "src" / "main.py").resolve())
 
 
 class TestSymbolsToText:
@@ -1279,7 +1283,8 @@ class TestSymbolsToCsv:
         reader = csv.DictReader(io.StringIO(result))
         rows = list(reader)
         assert len(rows) == 1
-        assert rows[0]["file"] == "file,with,commas.py"
+        # File path is now absolute, check it contains the filename with commas
+        assert "file,with,commas.py" in rows[0]["file"]
 
     def test_csv_uses_empty_string_for_none(self, temp_dir: Path) -> None:
         """Null handling in CSV."""
@@ -1388,7 +1393,8 @@ class TestLocationsToJson:
         parsed = json.loads(result)
         assert isinstance(parsed, dict)
         assert len(parsed["items"]) == 1
-        assert parsed["items"][0]["file"] == "src/test.py"
+        # File path is now absolute (resolve() for macOS /var -> /private/var)
+        assert parsed["items"][0]["file"] == str((temp_dir / "src" / "test.py").resolve())
 
     def test_locations_json_empty(self, temp_dir: Path) -> None:
         """Empty items array with wrapper."""

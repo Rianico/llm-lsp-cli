@@ -10,7 +10,7 @@ from llm_lsp_cli.utils.formatter import (
     format_workspace_symbols_csv,
     get_symbol_kind_name,
 )
-from llm_lsp_cli.utils.uri import uri_to_relative_path
+from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
 __all__ = [
     "OutputFormat",
@@ -21,5 +21,5 @@ __all__ = [
     "format_document_symbols_csv",
     "format_workspace_symbols_csv",
     "format_hover_csv",
-    "uri_to_relative_path",
+    "uri_to_absolute_path",
 ]

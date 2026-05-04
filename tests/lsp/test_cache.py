@@ -153,44 +153,46 @@ class TestDiagnosticCache:
     class TestUriConversion:
         """URI conversion tests."""
 
-        def test_uri_to_relative_path_normal(
+        def test_uri_to_absolute_path_normal(
             self,
             diagnostic_cache: DiagnosticCache,
             sample_file_in_workspace: Path,
         ) -> None:
-            """Standard file inside workspace returns relative path."""
+            """Standard file inside workspace returns absolute path."""
             uri = sample_file_in_workspace.as_uri()
-            relative_path = diagnostic_cache._uri_to_relative_path(uri)
-            assert relative_path == "src/module/file.py"
+            absolute_path = diagnostic_cache._uri_to_absolute_path(uri)
+            # Now returns absolute path
+            assert absolute_path == str(sample_file_in_workspace.resolve())
 
-        def test_uri_to_relative_path_root_file(
+        def test_uri_to_absolute_path_root_file(
             self,
             diagnostic_cache: DiagnosticCache,
             temp_dir: Path,
         ) -> None:
-            """File at workspace root returns filename only."""
+            """File at workspace root returns absolute path."""
             root_file = temp_dir / "root_file.py"
             root_file.write_text("# root file")
             uri = root_file.as_uri()
-            relative_path = diagnostic_cache._uri_to_relative_path(uri)
-            assert relative_path == "root_file.py"
+            absolute_path = diagnostic_cache._uri_to_absolute_path(uri)
+            # Now returns absolute path
+            assert absolute_path == str(root_file.resolve())
 
-        def test_uri_to_relative_path_external(
+        def test_uri_to_absolute_path_external(
             self,
             diagnostic_cache: DiagnosticCache,
         ) -> None:
-            """File outside workspace returns absolute path (fallback)."""
+            """File outside workspace returns absolute path."""
             external_uri = "file:///external/path/file.py"
-            relative_path = diagnostic_cache._uri_to_relative_path(external_uri)
-            # Fallback returns absolute path
-            assert relative_path == "/external/path/file.py"
+            absolute_path = diagnostic_cache._uri_to_absolute_path(external_uri)
+            # Returns absolute path
+            assert absolute_path == "/external/path/file.py"
 
-        def test_uri_to_relative_path_symlink(
+        def test_uri_to_absolute_path_symlink(
             self,
             diagnostic_cache: DiagnosticCache,
             sample_file_in_workspace: Path,
         ) -> None:
-            """Symlinked file resolves and returns relative path."""
+            """Symlinked file resolves and returns absolute path."""
             # Create symlink
             symlink_path = diagnostic_cache._workspace_root / "symlink_file.py"
             if symlink_path.exists():
@@ -198,9 +200,9 @@ class TestDiagnosticCache:
             symlink_path.symlink_to(sample_file_in_workspace)
 
             uri = symlink_path.as_uri()
-            relative_path = diagnostic_cache._uri_to_relative_path(uri)
-            # Should resolve symlink and return relative path
-            assert "symlink_file.py" in relative_path or "src/module/file.py" in relative_path
+            absolute_path = diagnostic_cache._uri_to_absolute_path(uri)
+            # Should resolve symlink and return absolute path
+            assert str(symlink_path.resolve()) in absolute_path or str(sample_file_in_workspace.resolve()) in absolute_path
 
 
 # =============================================================================

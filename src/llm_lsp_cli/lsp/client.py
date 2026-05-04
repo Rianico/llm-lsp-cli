@@ -565,7 +565,7 @@ class LSPClient:
             current_mtime: Current file modification time
         """
         # Extract relative path for cleaner log output
-        rel_path = self._uri_to_relative_path(uri)
+        rel_path = self._uri_to_absolute_path(uri)
         diag_count = len(file_state.diagnostics)
 
         logger.info(
@@ -588,7 +588,7 @@ class LSPClient:
             file_state: FileState object from cache
             result_id: Result ID from server response
         """
-        rel_path = self._uri_to_relative_path(uri)
+        rel_path = self._uri_to_absolute_path(uri)
         diag_count = len(file_state.diagnostics)
 
         logger.info(
@@ -597,8 +597,8 @@ class LSPClient:
             f"diags={diag_count}"
         )
 
-    def _uri_to_relative_path(self, uri: str) -> str:
-        """Convert URI to relative path for cleaner log output.
+    def _uri_to_absolute_path(self, uri: str) -> str:
+        """Convert URI to absolute path for cleaner log output.
 
         Delegates to the shared utility function.
 
@@ -606,9 +606,9 @@ class LSPClient:
             uri: File URI
 
         Returns:
-            Relative path string within workspace
+            Absolute path string
         """
-        from llm_lsp_cli.utils.uri import uri_to_relative_path
+        from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
         # Handle case where workspace_path is not set (mock clients in tests)
         if not hasattr(self, "workspace_path") or self.workspace_path is None:
@@ -619,7 +619,7 @@ class LSPClient:
                 return uri
             return parsed.path
 
-        return uri_to_relative_path(uri, self.workspace_path)
+        return uri_to_absolute_path(uri, self.workspace_path)
 
     async def request_workspace_diagnostics(
         self,

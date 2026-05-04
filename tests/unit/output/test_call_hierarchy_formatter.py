@@ -117,7 +117,7 @@ class TestTransformIncomingCalls:
         assert len(records[0].from_ranges) == 2
 
     def test_transform_incoming_calls_uri_normalization(self, formatter: CompactFormatter) -> None:
-        """Transform converts absolute URI to relative path from workspace."""
+        """Transform converts absolute URI to absolute path."""
         calls = [
             {
                 "from": {
@@ -139,8 +139,8 @@ class TestTransformIncomingCalls:
 
         records = formatter.transform_call_hierarchy_incoming(calls)
 
-        # URI should be normalized to relative path
-        assert records[0].file == "src/caller.py"
+        # URI should be normalized to absolute path
+        assert records[0].file == str((formatter.workspace / "src" / "caller.py").resolve())
 
 
 class TestTransformOutgoingCalls:

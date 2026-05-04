@@ -24,7 +24,7 @@ from llm_lsp_cli.output.formatter import (
     group_symbols_by_file,
 )
 from llm_lsp_cli.output.header_builder import CommandInfo, build_alert_header
-from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative, resolve_path_for_header
+from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute, resolve_path_for_header_absolute
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.output.server_name import get_server_display_name
 from llm_lsp_cli.test_filter import (
@@ -91,8 +91,8 @@ def definition(
 
         # Build header for all formats
         server_name = get_server_display_name(None, "", language=context.language)
-        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-        header = build_alert_header(CommandInfo(server_name, "definition", relative_path))
+        file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+        header = build_alert_header(CommandInfo(server_name, "definition", file_path))
 
         if context.output_format == OutputFormat.TEXT:
             output = dispatcher.format_list(records, context.output_format)
@@ -106,7 +106,7 @@ def definition(
                     records,
                     context.output_format,
                     _source=server_name,
-                    file_path=relative_path,
+                    file_path=file_path,
                     command="definition",
                 )
             )
@@ -177,11 +177,11 @@ def references(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(
-                    CommandInfo(server_name, "references", relative_path)
+                    CommandInfo(server_name, "references", file_path)
                 )
                 typer.echo(
                     dispatcher.format_grouped_text(grouped, items_key="references", header=header)
@@ -252,8 +252,8 @@ def document_symbol(
             file_header = f"{context.file_path}:" if context.file_path else None
             # Add header for TEXT format
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
-            header = build_alert_header(CommandInfo(server_name, "document-symbol", relative_path))
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            header = build_alert_header(CommandInfo(server_name, "document-symbol", file_path))
             typer.echo(f"{header}\n{render_text(nodes, file_header=file_header)}")
         else:
             formatter = CompactFormatter(context.workspace_path)
@@ -261,13 +261,13 @@ def document_symbol(
             dispatcher = OutputDispatcher()
             # Build source for JSON/YAML
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
             typer.echo(
                 dispatcher.format_list(
                     records,
                     context.output_format,
                     _source=server_name,
-                    file_path=relative_path,
+                    file_path=file_path,
                     command="document-symbol",
                 )
             )
@@ -419,11 +419,11 @@ def incoming_calls(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(
-                    CommandInfo(server_name, "incoming-calls", relative_path)
+                    CommandInfo(server_name, "incoming-calls", file_path)
                 )
                 output = dispatcher.format_list(records, context.output_format)
                 if output:
@@ -436,7 +436,7 @@ def incoming_calls(
                         records,
                         context.output_format,
                         _source=server_name,
-                        file_path=relative_path,
+                        file_path=file_path,
                         command="incoming-calls",
                     )
                 )
@@ -503,11 +503,11 @@ def outgoing_calls(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(
-                    CommandInfo(server_name, "outgoing-calls", relative_path)
+                    CommandInfo(server_name, "outgoing-calls", file_path)
                 )
                 output = dispatcher.format_list(records, context.output_format)
                 if output:
@@ -520,7 +520,7 @@ def outgoing_calls(
                         records,
                         context.output_format,
                         _source=server_name,
-                        file_path=relative_path,
+                        file_path=file_path,
                         command="outgoing-calls",
                     )
                 )
@@ -574,10 +574,10 @@ def completion(
 
         # Build source header
         server_name = get_server_display_name(None, "", language=context.language)
-        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+        file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
         if context.output_format == OutputFormat.TEXT:
-            header = build_alert_header(CommandInfo(server_name, "completion", relative_path))
+            header = build_alert_header(CommandInfo(server_name, "completion", file_path))
             output = dispatcher.format_list(records, context.output_format)
             if output:
                 typer.echo(f"{header}\n{output}")
@@ -589,7 +589,7 @@ def completion(
                     records,
                     context.output_format,
                     _source=server_name,
-                    file_path=relative_path,
+                    file_path=file_path,
                     command="completion",
                 )
             )
@@ -644,10 +644,10 @@ def hover(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
             if context.output_format == OutputFormat.TEXT:
-                header = build_alert_header(CommandInfo(server_name, "hover", relative_path))
+                header = build_alert_header(CommandInfo(server_name, "hover", file_path))
                 output = dispatcher.format(record, context.output_format)
                 typer.echo(f"{header}\n{output}")
             else:
@@ -656,7 +656,7 @@ def hover(
                         record,
                         context.output_format,
                         _source=server_name,
-                        file_path=relative_path,
+                        file_path=file_path,
                         command="hover",
                     )
                 )
@@ -714,8 +714,8 @@ def diagnostics(
 
         # Build header for all formats
         server_name = get_server_display_name(None, "", language=effective_language)
-        relative_path = resolve_path_for_header(str(file_path), workspace_path)
-        header = build_alert_header(CommandInfo(server_name, "diagnostics", relative_path))
+        file_path = resolve_path_for_header_absolute(str(file_path), workspace_path)
+        header = build_alert_header(CommandInfo(server_name, "diagnostics", file_path))
 
         if effective_format == OutputFormat.TEXT:
             output = dispatcher.format_list(records, effective_format)
@@ -729,7 +729,7 @@ def diagnostics(
                     records,
                     effective_format,
                     _source=server_name,
-                    file_path=relative_path,
+                    file_path=file_path,
                     command="diagnostics",
                 )
             )
@@ -790,8 +790,8 @@ def workspace_diagnostics(
             uri = item.get("uri", "")
             file_diagnostics = item.get("diagnostics", [])
 
-            # Use normalize_uri_to_relative for proper relative paths
-            file_path = normalize_uri_to_relative(uri, Path(workspace_path))
+            # Use normalize_uri_to_absolute for proper absolute paths
+            file_path = normalize_uri_to_absolute(uri, Path(workspace_path))
             records = formatter.transform_diagnostics(file_diagnostics, file_path=file_path)
             all_records.extend(records)
 
@@ -925,10 +925,10 @@ def rename(
 
         # Build source header
         server_name = get_server_display_name(None, "", language=context.language)
-        relative_path = resolve_path_for_header(str(context.file_path), context.workspace_path)
+        file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
 
         if context.output_format == OutputFormat.TEXT:
-            header = build_alert_header(CommandInfo(server_name, "rename", relative_path))
+            header = build_alert_header(CommandInfo(server_name, "rename", file_path))
             output = dispatcher.format_list(records, context.output_format)
             if output:
                 typer.echo(f"{header}\n{output}")
@@ -940,7 +940,7 @@ def rename(
                     records,
                     context.output_format,
                     _source=server_name,
-                    file_path=relative_path,
+                    file_path=file_path,
                     command="rename",
                 )
             )

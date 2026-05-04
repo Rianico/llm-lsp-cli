@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
-from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative
+from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
 
 
@@ -452,7 +452,7 @@ class CompactFormatter:
         range_obj = location.get("range", sym.get("range", {}))
 
         # Normalize URI to relative path
-        file_path = normalize_uri_to_relative(uri, self._workspace)
+        file_path = normalize_uri_to_absolute(uri, self._workspace)
 
         # Extract fields
         name = sym.get("name", "")
@@ -514,7 +514,7 @@ class CompactFormatter:
             range_obj = loc.get("range", {})
 
             # Normalize URI to relative path
-            file_path = normalize_uri_to_relative(uri, self._workspace)
+            file_path = normalize_uri_to_absolute(uri, self._workspace)
             range_val = Range.from_dict(range_obj)
 
             records.append(
@@ -637,7 +637,7 @@ class CompactFormatter:
         range_obj = item.get("range", {})
 
         # Normalize URI to relative path
-        file_path = normalize_uri_to_relative(uri, self._workspace)
+        file_path = normalize_uri_to_absolute(uri, self._workspace)
 
         # Extract fields
         name = item.get("name", "")

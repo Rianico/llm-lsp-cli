@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from llm_lsp_cli.output.formatter import Position, Range, RenameEditRecord
-from llm_lsp_cli.output.path_resolver import normalize_uri_to_relative
+from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 
 from .backup_manager import BackupManager, RenameSession
 
@@ -310,7 +310,7 @@ class RenameService:
             # Fallback to changes field
             changes = workspace_edit.get("changes", {})
             for uri, edits in changes.items():
-                file_path = normalize_uri_to_relative(uri, workspace_path)
+                file_path = normalize_uri_to_absolute(uri, workspace_path)
                 full_path = workspace_path / file_path
                 content = full_path.read_text() if full_path.exists() else ""
                 records.extend(self._create_edit_records(file_path, content, edits))
@@ -322,7 +322,7 @@ class RenameService:
 
                 text_doc = doc_change.get("textDocument", {})
                 uri = text_doc.get("uri", "")
-                file_path = normalize_uri_to_relative(uri, workspace_path)
+                file_path = normalize_uri_to_absolute(uri, workspace_path)
                 full_path = workspace_path / file_path
                 content = full_path.read_text() if full_path.exists() else ""
                 edits = doc_change.get("edits", [])

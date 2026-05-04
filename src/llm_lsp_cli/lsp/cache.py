@@ -1,8 +1,8 @@
-"""Unified diagnostic cache with relative path keys and client-managed version tracking.
+"""Unified diagnostic cache with absolute path keys and client-managed version tracking.
 
 This module implements the DiagnosticCache class as specified in ADR 002.
 It replaces the dual-cache system with a single cache using:
-- Project-relative path keys (not URIs)
+- Absolute path keys (not URIs)
 - FileState dataclass for tracking document state
 - Client-managed version tracking (increment on didChange)
 - Async-safe operations with asyncio.Lock
@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from llm_lsp_cli.utils.uri import uri_to_relative_path
+from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
 from . import types as lsp
 
@@ -47,16 +47,16 @@ class FileState:
 
 
 class DiagnosticCache:
-    """Unified cache for LSP diagnostics using relative path keys.
+    """Unified cache for LSP diagnostics using absolute path keys.
 
     This cache manages diagnostics for all files in a workspace using:
-    - Relative paths as cache keys (resolved from URIs)
+    - Absolute paths as cache keys (resolved from URIs)
     - FileState objects to track document version and state
     - Async-safe operations with asyncio.Lock for concurrent access
 
     Attributes:
         _workspace_root: The root directory of the workspace
-        _cache: Internal storage mapping relative paths to FileState objects
+        _cache: Internal storage mapping absolute paths to FileState objects
         _lock: Asyncio lock for thread-safe mutations
     """
 
@@ -70,8 +70,8 @@ class DiagnosticCache:
         self._cache: dict[str, FileState] = {}
         self._lock = asyncio.Lock()
 
-    def _uri_to_relative_path(self, uri: str) -> str:
-        """Convert a file URI to a project-relative path.
+    def _uri_to_absolute_path(self, uri: str) -> str:
+        """Convert a file URI to an absolute path.
 
         Delegates to the shared utility function.
 
@@ -79,10 +79,9 @@ class DiagnosticCache:
             uri: File URI (e.g., "file:///workspace/src/module/file.py")
 
         Returns:
-            Relative path within workspace (e.g., "src/module/file.py"),
-            or absolute path if file is outside workspace (fallback)
+            Absolute path (e.g., "/workspace/src/module/file.py")
         """
-        return uri_to_relative_path(uri, self._workspace_root)
+        return uri_to_absolute_path(uri, self._workspace_root)
 
     async def update_diagnostics(
         self,
@@ -98,7 +97,7 @@ class DiagnosticCache:
             result_id: Optional result ID from LSP server response
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
             # Update diagnostics but preserve document_version and is_open
             state.diagnostics = list(diagnostics)  # Defensive copy
@@ -117,7 +116,7 @@ class DiagnosticCache:
             List of diagnostic items, or empty list if not cached
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key)
             if state is None:
                 return []
@@ -136,7 +135,7 @@ class DiagnosticCache:
         Returns:
             List of diagnostic items, or empty list if not cached
         """
-        key = self._uri_to_relative_path(uri)
+        key = self._uri_to_absolute_path(uri)
         state = self._cache.get(key)
         if state is None:
             return []
@@ -152,7 +151,7 @@ class DiagnosticCache:
             FileState object for the file (with defaults if not cached)
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             return self._cache.get(key, FileState())
 
     def get_file_state_sync(self, uri: str) -> FileState:
@@ -167,7 +166,7 @@ class DiagnosticCache:
         Returns:
             FileState object for the file (with defaults if not cached)
         """
-        key = self._uri_to_relative_path(uri)
+        key = self._uri_to_absolute_path(uri)
         return self._cache.get(key, FileState())
 
     async def on_did_open(self, uri: str, mtime: float | None = None) -> None:
@@ -183,7 +182,7 @@ class DiagnosticCache:
             mtime: Optional file modification time (epoch seconds)
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
             state.is_open = True
             state.document_version += 1
@@ -201,7 +200,7 @@ class DiagnosticCache:
             mtime: File modification time (epoch seconds)
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
             state.mtime = mtime
             self._cache[key] = state
@@ -219,7 +218,7 @@ class DiagnosticCache:
             uri: File URI that changed
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
             state.document_version += 1
             self._cache[key] = state
@@ -235,7 +234,7 @@ class DiagnosticCache:
             version: New version number
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
             # Only update if version is not less than current (monotonic)
             if version >= state.document_version:
@@ -261,7 +260,7 @@ class DiagnosticCache:
             True if diagnostics are stale, False if fresh or not cached.
         """
         async with self._lock:
-            key = self._uri_to_relative_path(uri)
+            key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key)
             if state is None:
                 return False
