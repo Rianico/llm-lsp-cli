@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -12,6 +13,33 @@ import yaml
 
 from llm_lsp_cli.output.protocol import FormattableRecord
 from llm_lsp_cli.utils import OutputFormat
+
+logger = logging.getLogger(__name__)
+
+
+def _build_top_level_dict(
+    _source: str | None,
+    file_path: str | None,
+    command: str | None,
+) -> dict[str, Any]:
+    """Build top-level metadata dict with non-None values.
+
+    Args:
+        _source: Server name for JSON/YAML output
+        file_path: Optional file path to include at top level
+        command: Optional command name
+
+    Returns:
+        Dict with only the provided non-None values.
+    """
+    top_level: dict[str, Any] = {}
+    if _source is not None:
+        top_level["_source"] = _source
+    if file_path is not None:
+        top_level["file"] = file_path
+    if command is not None:
+        top_level["command"] = command
+    return top_level
 
 
 class OutputDispatcher:
@@ -43,28 +71,16 @@ class OutputDispatcher:
         """
         match fmt:
             case OutputFormat.JSON:
+                top_level = _build_top_level_dict(_source, file_path, command)
                 data = record.to_compact_dict()
-                top_level: dict[str, Any] = {}
-                if _source is not None:
-                    top_level["_source"] = _source
-                if file_path is not None:
-                    top_level["file"] = file_path
-                if command is not None:
-                    top_level["command"] = command
                 if top_level:
                     data = {**top_level, **data}
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
+                top_level = _build_top_level_dict(_source, file_path, command)
                 yaml_data = record.to_compact_dict()
-                yaml_top_level: dict[str, Any] = {}
-                if _source is not None:
-                    yaml_top_level["_source"] = _source
-                if file_path is not None:
-                    yaml_top_level["file"] = file_path
-                if command is not None:
-                    yaml_top_level["command"] = command
-                if yaml_top_level:
-                    yaml_data = {**yaml_top_level, **yaml_data}
+                if top_level:
+                    yaml_data = {**top_level, **yaml_data}
                 return str(
                     yaml.dump(
                         yaml_data,
@@ -102,24 +118,12 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 items = [r.to_compact_dict() for r in records]
-                data: dict[str, Any] = {}
-                if _source is not None:
-                    data["_source"] = _source
-                if file_path is not None:
-                    data["file"] = file_path
-                if command is not None:
-                    data["command"] = command
+                data = _build_top_level_dict(_source, file_path, command)
                 data["items"] = items
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
                 yaml_items = [r.to_compact_dict() for r in records]
-                yaml_data: dict[str, Any] = {}
-                if _source is not None:
-                    yaml_data["_source"] = _source
-                if file_path is not None:
-                    yaml_data["file"] = file_path
-                if command is not None:
-                    yaml_data["command"] = command
+                yaml_data = _build_top_level_dict(_source, file_path, command)
                 yaml_data["items"] = yaml_items
                 return str(
                     yaml.dump(
@@ -194,19 +198,11 @@ class OutputDispatcher:
         """
         match fmt:
             case OutputFormat.JSON:
-                data: dict[str, Any] = {}
-                if _source is not None:
-                    data["_source"] = _source
-                if command is not None:
-                    data["command"] = command
+                data = _build_top_level_dict(_source, None, command)
                 data["files"] = grouped_data
                 return json.dumps(data, indent=2)
             case OutputFormat.YAML:
-                grouped_yaml_data: dict[str, Any] = {}
-                if _source is not None:
-                    grouped_yaml_data["_source"] = _source
-                if command is not None:
-                    grouped_yaml_data["command"] = command
+                grouped_yaml_data = _build_top_level_dict(_source, None, command)
                 grouped_yaml_data["files"] = grouped_data
                 return str(
                     yaml.dump(
@@ -325,3 +321,85 @@ class OutputDispatcher:
             str_row = {k: str(v) if v is not None else "" for k, v in row.items()}
             writer.writerow(str_row)
         return output.getvalue()
+
+    def format_rename_grouped(
+        self,
+        records: Sequence[FormattableRecord],
+        fmt: OutputFormat,
+        _source: str | None = None,
+        command: str | None = None,
+    ) -> str:
+        """Format rename edits with grouped structure.
+
+        For JSON/YAML: groups edits by file with hoisted old_text/new_text.
+        For TEXT: shows header line with file groups and indented ranges.
+        For CSV: delegates to format_list for flat output.
+
+        Args:
+            records: Sequence of RenameEditRecord objects
+            fmt: Output format (JSON, YAML, TEXT, CSV)
+            _source: Server name for JSON/YAML output
+            command: Command name (typically "rename")
+
+        Returns:
+            Formatted string representation
+        """
+        from llm_lsp_cli.output.formatter import (
+            RenameEditRecord,
+            group_rename_edits_by_file,
+        )
+
+        # Type narrow to RenameEditRecord
+        rename_records = [r for r in records if isinstance(r, RenameEditRecord)]
+        if len(rename_records) < len(records):
+            logger.debug(
+                "Filtered %d non-RenameEditRecord items in format_rename_grouped",
+                len(records) - len(rename_records),
+            )
+
+        match fmt:
+            case OutputFormat.JSON:
+                old_text, new_text, file_records = group_rename_edits_by_file(rename_records)
+                items = [
+                    {"file": fr.file, "ranges": fr.ranges}
+                    for fr in file_records
+                ]
+                data = _build_top_level_dict(_source, None, command)
+                data["old_text"] = old_text
+                data["new_text"] = new_text
+                data["items"] = items
+                return json.dumps(data, indent=2)
+
+            case OutputFormat.YAML:
+                old_text, new_text, file_records = group_rename_edits_by_file(rename_records)
+                yaml_items = [
+                    {"file": fr.file, "ranges": fr.ranges}
+                    for fr in file_records
+                ]
+                yaml_data = _build_top_level_dict(_source, None, command)
+                yaml_data["old_text"] = old_text
+                yaml_data["new_text"] = new_text
+                yaml_data["items"] = yaml_items
+                return str(
+                    yaml.dump(
+                        yaml_data,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    )
+                )
+
+            case OutputFormat.TEXT:
+                old_text, new_text, file_records = group_rename_edits_by_file(rename_records)
+                if not file_records:
+                    return ""
+                lines: list[str] = [f"Rename: '{old_text}' -> '{new_text}'"]
+                for fr in file_records:
+                    lines.append(f"File: {fr.file}")
+                    for range_str in fr.ranges:
+                        lines.append(f"  - {range_str}")
+                return "\n".join(lines)
+
+            case OutputFormat.CSV:
+                # CSV remains flat - delegate to format_list
+                return self.format_list(records, fmt)

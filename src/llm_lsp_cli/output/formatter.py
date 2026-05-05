@@ -165,7 +165,7 @@ class DiagnosticRecord:
 
     def get_csv_headers(self) -> list[str]:
         """Return CSV headers for diagnostic records."""
-        return ["file", "range", "severity_name", "code", "source", "message", "tags"]
+        return ["file", "range", "severity_name", "code", "message", "tags"]
 
     def get_csv_row(self) -> dict[str, str]:
         """Return a CSV row for this diagnostic."""
@@ -174,7 +174,6 @@ class DiagnosticRecord:
             "range": self.range.to_compact(),
             "severity_name": self.severity_name,
             "code": str(self.code) if self.code is not None else "",
-            "source": self.source,
             "message": self.message,
             "tags": "|".join(get_diagnostic_tag_name(t) for t in self.tags) if self.tags else "",
         }
@@ -600,13 +599,14 @@ class CompactFormatter:
 
         Translates tags to names and uses compact range format.
         Omits severity integer (keeps severity_name only).
+        Omits source field (it's at top level as _source).
         Excludes file - it's at top level.
 
         Args:
             rec: DiagnosticRecord to convert
 
         Returns:
-            Dictionary with only present fields (excludes file)
+            Dictionary with only present fields (excludes file and source)
         """
         obj: dict[str, Any] = {
             "range": rec.range.to_compact(),
@@ -615,8 +615,7 @@ class CompactFormatter:
         }
         if rec.code is not None:
             obj["code"] = rec.code
-        if rec.source:
-            obj["source"] = rec.source
+        # Note: source is omitted - it's hoisted to top level as _source
         if rec.tags:
             obj["tags"] = [get_diagnostic_tag_name(t) for t in rec.tags]
         return obj
@@ -943,3 +942,65 @@ def group_locations_by_file(
         })
 
     return result
+
+
+# =============================================================================
+# Rename Grouping
+# =============================================================================
+
+
+@dataclass
+class RenameFileRecord:
+    """Grouped rename edits for a single file.
+
+    Used by group_rename_edits_by_file to represent all edits in one file.
+    """
+
+    file: str
+    ranges: list[str] = field(default_factory=list)
+
+
+def group_rename_edits_by_file(
+    records: list[RenameEditRecord],
+) -> tuple[str, str, list[RenameFileRecord]]:
+    """Group RenameEditRecord objects by file path.
+
+    Hoists old_text/new_text to command level and groups ranges by file.
+    Files are sorted alphabetically. Ranges within each file are sorted
+    by start position.
+
+    Args:
+        records: List of RenameEditRecord objects to group
+
+    Returns:
+        Tuple of (old_text, new_text, file_records) where file_records
+        is a list of RenameFileRecord objects sorted by file path.
+        Returns ("", "", []) for empty input.
+    """
+    if not records:
+        return "", "", []
+
+    # All records should have the same old_text/new_text
+    old_text = records[0].old_text
+    new_text = records[0].new_text
+
+    # Group by file
+    groups: dict[str, list[RenameEditRecord]] = {}
+    for record in records:
+        file_path = record.file
+        if file_path not in groups:
+            groups[file_path] = []
+        groups[file_path].append(record)
+
+    # Sort by file path and build result with sorted ranges
+    file_records: list[RenameFileRecord] = []
+    for file_path in sorted(groups.keys()):
+        # Sort ranges by start position
+        sorted_records = sorted(
+            groups[file_path],
+            key=lambda r: (r.range.start.line, r.range.start.character),
+        )
+        ranges = [r.range.to_compact() for r in sorted_records]
+        file_records.append(RenameFileRecord(file=file_path, ranges=ranges))
+
+    return old_text, new_text, file_records

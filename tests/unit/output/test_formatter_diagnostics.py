@@ -379,7 +379,7 @@ class TestDiagnosticsToCsv:
     """Tests for diagnostics_to_csv method with compact range."""
 
     def test_diagnostics_to_csv_headers(self) -> None:
-        """CSV has correct headers: file,range,severity_name,code,source,message,tags."""
+        """CSV has correct headers: file,range,severity_name,code,message,tags."""
         rec = DiagnosticRecord(
             file="test.py",
             range=Range(
@@ -397,7 +397,7 @@ class TestDiagnosticsToCsv:
         formatter = CompactFormatter("/tmp/test")
         csv_str = OutputDispatcher().format_list([rec], OutputFormat.CSV)
 
-        expected_headers = "file,range,severity_name,code,source,message,tags"
+        expected_headers = "file,range,severity_name,code,message,tags"
         assert csv_str.startswith(expected_headers)
 
     def test_diagnostics_to_csv_compact_range(
