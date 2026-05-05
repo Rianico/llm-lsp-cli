@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol
 
 
 class IpcTransportPort(Protocol):
@@ -12,7 +12,7 @@ class IpcTransportPort(Protocol):
     messages over an IPC transport (e.g., UNIX domain socket).
     """
 
-    async def send(self, message: dict[str, Any] | bytes) -> bool:
+    async def send(self, message: dict[str, object] | bytes) -> bool:
         """Send a message over the transport.
 
         Args:
@@ -23,7 +23,7 @@ class IpcTransportPort(Protocol):
         """
         ...
 
-    async def receive(self) -> dict[str, Any] | bytes | None:
+    async def receive(self) -> dict[str, object] | bytes | None:
         """Receive a message from the transport.
 
         Returns:

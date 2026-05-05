@@ -1,3 +1,4 @@
+# pyright: reportMissingTypeStubs=false
 """LSP server validation with stderr alerts and GitHub URL hints.
 
 This module validates LSP server executables and provides helpful
@@ -63,7 +64,7 @@ SERVER_INSTALL_URLS: dict[str, str] = {
 
 def validate_server_installed(
     command: str,
-    language: str | None = None,  # noqa: ARG001
+    language: str | None = None,  # pyright: ignore[reportUnusedParameter]
     *,
     is_custom_path: bool = False,
 ) -> str:

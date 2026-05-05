@@ -231,7 +231,7 @@ class TestNormalizeDocumentDiagnostics:
     """Tests for _normalize_document_diagnostics behavior."""
 
     def test_unchanged_returns_cached(self) -> None:
-        """kind: "unchanged" returns cached result."""
+        """kind: "unchanged" returns cached result with preserved resultId."""
         from llm_lsp_cli.lsp.client import LSPClient
 
         client = LSPClient.__new__(LSPClient)
@@ -245,7 +245,7 @@ class TestNormalizeDocumentDiagnostics:
 
         client._diagnostic_cache.get_cached.assert_called_once_with("file:///test.py")
         assert diagnostics == cached_diagnostics
-        assert result_id is None
+        assert result_id == "abc123"  # Server's resultId is preserved for future requests
 
     def test_full_returns_items(self) -> None:
         """Full report returns items list."""

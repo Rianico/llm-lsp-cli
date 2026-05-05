@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Workspace manager for LSP servers."""
 
 import asyncio

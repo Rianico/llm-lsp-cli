@@ -383,8 +383,8 @@ class TestBackwardCompatibility:
         assert _is_test_path("file:///project/main.py") is False
 
     def test_filter_test_locations_backward_compat(self) -> None:
-        """_filter_test_locations should work without language parameter."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        """filter_test_locations should work without language parameter."""
+        from llm_lsp_cli.test_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -392,13 +392,13 @@ class TestBackwardCompatibility:
         ]
 
         # Old API without language parameter
-        result = _filter_test_locations(locations, include_tests=False)
+        result = filter_test_locations(locations, include_tests=False)
         assert len(result) == 1
         assert result[0]["uri"] == "file:///src/main.py"
 
     def test_filter_test_symbols_backward_compat(self) -> None:
-        """_filter_test_symbols should work without language parameter."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        """filter_test_symbols should work without language parameter."""
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
         symbols = [
             {"name": "Main", "location": {"uri": "file:///src/main.py"}},
@@ -406,6 +406,6 @@ class TestBackwardCompatibility:
         ]
 
         # Old API without language parameter
-        result = _filter_test_symbols(symbols, include_tests=False)
+        result = filter_test_symbols(symbols, include_tests=False)
         assert len(result) == 1
         assert result[0]["name"] == "Main"

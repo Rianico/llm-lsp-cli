@@ -1,10 +1,10 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Structured logging with context tracking."""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -22,15 +22,15 @@ class LogContext:
 
     request_id: str | None = None
     component: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Serialize the context to a dictionary.
 
         Returns:
             A dictionary representation of the context.
         """
-        result: dict[str, Any] = {}
+        result: dict[str, object] = {}
 
         if self.request_id:
             result["request_id"] = self.request_id
@@ -85,8 +85,8 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
-    ) -> tuple[str, dict[str, Any]]:
+        extra: dict[str, object] | None = None,
+    ) -> tuple[str, dict[str, object]]:
         """Format a log message with context.
 
         Args:
@@ -97,7 +97,7 @@ class StructuredLogger:
         Returns:
             Tuple of (formatted message, extra dict for logging).
         """
-        extra_dict: dict[str, Any] = {}
+        extra_dict: dict[str, object] = {}
 
         if context:
             ctx_data = context.to_dict()
@@ -117,7 +117,7 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         """Log an info message.
 
@@ -133,7 +133,7 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         """Log a debug message.
 
@@ -149,7 +149,7 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         """Log a warning message.
 
@@ -165,7 +165,7 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         """Log an error message.
 
@@ -181,7 +181,7 @@ class StructuredLogger:
         self,
         message: str,
         context: LogContext | None = None,
-        extra: dict[str, Any] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         """Log an exception with full stack trace.
 

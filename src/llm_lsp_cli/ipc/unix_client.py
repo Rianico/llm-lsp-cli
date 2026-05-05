@@ -1,4 +1,11 @@
-"""UNIX socket client for CLI to daemon communication."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""UNIX socket client for CLI to daemon communication.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import asyncio
 from pathlib import Path
@@ -105,7 +112,7 @@ class UNIXClient:
 
             # Try to parse
             try:
-                parsed, remaining = parse_message(data)
+                parsed, _ = parse_message(data)
                 if parsed is not None:
                     return parsed
             except ValueError:

@@ -1,4 +1,14 @@
-"""JSON-based server definition repository."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""JSON-based server definition repository.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

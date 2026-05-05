@@ -20,8 +20,8 @@ from llm_lsp_cli.config.schema import LanguageTestFilterConfig, TestFilterConfig
 from llm_lsp_cli.test_filter import (
     PatternSet,
     PatternSource,
-    _filter_test_locations,
-    _filter_test_symbols,
+    filter_test_locations,
+    filter_test_symbols,
     _is_test_path,
     get_registry,
     reload_config,
@@ -33,7 +33,7 @@ class TestCLIIntegrationWithConfig:
     """End-to-end CLI integration tests with the new config system."""
 
     def test_filter_locations_respects_language_config(self) -> None:
-        """Verify _filter_test_locations uses correct language patterns."""
+        """Verify filter_test_locations uses correct language patterns."""
         locations = [
             {"uri": "file:///project/tests/test_main.py"},
             {"uri": "file:///project/src/main.py"},
@@ -41,7 +41,7 @@ class TestCLIIntegrationWithConfig:
         ]
 
         # Python should filter tests/ directory
-        result_python = _filter_test_locations(locations, include_tests=False, language="python")
+        result_python = filter_test_locations(locations, include_tests=False, language="python")
         # main.py and utils_test.go (not python) should remain
         assert len(result_python) == 2
         uris = {loc["uri"] for loc in result_python}
@@ -49,7 +49,7 @@ class TestCLIIntegrationWithConfig:
         assert "file:///project/utils_test.go" in uris
 
     def test_filter_symbols_respects_language_config(self) -> None:
-        """Verify _filter_test_symbols uses correct language patterns."""
+        """Verify filter_test_symbols uses correct language patterns."""
         symbols = [
             {"name": "MyClass", "location": {"uri": "file:///project/src/main.py"}},
             {
@@ -58,7 +58,7 @@ class TestCLIIntegrationWithConfig:
             },
         ]
 
-        result = _filter_test_symbols(symbols, include_tests=False, language="python")
+        result = filter_test_symbols(symbols, include_tests=False, language="python")
         assert len(result) == 1
         assert result[0]["name"] == "MyClass"
 
@@ -73,8 +73,8 @@ class TestCLIIntegrationWithConfig:
             {"name": "Main", "location": {"uri": "file:///project/src/main.py"}},
         ]
 
-        result_locs = _filter_test_locations(locations, include_tests=True, language="python")
-        result_syms = _filter_test_symbols(symbols, include_tests=True, language="python")
+        result_locs = filter_test_locations(locations, include_tests=True, language="python")
+        result_syms = filter_test_symbols(symbols, include_tests=True, language="python")
 
         assert len(result_locs) == 2
         assert len(result_syms) == 2
@@ -250,7 +250,7 @@ class TestCrossLanguageProjects:
         ]
 
         # TypeScript filtering - uses __tests__ directory
-        ts_result = _filter_test_locations(locations, include_tests=False, language="typescript")
+        ts_result = filter_test_locations(locations, include_tests=False, language="typescript")
         ts_uris = {loc["uri"] for loc in ts_result}
         assert "file:///monorepo/packages/frontend/src/index.ts" in ts_uris
         assert "file:///monorepo/packages/frontend/__tests__/Component.test.tsx" not in ts_uris
@@ -258,7 +258,7 @@ class TestCrossLanguageProjects:
         assert "file:///monorepo/packages/backend/app/main.py" in ts_uris
 
         # Python filtering - uses tests/ directory
-        py_result = _filter_test_locations(locations, include_tests=False, language="python")
+        py_result = filter_test_locations(locations, include_tests=False, language="python")
         py_uris = {loc["uri"] for loc in py_result}
         assert "file:///monorepo/packages/backend/app/main.py" in py_uris
         assert "file:///monorepo/packages/backend/tests/test_api.py" not in py_uris
@@ -276,7 +276,7 @@ class TestCrossLanguageProjects:
         ]
 
         # Go filtering - only _test.go suffix
-        go_result = _filter_test_locations(locations, include_tests=False, language="go")
+        go_result = filter_test_locations(locations, include_tests=False, language="go")
         go_uris = {loc["uri"] for loc in go_result}
         assert "file:///project/handler.go" in go_uris
         assert "file:///project/handler_test.go" not in go_uris
@@ -284,7 +284,7 @@ class TestCrossLanguageProjects:
         assert "file:///project/src/lib.rs" in go_uris
 
         # Rust filtering - excludes common/
-        rust_result = _filter_test_locations(locations, include_tests=False, language="rust")
+        rust_result = filter_test_locations(locations, include_tests=False, language="rust")
         rust_uris = {loc["uri"] for loc in rust_result}
         assert "file:///project/src/lib.rs" in rust_uris
         assert "file:///project/tests/integration_test.rs" not in rust_uris
@@ -299,7 +299,7 @@ class TestCrossLanguageProjects:
             {"uri": "file:///project/src/main/resources/config.xml"},
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="java")
+        result = filter_test_locations(locations, include_tests=False, language="java")
         result_uris = {loc["uri"] for loc in result}
         assert "file:///project/src/main/java/com/example/Service.java" in result_uris
         assert "file:///project/src/test/java/com/example/ServiceTest.java" not in result_uris
@@ -578,7 +578,7 @@ class TestEdgeCasesAndErrorHandling:
             {"uri": None},  # None uri
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="python")
+        result = filter_test_locations(locations, include_tests=False, language="python")
         # Should not filter locations with missing/None uri
         assert len(result) == 3
 
@@ -590,7 +590,7 @@ class TestEdgeCasesAndErrorHandling:
             {"name": "EmptyLocation", "location": {}},  # Empty location
         ]
 
-        result = _filter_test_symbols(symbols, include_tests=False, language="python")
+        result = filter_test_symbols(symbols, include_tests=False, language="python")
         # Should not filter out symbols with missing location
         assert len(result) == 3
 
@@ -678,7 +678,7 @@ class TestRealWorldScenarios:
             {"uri": "file:///django_project/myapp/tests/test_views.py"},
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="python")
+        result = filter_test_locations(locations, include_tests=False, language="python")
         result_uris = {loc["uri"] for loc in result}
 
         assert "file:///django_project/manage.py" in result_uris
@@ -704,7 +704,7 @@ class TestRealWorldScenarios:
             {"uri": "file:///react_app/src/utils/helpers.test.ts"},
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="typescript")
+        result = filter_test_locations(locations, include_tests=False, language="typescript")
         result_uris = {loc["uri"] for loc in result}
 
         assert "file:///react_app/src/components/Button.tsx" in result_uris
@@ -726,7 +726,7 @@ class TestRealWorldScenarios:
             {"uri": "file:///rust_project/tests/common/helpers.rs"},
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="rust")
+        result = filter_test_locations(locations, include_tests=False, language="rust")
         result_uris = {loc["uri"] for loc in result}
 
         assert "file:///rust_project/src/lib.rs" in result_uris
@@ -746,7 +746,7 @@ class TestRealWorldScenarios:
             {"uri": "file:///go_module/internal/service/service_test.go"},
         ]
 
-        result = _filter_test_locations(locations, include_tests=False, language="go")
+        result = filter_test_locations(locations, include_tests=False, language="go")
         result_uris = {loc["uri"] for loc in result}
 
         assert "file:///go_module/main.go" in result_uris
@@ -779,7 +779,7 @@ class TestTempDirectoryIntegration:
                 {"uri": (tests_dir / "test_main.py").as_uri()},
             ]
 
-            result = _filter_test_locations(locations, include_tests=False, language="python")
+            result = filter_test_locations(locations, include_tests=False, language="python")
             result_uris = {loc["uri"] for loc in result}
 
             expected_src_uri = (src_dir / "main.py").as_uri()

@@ -1,4 +1,9 @@
-"""FormattableRecord Protocol for unified output formatting."""
+# pyright: reportExplicitAny=false
+"""FormattableRecord Protocol for unified output formatting.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

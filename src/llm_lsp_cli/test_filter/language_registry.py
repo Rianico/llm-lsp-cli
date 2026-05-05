@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Language filter registry for managing per-language test filters."""
 
 from __future__ import annotations

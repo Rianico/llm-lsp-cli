@@ -1,4 +1,13 @@
-"""Progress handler for LSP work done progress."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""Progress handler for LSP work done progress.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import logging
 from collections.abc import Callable

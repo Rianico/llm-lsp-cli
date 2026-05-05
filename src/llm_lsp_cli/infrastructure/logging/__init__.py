@@ -1,3 +1,6 @@
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
 """Logging infrastructure for LSP client.
 
 Provides structured, color-coded logging with TTY detection.
@@ -26,14 +29,14 @@ class LogComponent(str, Enum):
 class Colors:
     """ANSI color codes with TTY detection and NO_COLOR support."""
 
-    # ANSI color codes
-    RESET = "\033[0m"
-    CLI = "\033[36m"       # Cyan for client
-    SERVER = "\033[33m"    # Yellow for server
-    SUCCESS = "\033[32m"   # Green for success
-    ERROR = "\033[31m"     # Red for error
-    INFO = "\033[34m"      # Blue for info
-    DEBUG = "\033[37m"     # White for debug
+    # ANSI color codes (lowercase to allow redefinition in disable())
+    reset = "\033[0m"
+    cli = "\033[36m"       # Cyan for client
+    server = "\033[33m"    # Yellow for server
+    success = "\033[32m"   # Green for success
+    error = "\033[31m"     # Red for error
+    info = "\033[34m"      # Blue for info
+    debug = "\033[37m"     # White for debug
 
     # Flag to track explicit disable
     _disabled = False
@@ -51,13 +54,13 @@ class Colors:
     def disable(cls) -> None:
         """Disable colors by setting all codes to empty strings."""
         cls._disabled = True
-        cls.RESET = ""
-        cls.CLI = ""
-        cls.SERVER = ""
-        cls.SUCCESS = ""
-        cls.ERROR = ""
-        cls.INFO = ""
-        cls.DEBUG = ""
+        cls.reset = ""
+        cls.cli = ""
+        cls.server = ""
+        cls.success = ""
+        cls.error = ""
+        cls.info = ""
+        cls.debug = ""
 
 
 @dataclass(frozen=True)
@@ -93,18 +96,18 @@ class ColorFormatter:
     """Formats LogEntry with color codes."""
 
     LEVEL_COLORS: dict[LogLevel, str] = {
-        LogLevel.ERROR: Colors.ERROR,
-        LogLevel.INFO: Colors.INFO,
-        LogLevel.SUCCESS: Colors.SUCCESS,
-        LogLevel.DEBUG: Colors.DEBUG,
-        LogLevel.TRACE: Colors.DEBUG,
+        LogLevel.ERROR: Colors.error,
+        LogLevel.INFO: Colors.info,
+        LogLevel.SUCCESS: Colors.success,
+        LogLevel.DEBUG: Colors.debug,
+        LogLevel.TRACE: Colors.debug,
     }
 
     COMPONENT_COLORS: dict[LogComponent, str] = {
-        LogComponent.CLIENT: Colors.CLI,
-        LogComponent.SERVER: Colors.SERVER,
-        LogComponent.DAEMON: Colors.DEBUG,
-        LogComponent.TRANSPORT: Colors.DEBUG,
+        LogComponent.CLIENT: Colors.cli,
+        LogComponent.SERVER: Colors.server,
+        LogComponent.DAEMON: Colors.debug,
+        LogComponent.TRANSPORT: Colors.debug,
     }
 
     def format(self, entry: LogEntry) -> str:
@@ -116,8 +119,8 @@ class ColorFormatter:
         component_color = self.COMPONENT_COLORS.get(entry.component, "")
 
         return (
-            f"{level_color}[{entry.level.name}]{Colors.RESET} "
-            f"{component_color}[{entry.component.value}]{Colors.RESET} "
+            f"{level_color}[{entry.level.name}]{Colors.reset} "
+            f"{component_color}[{entry.component.value}]{Colors.reset} "
             f"{entry.message}"
         )
 
@@ -150,12 +153,12 @@ class LSPMessageFormatter:
             payload_str = payload_str[: self.MAX_PAYLOAD_LENGTH] + "..."
 
         # Choose color based on direction
-        color = Colors.CLI if direction == "→" else Colors.SERVER
+        color = Colors.cli if direction == "→" else Colors.server
 
         if not Colors.supported():
             return f"{direction} {method} {payload_str}"
 
-        return f"{color}{direction}{Colors.RESET} {method} {payload_str}"
+        return f"{color}{direction}{Colors.reset} {method} {payload_str}"
 
 
 class LSPLogger:

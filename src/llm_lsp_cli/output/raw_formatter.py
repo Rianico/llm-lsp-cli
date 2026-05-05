@@ -1,4 +1,10 @@
-"""Raw formatter for zero-transformation passthrough of LSP responses."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+"""Raw formatter for zero-transformation passthrough of LSP responses.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,10 @@
-"""Output dispatcher for unified format handling."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""Output dispatcher for unified format handling.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

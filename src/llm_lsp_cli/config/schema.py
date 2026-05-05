@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Configuration schema definitions for llm-lsp-cli."""
 
 from pydantic import BaseModel, ConfigDict, Field

@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """LSP server path resolution utility."""
 
 from __future__ import annotations

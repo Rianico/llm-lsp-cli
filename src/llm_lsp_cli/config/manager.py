@@ -1,4 +1,11 @@
-"""Configuration manager for llm-lsp-cli - facade for configuration operations."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportMissingTypeStubs=false
+"""Configuration manager for llm-lsp-cli - facade for configuration operations.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import warnings
 from pathlib import Path
@@ -15,7 +22,6 @@ from llm_lsp_cli.utils.yaml_formatter import dump_config
 from .defaults import DEFAULT_CONFIG
 from .initialize_params import build_initialize_params
 from .merge import deep_merge
-from .path_builder import RuntimePathBuilder
 from .schema import ClientConfig, LanguageServerConfig
 from .server_validation import (
     ServerNotFoundError as ValidationServerError,
@@ -26,9 +32,8 @@ from .server_validation import validate_server_installed
 class ConfigManager:
     """Manages configuration for llm-lsp-cli (facade pattern)."""
 
-    LSP_SUBDIR = "llm-lsp-cli"
-    CONFIG_FILE = "config.yaml"
-    _path_builder = RuntimePathBuilder()
+    LSP_SUBDIR: str = "llm-lsp-cli"
+    CONFIG_FILE: str = "config.yaml"
 
     @classmethod
     def _get_xdg_paths(cls) -> XdgPaths:
@@ -48,6 +53,8 @@ class ConfigManager:
 
     @classmethod
     def get_runtime_base_dir(cls, workspace_path: str | None = None) -> Path:
+        from .path_builder import RuntimePathBuilder
+
         return RuntimePathBuilder.get_runtime_base_dir(workspace_path)
 
     @classmethod
@@ -56,6 +63,8 @@ class ConfigManager:
         base_dir: Path | None = None, lsp_server_name: str | None = None,
     ) -> Path:
         """Build socket file path."""
+        from .path_builder import RuntimePathBuilder
+
         return RuntimePathBuilder().build_socket_path(
             workspace_path, language, base_dir, lsp_server_name
         )
@@ -66,6 +75,8 @@ class ConfigManager:
         base_dir: Path | None = None, lsp_server_name: str | None = None,
     ) -> Path:
         """Build PID file path."""
+        from .path_builder import RuntimePathBuilder
+
         return RuntimePathBuilder().build_pid_file_path(
             workspace_path, language, base_dir, lsp_server_name
         )
@@ -80,6 +91,8 @@ class ConfigManager:
         Deprecated: LSP server log files are no longer created separately.
         All LSP stderr output is now captured in daemon.log only.
         """
+        from .path_builder import RuntimePathBuilder
+
         warnings.warn(
             "build_log_file_path is deprecated. "
             "LSP server log files are no longer created separately. "
@@ -96,6 +109,8 @@ class ConfigManager:
         cls, workspace_path: str, language: str, base_dir: Path | None = None,
     ) -> Path:
         """Build daemon log file path."""
+        from .path_builder import RuntimePathBuilder
+
         return RuntimePathBuilder().build_daemon_log_path(
             workspace_path, language, base_dir
         )
@@ -105,6 +120,8 @@ class ConfigManager:
         cls, workspace_path: str, language: str, base_dir: Path | None = None,
     ) -> Path:
         """Build diagnostic log file path."""
+        from .path_builder import RuntimePathBuilder
+
         return RuntimePathBuilder().build_diagnostic_log_path(
             workspace_path, language, base_dir
         )
@@ -311,5 +328,17 @@ class ConfigManager:
 
     @classmethod
     def get_lsp_server_name(cls, language: str) -> str:
-        """Get LSP server name for a language."""
-        return RuntimePathBuilder()._get_lsp_server_name(language)
+        """Get LSP server name for a language.
+
+        Resolves the server name from config or defaults.
+        Returns the basename of the server command.
+        """
+        # Try to get from loaded config first
+        lang_config = cls.get_language_config(language)
+        if lang_config:
+            return Path(lang_config.command).name
+
+        # Fall back to defaults
+        if language in DEFAULT_CONFIG["languages"]:
+            return Path(DEFAULT_CONFIG["languages"][language]["command"]).name
+        return language

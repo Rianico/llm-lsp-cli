@@ -119,29 +119,29 @@ class TestIsTestPath:
 
 
 class TestFilterTestLocations:
-    """Tests for _filter_test_locations function."""
+    """Tests for filter_test_locations function."""
 
     def test_filter_test_locations_empty(self) -> None:
         """Test that empty locations list returns empty list."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        from llm_lsp_cli.test_filter import filter_test_locations
 
-        result = _filter_test_locations([], include_tests=False)
+        result = filter_test_locations([], include_tests=False)
         assert result == []
 
     def test_filter_test_locations_all_tests(self) -> None:
         """Test that all test locations are filtered out."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        from llm_lsp_cli.test_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///tests/test_main.py"},
             {"uri": "file:///spec/utils.spec.ts"},
         ]
-        result = _filter_test_locations(locations, include_tests=False)
+        result = filter_test_locations(locations, include_tests=False)
         assert len(result) == 0
 
     def test_filter_test_locations_mixed(self) -> None:
         """Test that only test locations are filtered out."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        from llm_lsp_cli.test_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -149,91 +149,91 @@ class TestFilterTestLocations:
             {"uri": "file:///lib/utils.py"},
             {"uri": "file:///spec/utils.spec.ts"},
         ]
-        result = _filter_test_locations(locations, include_tests=False)
+        result = filter_test_locations(locations, include_tests=False)
         assert len(result) == 2
         assert result[0]["uri"] == "file:///src/main.py"
         assert result[1]["uri"] == "file:///lib/utils.py"
 
     def test_filter_test_locations_include_true(self) -> None:
         """Test that include_tests=True returns all locations."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        from llm_lsp_cli.test_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
             {"uri": "file:///tests/test_main.py"},
         ]
-        result = _filter_test_locations(locations, include_tests=True)
+        result = filter_test_locations(locations, include_tests=True)
         assert len(result) == 2
 
     def test_filter_test_locations_missing_uri(self) -> None:
         """Test that locations with missing URI are not filtered."""
-        from llm_lsp_cli.test_filter import _filter_test_locations
+        from llm_lsp_cli.test_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
             {},  # Missing uri
             {"range": {}},  # Missing uri
         ]
-        result = _filter_test_locations(locations, include_tests=False)
+        result = filter_test_locations(locations, include_tests=False)
         # Should not filter locations without uri (treated as non-test)
         assert len(result) == 3
 
 
 class TestFilterTestSymbols:
-    """Tests for _filter_test_symbols function."""
+    """Tests for filter_test_symbols function."""
 
     def test_filter_test_symbols_empty(self) -> None:
         """Test that empty symbols list returns empty list."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
-        result = _filter_test_symbols([], include_tests=False)
+        result = filter_test_symbols([], include_tests=False)
         assert result == []
 
     def test_filter_test_symbols_all_tests(self) -> None:
         """Test that all test symbols are filtered out."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
         symbols = [
             {"name": "TestClass", "location": {"uri": "file:///tests/test_main.py"}},
             {"name": "TestUtils", "location": {"uri": "file:///spec/utils.spec.ts"}},
         ]
-        result = _filter_test_symbols(symbols, include_tests=False)
+        result = filter_test_symbols(symbols, include_tests=False)
         assert len(result) == 0
 
     def test_filter_test_symbols_mixed(self) -> None:
         """Test that only test symbols are filtered out."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass", "location": {"uri": "file:///src/main.py"}},
             {"name": "TestClass", "location": {"uri": "file:///tests/test_main.py"}},
             {"name": "helper", "location": {"uri": "file:///lib/utils.py"}},
         ]
-        result = _filter_test_symbols(symbols, include_tests=False)
+        result = filter_test_symbols(symbols, include_tests=False)
         assert len(result) == 2
         assert result[0]["name"] == "MyClass"
         assert result[1]["name"] == "helper"
 
     def test_filter_test_symbols_include_true(self) -> None:
         """Test that include_tests=True returns all symbols."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass", "location": {"uri": "file:///src/main.py"}},
             {"name": "TestClass", "location": {"uri": "file:///tests/test_main.py"}},
         ]
-        result = _filter_test_symbols(symbols, include_tests=True)
+        result = filter_test_symbols(symbols, include_tests=True)
         assert len(result) == 2
 
     def test_filter_test_symbols_missing_location(self) -> None:
         """Test symbols with missing location URI."""
-        from llm_lsp_cli.test_filter import _filter_test_symbols
+        from llm_lsp_cli.test_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass"},  # No location
             {"name": "Other", "location": {}},  # Empty location
             {"name": "Valid", "location": {"uri": "file:///src/main.py"}},
         ]
-        result = _filter_test_symbols(symbols, include_tests=False)
+        result = filter_test_symbols(symbols, include_tests=False)
         # Symbols with missing URI should not be treated as test paths
         assert len(result) == 3

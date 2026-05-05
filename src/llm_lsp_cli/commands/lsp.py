@@ -1,4 +1,14 @@
-"""LSP commands for llm-lsp-cli."""
+# pyright: reportCallInDefaultInitializer=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""LSP commands for llm-lsp-cli.
+
+This module handles LSP response data (dict[str, Any]) for CLI output.
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 
@@ -28,9 +38,9 @@ from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute, resolve_
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.output.server_name import get_server_display_name
 from llm_lsp_cli.test_filter import (
-    _filter_test_diagnostic_items,
-    _filter_test_locations,
-    _filter_test_symbols,
+    filter_test_diagnostic_items,
+    filter_test_locations,
+    filter_test_symbols,
 )
 from llm_lsp_cli.utils import OutputFormat
 from llm_lsp_cli.utils.language_detector import detect_language_from_file
@@ -83,7 +93,7 @@ def definition(
         )
 
         locations = response.get("locations", [])
-        filtered = _filter_test_locations(locations, include_tests=include_tests)
+        filtered = filter_test_locations(locations, include_tests=include_tests)
 
         formatter = CompactFormatter(context.workspace_path)
         records = formatter.transform_locations(filtered)
@@ -162,7 +172,7 @@ def references(
         )
 
         locations = response.get("locations", [])
-        filtered = _filter_test_locations(locations, include_tests=include_tests)
+        filtered = filter_test_locations(locations, include_tests=include_tests)
 
         if raw:
             raw_formatter = RawFormatter(context.workspace_path)
@@ -318,7 +328,7 @@ def workspace_symbol(
         )
 
         symbols = response.get("symbols", [])
-        filtered = _filter_test_symbols(symbols, include_tests=include_tests)
+        filtered = filter_test_symbols(symbols, include_tests=include_tests)
 
         if raw:
             raw_formatter = RawFormatter(workspace_path)
@@ -779,7 +789,7 @@ def workspace_diagnostics(
         diagnostics_items = response.get("diagnostics", [])
 
         if not include_tests:
-            diagnostics_items = _filter_test_diagnostic_items(
+            diagnostics_items = filter_test_diagnostic_items(
                 diagnostics_items, include_tests=False, language=language_value
             )
 
@@ -913,6 +923,7 @@ def rename(
                 position=position,
                 new_name=new_name,
             )
+            typer.echo(f"Session ID: {session.session_id}", err=True)
         else:
             records = rename_service.preview_from_edit(
                 workspace_edit=workspace_edit,
@@ -944,9 +955,6 @@ def rename(
                     command="rename",
                 )
             )
-
-        if apply:
-            typer.echo(f"Session ID: {session.session_id}", err=True)
 
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)

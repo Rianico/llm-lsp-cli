@@ -3,7 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TypedDict
+
+
+class _ServerDefinitionDictRequired(TypedDict):
+    """Required fields for ServerDefinitionDict."""
+
+    language_id: str
+    command: str
+
+
+class ServerDefinitionDict(_ServerDefinitionDictRequired, total=False):
+    """Dictionary representation of ServerDefinition."""
+
+    args: list[str]
+    timeout_seconds: int
 
 
 @dataclass(frozen=True)
@@ -26,7 +40,7 @@ class ServerDefinition:
     timeout_seconds: int = 30
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ServerDefinition:
+    def from_dict(cls, data: ServerDefinitionDict) -> ServerDefinition:
         """Construct a ServerDefinition from a dictionary.
 
         Args:

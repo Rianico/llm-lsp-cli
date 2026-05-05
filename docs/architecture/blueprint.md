@@ -84,6 +84,29 @@ infrastructure/
 └── logging/
 ```
 
+**LSP Transport Type Boundary:**
+
+The LSP transport layer enforces a strict type boundary (ADR-0024):
+
+```
+┌─────────────────────────────────────────┐
+│           TYPE BOUNDARY                 │
+├─────────────────────────────────────────┤
+│  StdioTransport.send_request() → object │
+│              ↓                          │
+│  TypedLSPTransport (validation)         │
+│              ↓                          │
+│  Pydantic Models → Inner Layers         │
+└─────────────────────────────────────────┘
+```
+
+**Boundary Rules:**
+1. ONLY `TypedLSPTransport` may import or use `StdioTransport`
+2. `StdioTransport.send_request()` returns `object` not `Any`
+3. Pydantic validation happens at the boundary, not scattered
+4. Inner layers receive validated Pydantic models only
+5. `StdioTransport` is not exported from `lsp/__init__.py`
+
 ## Configuration System
 
 The configuration system implements a three-tier priority model with deep merge semantics (ADR-0021).
@@ -474,3 +497,6 @@ llm-lsp-cli <group> <command>
 | Auto-create global config on first run | ConfigManager.load() | ADR-0021 |
 | Current-directory-only project config | ConfigManager.load() | ADR-0021 |
 | Config-driven root detection (no hardcoded patterns) | root_detector.py | ADR-0021 |
+| Pydantic models for LSP types | lsp/types.py | ADR-0023 |
+| Typed transport adapter | lsp/typed_transport.py | ADR-0023 |
+| ONLY TypedLSPTransport may access StdioTransport | lsp/ transport boundary | ADR-0024 |

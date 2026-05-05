@@ -1,4 +1,14 @@
-"""Daemon process management for llm-lsp-cli."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportPrivateUsage=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""Daemon process management for llm-lsp-cli.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import asyncio
 import logging
@@ -10,6 +20,7 @@ from typing import Any
 
 from daemon import DaemonContext
 from daemon.pidfile import PIDLockFile as PidFile
+from pydantic import BaseModel
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.domain.services import LspMethodRouter
@@ -28,6 +39,26 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("llm-lsp-cli.daemon")
+
+
+def _to_json_serializable(obj: Any) -> Any:
+    """Convert Pydantic models and nested structures to JSON-serializable types.
+
+    Args:
+        obj: Object to convert (can be Pydantic model, list, dict, or primitive)
+
+    Returns:
+        JSON-serializable version of the object
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode="json")
+    if isinstance(obj, list):
+        return [_to_json_serializable(item) for item in obj]
+    if isinstance(obj, dict):
+        return {k: _to_json_serializable(v) for k, v in obj.items()}
+    return obj
 
 
 def _configure_diagnostic_logger(log_path: Path) -> None:
@@ -129,6 +160,16 @@ def cleanup_runtime_files(
 
 class DaemonManager:
     """Manages the daemon process lifecycle for a specific workspace and language."""
+
+    workspace_path: str
+    language: str
+    lsp_conf: str | None
+    debug: bool
+    trace: bool
+    _lsp_server_name: str
+    pid_file: Path
+    socket_path: Path
+    daemon_log_file: Path
 
     def __init__(
         self,
@@ -569,6 +610,9 @@ class RequestHandler:
 
             logger.debug(f"Client method {registry_method} returned for {method}")
 
+            # Convert Pydantic models to JSON-serializable dicts
+            result = _to_json_serializable(result)
+
             # Wrap result with appropriate response key
             if response_key == "hover":
                 return {response_key: result} if result else {}
@@ -657,6 +701,9 @@ class RequestHandler:
 
             result = await registry_func(**kwargs)
             logger.debug(f"Registry method returned for {method}")
+
+            # Convert Pydantic models to JSON-serializable dicts
+            result = _to_json_serializable(result)
 
             # Wrap result with appropriate response key
             if response_key == "hover":

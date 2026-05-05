@@ -1,7 +1,10 @@
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
 """Symbol transformer for depth-controlled hierarchical symbol traversal.
 
 This module implements ADR-0014: hierarchical symbol output with depth-controlled
 traversal, returning immutable SymbolNode tuples for tree-structured rendering.
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
@@ -155,7 +158,7 @@ def _transform_symbol(
 def transform_symbols(
     symbols: list[dict[str, Any]],
     depth_limit: int,
-    workspace: Path,
+    workspace: Path,  # pyright: ignore[reportUnusedParameter]
 ) -> tuple[SymbolNode, ...]:
     """Transform LSP symbols to SymbolNode tuple with depth-controlled traversal.
 

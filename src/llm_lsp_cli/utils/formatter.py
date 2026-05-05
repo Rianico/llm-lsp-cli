@@ -1,4 +1,13 @@
-"""Output formatters for llm-lsp-cli."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownArgumentType=false
+"""Output formatters for llm-lsp-cli.
+
+This module handles LSP response data (dict[str, Any]) for output formatting.
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

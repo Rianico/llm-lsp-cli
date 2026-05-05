@@ -1,3 +1,6 @@
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownArgumentType=false
 """Exception hierarchy for llm-lsp-cli."""
 
 from __future__ import annotations

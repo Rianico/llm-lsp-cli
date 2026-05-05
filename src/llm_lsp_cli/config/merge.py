@@ -1,4 +1,11 @@
-"""Deep merge utilities for configuration layering."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownArgumentType=false
+"""Deep merge utilities for configuration layering.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from typing import Any
 

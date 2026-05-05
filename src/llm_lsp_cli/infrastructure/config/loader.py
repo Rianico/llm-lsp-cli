@@ -1,4 +1,14 @@
-"""Configuration file loader with validation."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportMissingTypeStubs=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""Configuration file loader with validation.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

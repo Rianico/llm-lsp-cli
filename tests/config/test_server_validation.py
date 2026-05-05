@@ -8,13 +8,10 @@ This module tests the server validation feature that:
 """
 
 import os
+from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
 
 # Mark all tests in this file as unit tests (no real LSP servers needed)
 pytestmark = pytest.mark.unit

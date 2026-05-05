@@ -1,7 +1,10 @@
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
 """Text renderer for tree-structured symbol output.
 
 This module implements ADR-0014: tree-structured TEXT format with
 complete field display, null field omission, and tree connectors.
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
@@ -301,22 +304,6 @@ def render_workspace_diagnostics_grouped(
         )
 
     return "\n".join(lines)
-
-
-def _render_reference_line(ref: dict[str, Any]) -> str:
-    """Render a single reference as a text line.
-
-    Format: "- <range>"
-    Simple format for references - just the range string.
-
-    Args:
-        ref: Reference dict with 'range' key
-
-    Returns:
-        Formatted string with range
-    """
-    range_str = ref.get("range", "")
-    return f"- {range_str}"
 
 
 def render_references_grouped(

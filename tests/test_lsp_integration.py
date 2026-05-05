@@ -80,7 +80,7 @@ if __name__ == "__main__":
         try:
             result = await client.initialize()
             assert result is not None
-            assert "capabilities" in result
+            assert result.capabilities is not None
         finally:
             await client.shutdown()
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
             # Should get hover information
             assert hover is not None
-            assert "contents" in hover
+            assert hover.contents is not None
         finally:
             await client.shutdown()
 
@@ -219,8 +219,8 @@ if __name__ == "__main__":
             assert isinstance(symbols, list)
             assert len(symbols) > 0
 
-            # Check for expected symbols
-            symbol_names = [s.get("name") for s in symbols]
+            # Check for expected symbols - symbols are Pydantic models now
+            symbol_names = [s.name for s in symbols]
             assert "hello" in symbol_names
             assert "Greeter" in symbol_names
         finally:
@@ -267,8 +267,9 @@ class TestLSPClientMultipleWorkspaces:
                 symbols1 = await client1.request_document_symbols(str(workspace1 / "file1.py"))
                 symbols2 = await client2.request_document_symbols(str(workspace2 / "file2.py"))
 
-                symbol_names_1 = [s.get("name") for s in symbols1]
-                symbol_names_2 = [s.get("name") for s in symbols2]
+                # Symbols are Pydantic models now
+                symbol_names_1 = [s.name for s in symbols1]
+                symbol_names_2 = [s.name for s in symbols2]
 
                 assert "func1" in symbol_names_1
                 assert "func2" in symbol_names_2

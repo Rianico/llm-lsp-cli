@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Token-based authentication for IPC communication."""
 
 from __future__ import annotations

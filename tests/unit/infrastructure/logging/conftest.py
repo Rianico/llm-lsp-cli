@@ -21,35 +21,35 @@ def reset_colors_state() -> Generator[None, None, None]:
     """Reset Colors state before and after each test."""
     # Save state
     saved_disabled = Colors._disabled
-    saved_reset = Colors.RESET
-    saved_cli = Colors.CLI
-    saved_server = Colors.SERVER
-    saved_success = Colors.SUCCESS
-    saved_error = Colors.ERROR
-    saved_info = Colors.INFO
-    saved_debug = Colors.DEBUG
+    saved_reset = Colors.reset
+    saved_cli = Colors.cli
+    saved_server = Colors.server
+    saved_success = Colors.success
+    saved_error = Colors.error
+    saved_info = Colors.info
+    saved_debug = Colors.debug
 
     # Reset to default
     Colors._disabled = False
-    Colors.RESET = "\033[0m"
-    Colors.CLI = "\033[36m"
-    Colors.SERVER = "\033[33m"
-    Colors.SUCCESS = "\033[32m"
-    Colors.ERROR = "\033[31m"
-    Colors.INFO = "\033[34m"
-    Colors.DEBUG = "\033[37m"
+    Colors.reset = "\033[0m"
+    Colors.cli = "\033[36m"
+    Colors.server = "\033[33m"
+    Colors.success = "\033[32m"
+    Colors.error = "\033[31m"
+    Colors.info = "\033[34m"
+    Colors.debug = "\033[37m"
 
     yield
 
     # Restore state
     Colors._disabled = saved_disabled
-    Colors.RESET = saved_reset
-    Colors.CLI = saved_cli
-    Colors.SERVER = saved_server
-    Colors.SUCCESS = saved_success
-    Colors.ERROR = saved_error
-    Colors.INFO = saved_info
-    Colors.DEBUG = saved_debug
+    Colors.reset = saved_reset
+    Colors.cli = saved_cli
+    Colors.server = saved_server
+    Colors.success = saved_success
+    Colors.error = saved_error
+    Colors.info = saved_info
+    Colors.debug = saved_debug
 
 
 @pytest.fixture

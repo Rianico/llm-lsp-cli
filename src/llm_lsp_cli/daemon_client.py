@@ -1,3 +1,6 @@
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
 """Daemon client for auto-start functionality.
 
 This module provides the DaemonClient class which abstracts daemon lifecycle

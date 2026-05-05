@@ -1,4 +1,8 @@
-"""LSP stdio transport layer."""
+"""LSP stdio transport layer.
+
+This module handles raw LSP JSON-RPC messages.
+All responses return `object` to enforce type boundary via TypedLSPTransport.
+"""
 
 import asyncio
 import contextlib
@@ -14,6 +18,15 @@ from .constants import LSPConstants
 # =============================================================================
 # TRACE Level Definition
 # =============================================================================
+# =============================================================================
+# Type Safety: Internal suppressions for masking functions
+# =============================================================================
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+# pyright: reportUnnecessaryIsInstance=false
 
 # Custom logging level for transport-layer messages (more verbose than DEBUG)
 #
@@ -503,7 +516,7 @@ class StdioTransport:
         method = data.get("method", "unknown")
         params = data.get("params", {})
 
-        handler: Callable | None = self._request_handlers.get(method)  # type: ignore
+        handler: Callable[..., Any] | None = self._request_handlers.get(method)
 
         if handler is None:
             # No handler registered - send method not found error
@@ -543,7 +556,7 @@ class StdioTransport:
         method = data.get("method", "")
         params = data.get("params", {})
 
-        handler: Callable | None = self._notification_handlers.get(method)  # type: ignore
+        handler: Callable[..., Any] | None = self._notification_handlers.get(method)
         if handler:
             try:
                 if inspect.iscoroutinefunction(handler):
@@ -566,9 +579,9 @@ class StdioTransport:
     async def send_request(
         self,
         method: str,
-        params: dict[str, Any] | None = None,
+        params: dict[str, object] | None = None,
         timeout: float = 30.0,
-    ) -> Any:
+    ) -> object:
         """Send a request and wait for response."""
         assert self._process is not None, "Transport not started"
         assert self._process.stdin is not None, "Stdin not available"
@@ -595,7 +608,7 @@ class StdioTransport:
             self._pending.pop(request_id, None)
             raise TimeoutError(f"Request timed out: {method}") from None
 
-    async def send_notification(self, method: str, params: dict[str, Any] | None = None) -> None:
+    async def send_notification(self, method: str, params: dict[str, object] | None = None) -> None:
         """Send a notification (no response expected)."""
         assert self._process is not None, "Transport not started"
 
@@ -608,7 +621,7 @@ class StdioTransport:
         )
 
     async def send_request_fire_and_forget(
-        self, method: str, params: dict[str, Any] | None = None
+        self, method: str, params: dict[str, object] | None = None
     ) -> None:
         """Send a request without waiting for response (fire-and-forget).
 

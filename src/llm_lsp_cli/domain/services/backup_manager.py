@@ -1,6 +1,10 @@
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportAny=false
 """Backup manager for LSP rename operations.
 
 Manages session-based backups for atomic file modifications during rename operations.
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations

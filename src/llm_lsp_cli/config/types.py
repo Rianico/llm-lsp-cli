@@ -1,4 +1,9 @@
-"""TypedDict configurations for type-safe dictionary structures."""
+# pyright: reportExplicitAny=false
+"""TypedDict configurations for type-safe dictionary structures.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

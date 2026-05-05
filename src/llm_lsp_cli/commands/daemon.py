@@ -1,8 +1,14 @@
-"""Daemon lifecycle commands for llm-lsp-cli."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""Daemon lifecycle commands for llm-lsp-cli.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 
@@ -20,19 +26,22 @@ app = typer.Typer(name="daemon", help="Manage the LSP daemon server.")
 @app.command()
 def start(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
-    language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
-    ),
-    lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
-    debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
-    trace: bool = typer.Option(
-        False, "--trace", "-t",
-        help="Enable transport-level trace logging (more verbose than --debug)"
-    ),
-    diagnostic_log: bool = typer.Option(
-        False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
-    ),
+    workspace: Annotated[
+        str | None, typer.Option("--workspace", "-w", help="Workspace path")
+    ] = None,
+    language: Annotated[
+        str | None, typer.Option(
+            "--language", "-l", help="Language (auto-detected if not specified)"
+        )
+    ] = None,
+    lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
+    debug: Annotated[bool, typer.Option("--debug", "-d", help="Enable debug logging")] = False,
+    trace: Annotated[
+        bool, typer.Option(help="Enable transport-level trace logging (more verbose than --debug)")
+    ] = False,
+    diagnostic_log: Annotated[
+        bool, typer.Option(help="Write full diagnostics to diagnostics.log file")
+    ] = False,
 ) -> None:
     """Start the LSP daemon server.
 
@@ -70,11 +79,15 @@ def start(
 @app.command()
 def stop(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
-    language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
-    ),
-    lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
+    workspace: Annotated[
+        str | None, typer.Option("--workspace", "-w", help="Workspace path")
+    ] = None,
+    language: Annotated[
+        str | None, typer.Option(
+            "--language", "-l", help="Language (auto-detected if not specified)"
+        )
+    ] = None,
+    lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
 ) -> None:
     """Stop the LSP daemon server."""
 
@@ -99,19 +112,22 @@ def stop(
 @app.command()
 def restart(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
-    language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
-    ),
-    lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
-    debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
-    trace: bool = typer.Option(
-        False, "--trace", "-t",
-        help="Enable transport-level trace logging (more verbose than --debug)"
-    ),
-    diagnostic_log: bool = typer.Option(
-        False, "--diagnostic-log", help="Write full diagnostics to diagnostics.log file"
-    ),
+    workspace: Annotated[
+        str | None, typer.Option("--workspace", "-w", help="Workspace path")
+    ] = None,
+    language: Annotated[
+        str | None, typer.Option(
+            "--language", "-l", help="Language (auto-detected if not specified)"
+        )
+    ] = None,
+    lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
+    debug: Annotated[bool, typer.Option("--debug", "-d", help="Enable debug logging")] = False,
+    trace: Annotated[
+        bool, typer.Option(help="Enable transport-level trace logging (more verbose than --debug)")
+    ] = False,
+    diagnostic_log: Annotated[
+        bool, typer.Option(help="Write full diagnostics to diagnostics.log file")
+    ] = False,
 ) -> None:
     """Restart the LSP daemon server."""
 
@@ -142,11 +158,15 @@ def restart(
 @app.command()
 def status(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
-    language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
-    ),
-    lsp_conf: str | None = typer.Option(None, "--lsp-conf", "-c", help="Custom LSP config"),
+    workspace: Annotated[
+        str | None, typer.Option("--workspace", "-w", help="Workspace path")
+    ] = None,
+    language: Annotated[
+        str | None, typer.Option(
+            "--language", "-l", help="Language (auto-detected if not specified)"
+        )
+    ] = None,
+    lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
 ) -> None:
     """Show the daemon server status."""
     if ctx.obj is not None:

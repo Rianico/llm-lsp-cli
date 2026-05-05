@@ -1,7 +1,16 @@
-"""Path building utilities for llm-lsp-cli runtime files."""
+# pyright: reportAny=false
+"""Path building utilities for llm-lsp-cli runtime files.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
+
+from __future__ import annotations
 
 import warnings
 from pathlib import Path
+
+from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
 
 
 class RuntimePathBuilder:
@@ -27,25 +36,19 @@ class RuntimePathBuilder:
 
     @staticmethod
     def _get_lsp_server_name(language: str) -> str:
-        """Get LSP server name for a language.
+        """Get LSP server name for a language from defaults only.
 
         Args:
             language: Language identifier (e.g., 'python', 'typescript').
 
         Returns:
-            Server command name extracted from config or defaults.
+            Server command name extracted from defaults.
+
+        Note:
+            For config-based server name resolution, pass lsp_server_name
+            parameter to build_* methods or use ConfigManager.get_lsp_server_name().
         """
-        # Lazy import to avoid circular dependency
-        from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
-        from llm_lsp_cli.config.manager import ConfigManager
-
-        try:
-            lang_config = ConfigManager.get_language_config(language)
-            if lang_config:
-                return Path(lang_config.command).name
-        except Exception:
-            pass
-
+        # Only use defaults to avoid import cycle with ConfigManager
         if language in DEFAULT_CONFIG["languages"]:
             return Path(DEFAULT_CONFIG["languages"][language]["command"]).name
         return language
@@ -129,7 +132,7 @@ class RuntimePathBuilder:
     def build_daemon_log_path(
         cls,
         workspace_path: str,
-        language: str,
+        language: str,  # pyright: ignore[reportUnusedParameter]
         base_dir: Path | None = None,
     ) -> Path:
         """Build daemon log file path.
@@ -150,7 +153,7 @@ class RuntimePathBuilder:
     def build_diagnostic_log_path(
         cls,
         workspace_path: str,
-        language: str,
+        language: str,  # pyright: ignore[reportUnusedParameter]
         base_dir: Path | None = None,
     ) -> Path:
         """Build diagnostic log file path.

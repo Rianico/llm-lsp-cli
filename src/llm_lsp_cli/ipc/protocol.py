@@ -1,4 +1,10 @@
-"""JSON-RPC 2.0 protocol definitions for IPC communication."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""JSON-RPC 2.0 protocol definitions for IPC communication.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import json
 from dataclasses import dataclass

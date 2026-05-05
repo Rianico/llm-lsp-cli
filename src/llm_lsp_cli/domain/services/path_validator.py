@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Path validation service for preventing path traversal attacks."""
 
 from __future__ import annotations

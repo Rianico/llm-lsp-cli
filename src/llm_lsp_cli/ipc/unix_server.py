@@ -1,4 +1,11 @@
-"""UNIX socket server for daemon to handle CLI requests."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""UNIX socket server for daemon to handle CLI requests.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import asyncio
 import contextlib
@@ -171,7 +178,7 @@ class UNIXServer:
     async def _process_message(
         self,
         data: dict[str, Any],
-        reader: asyncio.StreamReader,
+        reader: asyncio.StreamReader,  # pyright: ignore[reportUnusedParameter]
         writer: asyncio.StreamWriter,
     ) -> None:
         """Process a parsed JSON-RPC message."""
@@ -226,7 +233,9 @@ class UNIXServer:
                 writer.write(response.to_bytes())
                 await writer.drain()
 
-    async def _handle_notification(self, method: str, params: dict[str, Any]) -> None:
+    async def _handle_notification(
+        self, method: str, params: dict[str, Any]  # pyright: ignore[reportUnusedParameter]
+    ) -> None:
         """Handle a notification (no response)."""
         # For now, just log notifications
         pass

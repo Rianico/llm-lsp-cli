@@ -1,4 +1,14 @@
-"""Compact formatter for LLM-optimized LSP output."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownArgumentType=false
+"""Compact formatter for LLM-optimized LSP output.
+
+This module transforms LSP response data (dict[str, Any]) into compact output formats.
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 
@@ -81,7 +91,7 @@ class SymbolRecord:
 
     def to_compact_dict(self) -> dict[str, Any]:
         """Convert to dict with compact range format, omitting null/empty fields."""
-        return CompactFormatter._symbol_to_dict(self)
+        return CompactFormatter.symbol_to_dict(self)
 
     def get_csv_headers(self) -> list[str]:
         """Return CSV headers for symbol records."""
@@ -161,7 +171,7 @@ class DiagnosticRecord:
 
     def to_compact_dict(self) -> dict[str, Any]:
         """Convert to dict with compact range format, omitting null/empty fields."""
-        return CompactFormatter._diagnostic_to_dict(self)
+        return CompactFormatter.diagnostic_to_dict(self)
 
     def get_csv_headers(self) -> list[str]:
         """Return CSV headers for diagnostic records."""
@@ -526,7 +536,8 @@ class CompactFormatter:
         return records
 
     @staticmethod
-    def _symbol_to_dict(rec: SymbolRecord) -> dict[str, Any]:
+    @staticmethod
+    def symbol_to_dict(rec: SymbolRecord) -> dict[str, Any]:
         """Convert SymbolRecord to dict, omitting null/empty fields.
 
         Handles nested children recursively.
@@ -555,7 +566,7 @@ class CompactFormatter:
         if rec.parent is not None:
             obj["parent"] = rec.parent
         # Always include children (empty list if no children)
-        obj["children"] = [CompactFormatter._symbol_to_dict(child) for child in rec.children]
+        obj["children"] = [CompactFormatter.symbol_to_dict(child) for child in rec.children]
         return obj
 
     def transform_diagnostics(
@@ -594,7 +605,8 @@ class CompactFormatter:
         return records
 
     @staticmethod
-    def _diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, Any]:
+    @staticmethod
+    def diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, Any]:
         """Convert DiagnosticRecord to dict, omitting null/empty fields.
 
         Translates tags to names and uses compact range format.

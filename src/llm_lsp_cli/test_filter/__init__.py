@@ -1,7 +1,11 @@
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportPrivateUsage=false
 """Test path filtering for LSP responses.
 
 Provides utilities to detect and filter test files across multiple languages
 using glob-based pattern matching with language-segmented patterns.
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
@@ -87,11 +91,10 @@ def _get_pattern_set_for_language(language: str | None) -> PatternSet:
     return pattern_set
 
 
-def _is_test_path(uri: str, language: str | None = None) -> bool:
-    """Check if a URI points to a test file or directory.
+def _is_test_path_uncached(uri: str, language: str | None = None) -> bool:
+    """Check if a URI points to a test file or directory (uncached version).
 
     Uses pattern matching on the URI path to detect test files.
-    Results are cached for performance.
 
     Args:
         uri: LSP URI string (e.g., 'file:///path/to/file.py')
@@ -108,8 +111,8 @@ def _is_test_path(uri: str, language: str | None = None) -> bool:
     return result.is_match
 
 
-# Apply LRU cache to _is_test_path
-_is_test_path = lru_cache(maxsize=4096)(_is_test_path)
+# Apply LRU cache to create the cached version
+_is_test_path = lru_cache(maxsize=4096)(_is_test_path_uncached)
 
 
 def _is_test_uri(uri: str, language: str | None = None) -> bool:
@@ -154,7 +157,7 @@ def _filter_by_uri(
     ]
 
 
-def _filter_test_locations(
+def filter_test_locations(
     locations: list[dict[str, Any]],
     include_tests: bool = False,
     language: str | None = None,
@@ -172,7 +175,7 @@ def _filter_test_locations(
     return _filter_by_uri(locations, include_tests, language, uri_key="uri")
 
 
-def _filter_test_symbols(
+def filter_test_symbols(
     symbols: list[dict[str, Any]],
     include_tests: bool = False,
     language: str | None = None,
@@ -200,7 +203,7 @@ def _filter_test_symbols(
     ]
 
 
-def _filter_test_diagnostic_items(
+def filter_test_diagnostic_items(
     items: list[dict[str, Any]],
     include_tests: bool = False,
     language: str | None = None,
@@ -230,7 +233,7 @@ def reload_config() -> None:
     from .language_registry import get_registry
 
     # Clear the LRU cache
-    _is_test_path.cache_clear()  # type: ignore[attr-defined]
+    _is_test_path.cache_clear()
 
     registry = get_registry()
 
@@ -275,9 +278,9 @@ _initialize_default_config()
 # Export public API
 __all__ = [
     "_is_test_path",
-    "_filter_test_locations",
-    "_filter_test_symbols",
-    "_filter_test_diagnostic_items",
+    "filter_test_locations",
+    "filter_test_symbols",
+    "filter_test_diagnostic_items",
     "reload_config",
     "get_registry",
     "PatternSet",

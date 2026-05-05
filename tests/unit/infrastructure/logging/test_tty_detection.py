@@ -25,4 +25,4 @@ class TestTTYDetection:
         LSPLogger(use_colors=False)
         # Should disable colors
         assert Colors._disabled is True
-        assert Colors.RESET == ""
+        assert Colors.reset == ""

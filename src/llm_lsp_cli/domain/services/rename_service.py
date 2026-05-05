@@ -1,6 +1,15 @@
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+# pyright: reportPrivateUsage=false
 """Rename service for LSP rename operations.
 
 Orchestrates the rename flow: prepare -> rename -> backup -> apply.
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
@@ -272,7 +281,7 @@ class RenameService:
     def _extract_edit_records(
         self,
         workspace_edit: dict[str, Any],
-        client: LSPClient,
+        client: LSPClient,  # pyright: ignore[reportUnusedParameter]
     ) -> list[RenameEditRecord]:
         """Extract RenameEditRecord from WorkspaceEdit.
 

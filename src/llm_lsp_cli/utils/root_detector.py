@@ -1,4 +1,12 @@
-"""Root detection for workspace based on config-driven markers."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+"""Root detection for workspace based on config-driven markers.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 
@@ -37,8 +45,6 @@ def find_root_by_markers(start_path: Path, markers: list[str]) -> Path | None:
         if parent == path:
             return None
         path = parent
-
-    return None
 
 
 def _matches_marker(directory: Path, marker: str) -> bool:

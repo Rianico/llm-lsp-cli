@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """XDG directory paths with lazy initialization."""
 
 from __future__ import annotations

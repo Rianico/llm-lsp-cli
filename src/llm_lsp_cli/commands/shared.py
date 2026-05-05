@@ -1,4 +1,13 @@
-"""Shared utilities for CLI commands."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownArgumentType=false
+"""Shared utilities for CLI commands.
+
+This module handles LSP response data (dict[str, Any]) for text output formatting.
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

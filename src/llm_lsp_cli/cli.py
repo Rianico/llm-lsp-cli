@@ -1,5 +1,7 @@
 """CLI entry point for llm-lsp-cli."""
 
+from typing import Annotated
+
 import typer
 
 from llm_lsp_cli.commands import config, daemon, lsp
@@ -15,16 +17,13 @@ app = typer.Typer(
 
 def global_options_callback(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace path"),
-    language: str | None = typer.Option(
-        None, "--language", "-l", help="Language (auto-detected if not specified)"
-    ),
-    output_format: OutputFormat = typer.Option(  # noqa: B008
-        OutputFormat.JSON,
-        "--format",
-        "-o",
-        help="Output format (text, yaml, json, or csv)",
-    ),
+    workspace: Annotated[str | None, typer.Option(help="Workspace path")] = None,
+    language: Annotated[
+        str | None, typer.Option(help="Language (auto-detected if not specified)")
+    ] = None,
+    output_format: Annotated[
+        OutputFormat, typer.Option(help="Output format (text, yaml, json, or csv)")
+    ] = OutputFormat.JSON,
 ) -> None:
     """Callback to capture global options into context."""
     ctx.obj = GlobalOptions(
@@ -34,7 +33,7 @@ def global_options_callback(
     )
 
 
-app.callback()(global_options_callback)
+_ = app.callback()(global_options_callback)
 
 
 @app.command()

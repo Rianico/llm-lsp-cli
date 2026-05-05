@@ -73,37 +73,33 @@ class TestClientLoggerIntegration:
     @pytest.mark.asyncio
     async def test_client_initializes_successfully(self) -> None:
         """Verify client can initialize with mocked transport."""
+        from llm_lsp_cli.lsp import types as lsp
+
         client = LSPClient(
             workspace_path="/tmp",
             server_command="echo",
             server_args=["hello"],
         )
 
-        mock_process = AsyncMock()
-        mock_process.stdin = AsyncMock()
-        mock_process.stdin.write = MagicMock()
-        mock_process.stdin.drain = AsyncMock()
-        mock_process.stdout = AsyncMock()
-        mock_process.stdout.readline = AsyncMock(return_value=b"Content-Length: 2\r\n\r\n{}")
-        mock_process.stderr = AsyncMock()
-        mock_process.stderr.readline = AsyncMock(return_value=b"")
-
-        mock_transport = AsyncMock()
-        mock_transport.send_request = AsyncMock(return_value={"capabilities": {}})
-        mock_transport.send_notification = AsyncMock()
-        mock_transport.on_notification = MagicMock()
-        mock_transport.on_request = MagicMock()
-        mock_transport.start = AsyncMock()
-        mock_transport.stop = AsyncMock()
-        mock_transport._process = mock_process
+        # Mock TypedLSPTransport
+        mock_typed_transport = MagicMock()
+        mock_typed_transport.start = AsyncMock()
+        mock_typed_transport.stop = AsyncMock()
+        mock_typed_transport.send_notification = AsyncMock()
+        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
+        mock_typed_transport.on_notification = MagicMock()
+        mock_typed_transport.on_request = MagicMock()
+        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
+            capabilities=lsp.ServerCapabilities()
+        ))
 
         with (
-            patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport),
+            patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport),
             patch.object(client, "_wait_for_workspace_index", AsyncMock()),
         ):
             result = await client.initialize()
 
-        assert "capabilities" in result
+        assert result.capabilities is not None
         assert client._initialized is True
         # Verify workspace diagnostic tokens are generated
         assert client.get_workspace_diagnostic_token() is not None

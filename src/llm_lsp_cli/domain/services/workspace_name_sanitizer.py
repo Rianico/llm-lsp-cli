@@ -1,3 +1,4 @@
+# pyright: reportUnannotatedClassAttribute=false
 """Workspace name sanitization service."""
 
 from __future__ import annotations

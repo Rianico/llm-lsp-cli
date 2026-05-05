@@ -285,6 +285,364 @@ llm-lsp-cli daemon start --diagnostic-log
 - Logger: `llm_lsp_cli.lsp.diagnostic`
 - File: `$PWD/.llm-lsp-cli/diagnostics.log`
 
+## Type Annotations
+
+All Python code MUST include comprehensive type annotations. The project maintains dual compliance with **mypy (strict mode)** and **basedpyright (recommended mode)**.
+
+### Type Checker Configuration
+
+**pyrightconfig.json:**
+```json
+{
+  "typeCheckingMode": "recommended",
+  "include": ["src", "tests"],
+  "extraPaths": ["src"],
+  "stubPath": "typings"
+}
+```
+
+**pyproject.toml (mypy):**
+```toml
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+```
+
+### Annotation Requirements
+
+**Function signatures** MUST annotate all parameters and return types:
+```python
+# Correct
+def process_items(items: list[dict[str, Any]]) -> list[ProcessedItem]:
+    ...
+
+# Incorrect - missing return type
+def process_items(items: list[dict[str, Any]]):
+    ...
+
+# Incorrect - implicit Any
+for lang_name, lang_conf in config.items():  # reportAny
+    ...
+```
+
+**Variable annotations** are required when type cannot be inferred:
+```python
+# Required - inference fails
+config: dict[str, LanguageConfig] = get_config()
+
+# Optional - inference succeeds
+name = "llm-lsp-cli"  # str inferred
+```
+
+### Prohibited Patterns
+
+**Avoid explicit `Any`** - use specific types or Protocols:
+```python
+# Avoid
+def handler(data: Any) -> Any:
+    ...
+
+# Prefer
+def handler(data: LSPRequest) -> LSPResponse:
+    ...
+```
+
+**Avoid untyped dict iteration** - annotate the container:
+```python
+# Avoid
+for key, value in config.items():
+    ...
+
+# Prefer
+config: dict[str, LanguageConfig] = load_config()
+for lang_name, lang_conf in config.items():
+    ...
+```
+
+### Framework-Specific Suppression Patterns
+
+When framework patterns conflict with strict type checking, use **file-level suppression** over global configuration changes. This preserves checking elsewhere while acknowledging intentional framework usage.
+
+**Typer CLI Default Initializers:**
+```python
+# pyright: reportCallInDefaultInitializer=false
+"""LSP commands for llm-lsp-cli."""
+
+import typer
+
+@app.command()
+def definition(
+    file: str = typer.Argument(..., help="File path"),  # OK: Typer pattern
+    ...
+):
+    ...
+```
+
+**Rationale:** Typer's dependency injection uses default initializers as a DSL for CLI argument definition. This is framework-intentional behavior, not a type safety issue. File-level suppression documents this explicitly while preserving the check for non-CLI code.
+
+**Alternative Rejected:** Global suppression in `pyrightconfig.json` would disable the check across the entire codebase, losing protection against accidental default initializers in domain/application layers.
+
+### Typeshed for Third-Party Stubs
+
+When type stubs are missing for third-party libraries, check typeshed before creating local stubs.
+
+**Resolution Priority:**
+1. **Package bundled stubs** - Many modern packages include `py.typed` marker
+2. **typeshed stubs** - Install from typeshed via `types-<package>`:
+   ```bash
+   uv add --dev types-requests types-pyyaml
+   ```
+3. **Stub-only packages** - Search PyPI for official stub packages
+4. **Local stubs in `typings/`** - Only when typeshed does not exist:
+   ```
+   typings/
+   └── some_package/
+       └── __init__.pyi
+   ```
+
+**Configuration:**
+```toml
+[tool.mypy]
+# Let mypy find typeshed stubs automatically
+ignore_missing_imports = false  # Fail on truly missing stubs
+
+[tool.pyright]
+stubPath = "typings"  # Local stubs only; typeshed resolved via typeshedPath
+```
+
+**Example - Adding typeshed stubs:**
+```bash
+# Check what stubs are available
+uv pip search types-requests  # or check typeshed GitHub
+
+# Add to dev dependencies
+uv add --dev types-requests types-urllib3
+
+# Re-run type check
+uv run mypy src/
+```
+
+### Generic Type Patterns
+
+Use generic types to avoid duplicating logic for different concrete types. Prefer `typing.TypeVar`, `typing.Generic`, and `typing.ParamSpec` over copy-paste implementations.
+
+**TypeVar for Container Types:**
+```python
+from typing import TypeVar
+
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)  # For read-only containers
+
+def first(items: list[T]) -> T | None:
+    """Works with any list element type."""
+    return items[0] if items else None
+
+def find_by_id(items: list[T], id: str, getter: Callable[[T], str]) -> T | None:
+    """Generic lookup by ID extractor."""
+    for item in items:
+        if getter(item) == id:
+            return item
+    return None
+```
+
+**Generic Classes for Reusable Containers:**
+```python
+from typing import Generic, TypeVar
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+class LRUCache(Generic[K, V]):
+    """Generic LRU cache for any key-value types."""
+
+    def __init__(self, capacity: int) -> None:
+        self._capacity = capacity
+        self._cache: OrderedDict[K, V] = OrderedDict()
+
+    def get(self, key: K) -> V | None:
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return None
+
+    def put(self, key: K, value: V) -> None:
+        ...
+```
+
+**ParamSpec for Decorators:**
+```python
+from typing import ParamSpec, TypeVar
+import functools
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def log_execution(func: Callable[P, R]) -> Callable[P, R]:
+    """Decorator that preserves signature of wrapped function."""
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        logger.debug(f"Calling {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
+
+@log_execution
+def fetch_data(url: str, timeout: int = 30) -> dict[str, Any]:
+    ...  # Type checker knows: (str, int) -> dict[str, Any]
+```
+
+**Bounded TypeVar for Domain Constraints:**
+```python
+from typing import TypeVar
+from abc import ABC, abstractmethod
+
+class FormattableRecord(ABC):
+    @abstractmethod
+    def to_compact_dict(self) -> dict[str, Any]: ...
+
+T = TypeVar("T", bound=FormattableRecord)
+
+def format_records(records: list[T], fmt: OutputFormat) -> str:
+    """Works with any FormattableRecord subtype."""
+    if fmt == OutputFormat.JSON:
+        return json.dumps([r.to_compact_dict() for r in records])
+    ...
+```
+
+**Avoid When Not Needed:**
+```python
+# Unnecessary - no type reuse
+T = TypeVar("T")
+def only_for_str(items: list[str]) -> str: ...  # Just use str directly
+
+# Prefer - simpler and clearer
+def only_for_str(items: list[str]) -> str: ...
+```
+
+### Refactoring with Type Safety
+
+When fixing type diagnostics at scale:
+
+1. **Categorize first** - Separate simple annotations from architectural changes
+2. **Fix simple first** - Parameter/return types, variable annotations
+3. **Defer architecture** - Import cycles, module reorganization require separate review
+4. **Verify both tools** - Run both mypy and basedpyright after changes
+5. **Test coverage** - All tests must pass; type changes should not alter runtime behavior
+
+### Deferral Criteria
+
+Defer type fixes to architecture review when they require:
+- Moving types to resolve import cycles
+- Creating new Protocols or abstract base classes
+- Reorganizing module structure
+- Breaking circular dependencies
+
+Document deferred items in `.lsz/deferred-diagnostics.md` with justification.
+
+## LSP Type Safety Patterns
+
+For LSP protocol types, use Pydantic models instead of TypedDict to achieve both static and runtime type safety (ADR-0023).
+
+### Pydantic Model Conventions
+
+**Basic Pattern:**
+```python
+from pydantic import BaseModel, Field, ConfigDict
+
+class Position(BaseModel):
+    """Position in a text document."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    line: int
+    character: int
+```
+
+**Required Configuration:**
+- Always use `ConfigDict(populate_by_name=True)` to support both snake_case Python fields and camelCase JSON
+- Use `Field(..., alias="camelCase")` for fields that differ between Python naming and LSP spec
+- Use `Field(default=None)` for optional fields instead of `total=False`
+
+**CamelCase Aliasing Example:**
+```python
+class InitializeResult(BaseModel):
+    """Result of initialize request."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    capabilities: ServerCapabilities
+    server_info: dict[str, str] | None = Field(None, alias="serverInfo")
+```
+
+### Typed Transport Adapter Pattern
+
+Create typed wrapper methods for LSP requests to centralize validation at the boundary:
+
+```python
+class TypedLSPTransport:
+    """Adapter that provides typed LSP request methods."""
+
+    def __init__(self, transport: StdioTransport):
+        self._transport = transport
+
+    async def send_initialize(self, params: InitializeParams) -> InitializeResult:
+        response = await self._transport.send_request("initialize", params.model_dump())
+        return InitializeResult.model_validate(response)
+```
+
+**Benefits:**
+- Validation happens at infrastructure boundary, not scattered across call sites
+- Inner layers receive validated Pydantic models
+- No `cast()` calls needed
+- camelCase JSON preserved via Field aliases
+
+### LSP Transport Type Boundary (ADR-0024)
+
+Enforce a strict type boundary between raw transport and typed adapters:
+
+**Boundary Rules:**
+1. **ONLY `TypedLSPTransport` may import or use `StdioTransport`** - No other code may directly access the raw transport
+2. **`StdioTransport.send_request()` returns `object` not `Any`** - Forces validation at call sites
+3. **Pydantic validation happens at the boundary** - Inner layers receive validated models only
+4. **`StdioTransport` is not exported from `lsp/__init__.py`** - Prevents accidental direct usage
+
+**Architecture:**
+```
+┌─────────────────────────────────────────┐
+│           TYPE BOUNDARY                 │
+├─────────────────────────────────────────┤
+│  StdioTransport.send_request() → object │
+│              ↓                          │
+│  TypedLSPTransport (validation)         │
+│              ↓                          │
+│  Pydantic Models → Inner Layers         │
+└─────────────────────────────────────────┘
+```
+
+**Migration Checklist:**
+- [ ] Change `StdioTransport.send_request()` return type from `Any` to `object`
+- [ ] Remove all file-level pyright suppressions from `transport.py`
+- [ ] Update `LSPClient` to use `TypedLSPTransport` exclusively
+- [ ] Remove `StdioTransport` from `lsp/__init__.py` exports
+- [ ] Verify no other code imports `StdioTransport` directly
+
+### Migration Strategy
+
+When migrating from TypedDict to Pydantic:
+
+1. **Phase 1:** Convert type definitions in `lsp/types.py`
+2. **Phase 2:** Create typed transport adapter in `lsp/typed_transport.py`
+3. **Phase 3:** Update callers incrementally, removing `cast()` calls
+4. **Phase 4:** Verify with both mypy and basedpyright
+
+**Forward Compatibility:**
+Use `ConfigDict(extra="ignore")` if LSP spec extensions might add unknown fields:
+```python
+class ServerCapabilities(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    # ... fields
+```
+
 ## Refactoring Standards
 
 ### When to Refactor

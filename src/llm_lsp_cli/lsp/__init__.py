@@ -2,7 +2,7 @@
 
 from .cache import DiagnosticCache, FileState
 from .constants import LSPConstants
-from .transport import LSPError, StdioTransport
+from .transport import LSPError
 from .types import (
     ClientCapabilities,
     CompletionItem,
@@ -28,7 +28,6 @@ __all__ = [
     "SymbolInformation",
     "DocumentSymbol",
     "LSPConstants",
-    "StdioTransport",
     "LSPError",
     "DiagnosticCache",
     "FileState",

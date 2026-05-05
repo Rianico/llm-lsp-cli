@@ -178,8 +178,8 @@ class TestClientWorkspaceDiagnostics:
         # Verify the result (push mode returns cached diagnostics via unified cache)
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0]["uri"] == test_uri
-        assert len(result[0]["diagnostics"]) == 1
+        assert result[0].uri == test_uri
+        assert len(result[0].diagnostics) == 1
 
 
 class TestNormalizeDocumentDiagnostics:

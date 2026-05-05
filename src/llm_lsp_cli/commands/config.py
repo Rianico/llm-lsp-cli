@@ -1,8 +1,16 @@
-"""Config commands for llm-lsp-cli."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportUnknownMemberType=false
+"""Config commands for llm-lsp-cli.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated, Any
 
 import typer
 
@@ -48,7 +56,7 @@ def _write_config_with_confirmation(
     if create_parent:
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    config_path.write_text(dump_config(DEFAULT_CONFIG))
+    _ = config_path.write_text(dump_config(DEFAULT_CONFIG))
     success_msg = success_prefix if success_prefix else config_type
     typer.echo(f"Created {success_msg} at: {config_path}")
     return True
@@ -56,18 +64,16 @@ def _write_config_with_confirmation(
 
 @app.command("list")
 def config_list(
-    format: str = typer.Option(
-        "json",
-        "--format",
-        "-f",
-        help="Output format: json, yaml, or text",
-    ),
-    lsp_server: str | None = typer.Option(
-        None,
-        "--lsp-server",
-        "-ls",
-        help="Override auto-detected LSP server (e.g., 'pyright-langserver')",
-    ),
+    format: Annotated[
+        str, typer.Option("--format", "-f", help="Output format: json, yaml, or text")
+    ] = "json",
+    lsp_server: Annotated[
+        str | None,
+        typer.Option(
+            "--lsp-server", "-ls",
+            help="Override auto-detected LSP server (e.g., 'pyright-langserver')",
+        ),
+    ] = None,
 ) -> None:
     """List supported LSP server capabilities.
 
@@ -98,14 +104,14 @@ def config_list(
         except Exception:
             config = {}
 
-        language_configs: dict[str, dict] = {}
+        language_configs: dict[str, dict[str, Any]] = {}
         for lang_name, lang_conf in config.get("languages", {}).items():
             if isinstance(lang_conf, dict):
                 language_configs[lang_name] = {
                     "root_markers": lang_conf.get("root_markers", [])
                 }
 
-        workspace_path, raw_detected = detect_workspace_and_language(
+        _workspace_path, raw_detected = detect_workspace_and_language(
             file_path=None,
             explicit_workspace=None,
             explicit_language=None,
@@ -129,18 +135,14 @@ def config_list(
 
 @app.command("init")
 def config_init(
-    project: bool = typer.Option(
-        False,
-        "--project",
-        "-p",
-        help="Create .llm-lsp-cli.yaml in current directory instead of global config",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Overwrite existing config file (prompts for confirmation)",
-    ),
+    project: Annotated[
+        bool,
+        typer.Option(help="Create .llm-lsp-cli.yaml in current directory instead of global config"),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(help="Overwrite existing config file (prompts for confirmation)"),
+    ] = False,
 ) -> None:
     """Initialize configuration file.
 
@@ -150,10 +152,10 @@ def config_init(
     """
     if project:
         config_path = Path.cwd() / ".llm-lsp-cli.yaml"
-        _write_config_with_confirmation(config_path, force, "project config")
+        _ = _write_config_with_confirmation(config_path, force, "project config")
     else:
         config_path = ConfigManager.get_config_dir() / "config.yaml"
-        _write_config_with_confirmation(
+        _ = _write_config_with_confirmation(
             config_path, force, "configuration", create_parent=True,
             success_prefix="default configuration",
         )

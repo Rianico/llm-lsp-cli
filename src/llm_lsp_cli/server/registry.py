@@ -1,4 +1,12 @@
-"""Server registry for managing multiple LSP workspaces."""
+# pyright: reportUnannotatedClassAttribute=false
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+# pyright: reportMissingTypeStubs=false
+"""Server registry for managing multiple LSP workspaces.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 import asyncio
 from pathlib import Path

@@ -1,6 +1,8 @@
+# pyright: reportExplicitAny=false
 """LSP initialize parameters builder.
 
 Builds standard LSP initialize parameters dynamically.
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 import os

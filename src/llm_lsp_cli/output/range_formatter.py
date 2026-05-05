@@ -1,4 +1,10 @@
-"""Range formatting utilities for compact output."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""Range formatting utilities for compact output.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from __future__ import annotations
 

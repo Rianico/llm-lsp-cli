@@ -38,14 +38,7 @@ async def lsp_client(temp_dir: Path) -> typing.AsyncGenerator[LSPClient, None]:
     """Create LSPClient with mocked transport and initialize it."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    mock_transport = AsyncMock()
-    mock_transport.send_request = AsyncMock(return_value={"capabilities": {}})
-    mock_transport.send_notification = AsyncMock()
-    mock_transport.send_request_fire_and_forget = AsyncMock()
-    mock_transport.on_notification = MagicMock()
-    mock_transport.on_request = MagicMock()
-    mock_transport.start = AsyncMock()
-    mock_transport.stop = AsyncMock()
+    from llm_lsp_cli.lsp import types as lsp
 
     client = LSPClient(
         workspace_path=str(temp_dir),
@@ -54,12 +47,25 @@ async def lsp_client(temp_dir: Path) -> typing.AsyncGenerator[LSPClient, None]:
         language_id="python",
     )
 
-    # Patch StdioTransport to return our mock
-    with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
+    # Create a mock TypedLSPTransport
+    mock_typed_transport = MagicMock()
+    mock_typed_transport.start = AsyncMock()
+    mock_typed_transport.stop = AsyncMock()
+    mock_typed_transport.send_notification = AsyncMock()
+    mock_typed_transport.send_request_fire_and_forget = AsyncMock()
+    mock_typed_transport.send_request = AsyncMock()
+    mock_typed_transport.on_notification = MagicMock()
+    mock_typed_transport.on_request = MagicMock()
+    mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
+        capabilities=lsp.ServerCapabilities()
+    ))
+
+    # Patch TypedLSPTransport to return our mock
+    with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
         # Initialize to send workspace diagnostic request
         await client.initialize()
-        # Store mock_transport on client for test access
-        client._mock_transport = mock_transport  # type: ignore
+        # Store mock on client for test access
+        client._mock_transport = mock_typed_transport  # type: ignore
         yield client
 
 

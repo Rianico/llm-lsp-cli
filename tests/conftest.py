@@ -3,14 +3,18 @@
 import logging
 import shutil
 import tempfile
-import typing
+from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from llm_lsp_cli.output.formatter import Position
+
 
 @pytest.fixture
-def temp_dir() -> typing.Generator[Path, None, None]:
+def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for tests."""
     dirpath = tempfile.mkdtemp()
     yield Path(dirpath)
@@ -45,7 +49,7 @@ if __name__ == "__main__":
 
 
 @pytest.fixture(autouse=True)
-def _reset_diagnostic_logger() -> typing.Generator[None, None, None]:
+def _reset_diagnostic_logger() -> Generator[None, None, None]:  # pyright: ignore[reportUnusedFunction]
     """Reset diagnostic logger state between tests for isolation.
 
     This fixture ensures that tests configuring the diagnostic logger
@@ -110,7 +114,7 @@ def sample_position() -> "Position":
 @pytest.fixture
 def xdg_test_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> typing.Generator[Path, None, None]:
+) -> Generator[Path, None, None]:
     """Set up isolated XDG environment for config tests.
 
     Yields:

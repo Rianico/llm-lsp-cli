@@ -493,7 +493,7 @@ class TestDiagnosticCache:
             result = await diagnostic_cache.get_all_workspace_diagnostics()
 
             assert len(result) == len(multiple_sample_uris)
-            result_uris = {item["uri"] for item in result}
+            result_uris = {item.uri for item in result}
             assert result_uris == set(multiple_sample_uris)
 
         @pytest.mark.asyncio
@@ -510,12 +510,12 @@ class TestDiagnosticCache:
 
             assert len(result) == 1
             item = result[0]
-            assert "uri" in item
-            assert "version" in item
-            assert "diagnostics" in item
+            assert hasattr(item, "uri")
+            assert hasattr(item, "version")
+            assert hasattr(item, "diagnostics")
             # URI should be the original file URI
-            assert item["uri"] == sample_uri
-            assert isinstance(item["diagnostics"], list)
+            assert item.uri == sample_uri
+            assert isinstance(item.diagnostics, list)
 
         @pytest.mark.asyncio
         async def test_get_all_workspace_diagnostics_includes_empty_diagnostics(
@@ -542,7 +542,13 @@ class TestDiagnosticCache:
             # Add diagnostics - one file has errors, one doesn't
             await diagnostic_cache.update_diagnostics(
                 uri_with_errors,
-                [{"message": "Error"}]
+                [{
+                    "message": "Error",
+                    "range": {
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 0, "character": 5}
+                    }
+                }]
             )
             await diagnostic_cache.update_diagnostics(
                 uri_no_errors,
@@ -553,14 +559,14 @@ class TestDiagnosticCache:
 
             # Both files should be in results
             assert len(result) == 2
-            result_uris = {item["uri"] for item in result}
+            result_uris = {item.uri for item in result}
             assert uri_with_errors in result_uris
             assert uri_no_errors in result_uris
 
             # Find the file with empty diagnostics and verify it's empty
             for item in result:
-                if item["uri"] == uri_no_errors:
-                    assert item["diagnostics"] == []
+                if item.uri == uri_no_errors:
+                    assert item.diagnostics == []
 
 
 # =============================================================================

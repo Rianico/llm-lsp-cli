@@ -1,3 +1,4 @@
+# pyright: reportMissingTypeStubs=false
 """Application layer protocol interfaces."""
 
 from llm_lsp_cli.application.interfaces.ipc_transport import IpcTransportPort

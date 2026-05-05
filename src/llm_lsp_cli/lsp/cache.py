@@ -15,7 +15,7 @@ from typing import Any
 
 from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
-from . import types as lsp
+from .types import Diagnostic, WorkspaceDiagnosticItem
 
 
 @dataclass
@@ -38,6 +38,7 @@ class FileState:
         diagnostics: List of diagnostic dictionaries from the LSP server
         uri: The original file URI (for workspace diagnostic responses)
     """
+
     mtime: float = 0.0
     document_version: int = 0
     last_result_id: str | None = None
@@ -269,7 +270,7 @@ class DiagnosticCache:
 
     async def get_all_workspace_diagnostics(
         self,
-    ) -> list[lsp.WorkspaceDiagnosticItem]:
+    ) -> list[WorkspaceDiagnosticItem]:
         """Get all cached diagnostics for the workspace.
 
         Returns:
@@ -279,13 +280,16 @@ class DiagnosticCache:
             - diagnostics: List of diagnostic items (may be empty)
         """
         async with self._lock:
-            result: list[dict[str, Any]] = []
+            result: list[WorkspaceDiagnosticItem] = []
             for key, state in self._cache.items():
                 # Include all cached files, not just those with diagnostics
                 # This ensures workspace-diagnostic returns complete information
-                result.append({
-                    "uri": state.uri if state.uri else key,
-                    "version": state.document_version,
-                    "diagnostics": list(state.diagnostics),
-                })
-            return result  # type: ignore[return-value]
+                # Convert raw diagnostic dicts to Diagnostic models
+                validated_diagnostics = [Diagnostic.model_validate(d) for d in state.diagnostics]
+                item = WorkspaceDiagnosticItem(
+                    uri=state.uri if state.uri else key,
+                    version=state.document_version,
+                    diagnostics=validated_diagnostics,
+                )
+                result.append(item)
+            return result

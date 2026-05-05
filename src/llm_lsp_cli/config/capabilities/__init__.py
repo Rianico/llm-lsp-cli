@@ -1,6 +1,10 @@
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
 """LSP server capabilities definitions.
 
 Provides server server capability configurations for different LSP servers.
+LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
@@ -10,14 +14,14 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
 # Module-level cache for capabilities, keyed by server name
-_capabilities_cache: dict[str, dict[str, Any]] = {}
+_capabilities_cache: dict[str, dict[str, object]] = {}
 
 # Server name to filename mapping (shared constant)
 _SERVERS: dict[str, str] = {
@@ -33,7 +37,7 @@ _SERVERS: dict[str, str] = {
 def _load_server_capability(
     capabilities_dir: Path,
     filename: str,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     """Load a single server capability from JSON file.
 
     Args:
@@ -48,7 +52,7 @@ def _load_server_capability(
         return None
     content = file_path.read_text()
     with contextlib.suppress(json.JSONDecodeError):
-        loaded = json.loads(content)
+        loaded = cast(object, json.loads(content))
         if isinstance(loaded, dict):
             return loaded
     return None
@@ -120,7 +124,7 @@ def _extract_server_name_from_path(server_path: str) -> str:
     return Path(server_path).name
 
 
-def get_capabilities_for_server_path(server_path: str) -> dict[str, Any]:
+def get_capabilities_for_server_path(server_path: str) -> dict[str, object]:
     """Get capabilities for a specific server path.
 
     Loads server-specific capabilities JSON file if available,
@@ -144,7 +148,7 @@ def get_capabilities_for_server_path(server_path: str) -> dict[str, Any]:
         return _capabilities_cache[server_name]
 
     # Try to match a known server
-    capabilities: dict[str, Any] | None = None
+    capabilities: dict[str, object] | None = None
     for s_name, server_file in _SERVERS.items():
         if _match_server_filter(server_name, s_name, server_file):
             capabilities = _load_server_capability(capabilities_dir, server_file)
@@ -164,7 +168,7 @@ def get_capabilities_for_server_path(server_path: str) -> dict[str, Any]:
             )
         # Load default.json directly to propagate JSONDecodeError
         content = default_path.read_text()
-        loaded = json.loads(content)
+        loaded = cast(object, json.loads(content))
         # Type narrow: json.loads returns Any, but we expect dict for valid config
         assert isinstance(loaded, dict)
         capabilities = loaded
@@ -176,7 +180,7 @@ def get_capabilities_for_server_path(server_path: str) -> dict[str, Any]:
 
 def get_server_capabilities(
     server_filter: str | None = None,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     """Get LSP server capabilities for all supported servers.
 
     Args:
@@ -190,7 +194,7 @@ def get_server_capabilities(
     """
     capabilities_dir = Path(__file__).parent
 
-    result: dict[str, dict[str, Any]] = {}
+    result: dict[str, dict[str, object]] = {}
 
     # If server_filter provided, only load that server
     if server_filter:

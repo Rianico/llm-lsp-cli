@@ -1,4 +1,10 @@
-"""Symbol filtering for controlling variable-level symbol output."""
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""Symbol filtering for controlling variable-level symbol output.
+
+This module handles LSP response data (dict[str, Any]).
+LSP responses are inherently dynamic, so Any is used for dict value types.
+"""
 
 from typing import Any
 
