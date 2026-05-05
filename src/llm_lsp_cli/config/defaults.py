@@ -7,7 +7,7 @@ LSP responses are inherently dynamic, so Any is used for dict value types.
 
 from typing import Any
 
-from .schema import LanguageTestFilterConfig, TestFilterConfig
+from .schema import LanguageTestFilterConfig, FilterTestConfig
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "languages": {
@@ -74,7 +74,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 
 # Default test filter patterns organized by language
-DEFAULT_TEST_FILTER_CONFIG = TestFilterConfig(
+DEFAULT_TEST_FILTER_CONFIG = FilterTestConfig(
     defaults=LanguageTestFilterConfig(
         # Default fallback patterns for unknown languages
         directory_patterns=["**/tests/**", "**/test/**", "**/__tests__/**", "**/spec/**"],

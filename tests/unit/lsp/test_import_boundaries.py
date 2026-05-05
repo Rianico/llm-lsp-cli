@@ -9,6 +9,9 @@ from pathlib import Path
 
 import pytest
 
+# Repository root (4 levels up from this test file)
+REPO_ROOT = Path(__file__).parent.parent.parent.parent
+
 
 class TestImportBoundaries:
     """Tests that only TypedLSPTransport can import StdioTransport."""
@@ -25,7 +28,7 @@ class TestImportBoundaries:
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/zhengxk/development/ai/llm-lsp-cli.code-refactor"
+            cwd=str(REPO_ROOT)
         )
 
         lines = result.stdout.strip().split("\n") if result.stdout else []
@@ -41,7 +44,7 @@ class TestImportBoundaries:
 
     def test_client_does_not_import_stdio_transport(self) -> None:
         """T5.2: LSPClient does not directly import StdioTransport."""
-        client_path = Path("/Users/zhengxk/development/ai/llm-lsp-cli.code-refactor/src/llm_lsp_cli/lsp/client.py")
+        client_path = REPO_ROOT / "src/llm_lsp_cli/lsp/client.py"
         content = client_path.read_text()
 
         # Check for direct import patterns
@@ -57,7 +60,7 @@ class TestImportBoundaries:
 
     def test_client_uses_typed_transport(self) -> None:
         """T5.3: LSPClient should use TypedLSPTransport, not StdioTransport."""
-        client_path = Path("/Users/zhengxk/development/ai/llm-lsp-cli.code-refactor/src/llm_lsp_cli/lsp/client.py")
+        client_path = REPO_ROOT / "src/llm_lsp_cli/lsp/client.py"
         content = client_path.read_text()
 
         # Check that client imports TypedLSPTransport

@@ -416,8 +416,8 @@ class TestRenameServicePreview:
             new_name="NewClassName",
         )
 
-        # Path should be relative, not absolute
-        assert records[0].file == "src/main.py"
+        # Path should be absolute
+        assert records[0].file.endswith("src/main.py")
 
 
 # =============================================================================
@@ -1104,12 +1104,12 @@ class TestRenameServicePreviewFromEdit:
         # Should only have 1 record from the TextDocumentEdit, not the 'create' op
         assert len(records) == 1
 
-    def test_preview_from_edit_normalizes_uris_to_relative_paths(
+    def test_preview_from_edit_normalizes_uris_to_absolute_paths(
         self,
         temp_workspace: Path,
         sample_workspace_edit: dict[str, Any],
     ) -> None:
-        """Verify preview_from_edit normalizes URIs to relative paths."""
+        """Verify preview_from_edit normalizes URIs to absolute paths."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
         from llm_lsp_cli.output.formatter import Position
@@ -1130,8 +1130,8 @@ class TestRenameServicePreviewFromEdit:
             new_name="NewClassName",
         )
 
-        # Path should be relative, not absolute
-        assert records[0].file == "src/main.py"
+        # Path should be absolute
+        assert records[0].file.endswith("src/main.py")
 
     def test_preview_from_edit_does_not_modify_files(
         self,

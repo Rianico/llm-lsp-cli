@@ -23,7 +23,7 @@ class TestFullConfigLoadingPipeline:
     """Test the full configuration loading pipeline end-to-end."""
 
     def test_full_pipeline_from_xdg_to_config_manager(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None, no_project_config: None
     ) -> None:
         """Complete pipeline: XDG paths -> Config file -> ConfigManager."""
         # Arrange

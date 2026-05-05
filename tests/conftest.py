@@ -129,3 +129,17 @@ def xdg_test_env(
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "run"))
     yield config_dir
+
+
+@pytest.fixture
+def no_project_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable project config loading for tests that need isolated XDG config.
+
+    The .llm-lsp-cli.yaml file in the project root (CWD during tests) can override
+    test configs set up in XDG_CONFIG_HOME. This fixture disables project config
+    loading to ensure test isolation.
+    """
+    from llm_lsp_cli.config.manager import ConfigManager
+
+    # Return None for project config to prevent CWD config override
+    monkeypatch.setattr(ConfigManager, "_load_project_config", classmethod(lambda cls: None))

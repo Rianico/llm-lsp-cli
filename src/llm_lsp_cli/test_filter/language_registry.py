@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from .pattern_engine import PatternSet, PatternSource
 
 if TYPE_CHECKING:
-    from llm_lsp_cli.config.schema import TestFilterConfig
+    from llm_lsp_cli.config.schema import FilterTestConfig
 
 
 class LanguageFilterRegistry:
@@ -25,7 +25,7 @@ class LanguageFilterRegistry:
     def __init__(self) -> None:
         """Initialize the registry."""
         self._filters: dict[str, PatternSet] = {}
-        self._config: TestFilterConfig | None = None
+        self._config: FilterTestConfig | None = None
         self._configured = False
 
     @classmethod
@@ -37,11 +37,11 @@ class LanguageFilterRegistry:
                     cls._instance = cls()
         return cls._instance
 
-    def configure(self, config: TestFilterConfig) -> None:
+    def configure(self, config: FilterTestConfig) -> None:
         """Load configuration and clear cache.
 
         Args:
-            config: TestFilterConfig with language-specific patterns
+            config: FilterTestConfig with language-specific patterns
         """
         with self._lock:
             self._config = config

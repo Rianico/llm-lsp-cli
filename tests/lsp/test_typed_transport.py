@@ -309,11 +309,14 @@ class TestTypedLSPTransportGateway:
     @pytest.fixture
     def gateway_mock_transport(self) -> AsyncMock:
         """Mock StdioTransport for testing gateway methods."""
+        from unittest.mock import Mock
+
         mock = AsyncMock()
         mock.send_request = AsyncMock()
         mock.send_notification = AsyncMock()
-        mock.on_notification = AsyncMock()
-        mock.on_request = AsyncMock()
+        # on_notification and on_request are registration methods, not async
+        mock.on_notification = Mock()
+        mock.on_request = Mock()
         return mock
 
     @pytest.fixture

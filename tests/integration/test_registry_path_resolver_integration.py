@@ -18,7 +18,7 @@ def reset_xdg_paths():
 
 @pytest.mark.asyncio
 async def test_registry_resolves_absolute_path_via_path_resolver(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-01: ServerRegistry uses ServerPathResolver for absolute paths."""
     # Arrange: Create executable at absolute path
@@ -61,7 +61,7 @@ async def test_registry_resolves_absolute_path_via_path_resolver(
 
 @pytest.mark.asyncio
 async def test_registry_resolves_tilde_path_via_path_resolver(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-02: ServerRegistry expands tilde paths via ServerPathResolver."""
     # Arrange: Mock HOME and create executable
@@ -99,7 +99,7 @@ async def test_registry_resolves_tilde_path_via_path_resolver(
 
 @pytest.mark.asyncio
 async def test_registry_resolves_env_var_path_via_path_resolver(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-03: ServerRegistry expands environment variable paths."""
     # Arrange
@@ -135,7 +135,7 @@ async def test_registry_resolves_env_var_path_via_path_resolver(
 
 @pytest.mark.asyncio
 async def test_registry_falls_back_to_path_lookup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-04: ServerRegistry falls back to PATH for simple commands."""
     # Arrange: Create executable in mock PATH
@@ -172,7 +172,7 @@ async def test_registry_falls_back_to_path_lookup(
 
 @pytest.mark.asyncio
 async def test_registry_raises_file_not_found_for_nonexistent_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-05: ServerRegistry raises FileNotFoundError for invalid paths."""
     # Arrange: Config with non-existent path
@@ -198,7 +198,7 @@ async def test_registry_raises_file_not_found_for_nonexistent_path(
 
 @pytest.mark.asyncio
 async def test_registry_preserves_server_args_with_path_resolver(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_project_config: None
 ) -> None:
     """INT-REG-06: ServerRegistry preserves args when resolving paths."""
     # Arrange

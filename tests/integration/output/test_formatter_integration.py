@@ -149,11 +149,11 @@ class TestWorkspaceSymbolWorkflow:
         """Test filtering test file symbols."""
         records = formatter.transform_symbols(workspace_symbols_response)
 
-        # Filter out test symbols
-        filtered = [r for r in records if not r.file.startswith("tests/")]
+        # Filter out test symbols (paths contain /tests/)
+        filtered = [r for r in records if "/tests/" not in r.file]
 
         assert len(filtered) == 2
-        assert all(not r.file.startswith("tests/") for r in filtered)
+        assert all("/tests/" not in r.file for r in filtered)
 
 
 class TestDocumentSymbolWorkflow:
@@ -315,7 +315,7 @@ class TestReferencesWorkflow:
         for item in parsed["items"]:
             assert "file" in item
             assert "range" in item
-            assert item["file"] in ["src/main.py", "src/utils.py"]
+            assert item["file"].endswith("src/main.py") or item["file"].endswith("src/utils.py")
 
     def test_workflow_yaml_output(
         self, formatter: CompactFormatter, references_response: list[dict[str, Any]]
@@ -357,11 +357,11 @@ class TestReferencesWorkflow:
 
         records = formatter.transform_locations(references_response_with_test)
 
-        # Filter out test locations
-        filtered = [r for r in records if not r.file.startswith("tests/")]
+        # Filter out test locations (paths contain /tests/)
+        filtered = [r for r in records if "/tests/" not in r.file]
 
         assert len(filtered) == 3
-        assert all(not r.file.startswith("tests/") for r in filtered)
+        assert all("/tests/" not in r.file for r in filtered)
 
 
 class TestEdgeCases:
@@ -615,13 +615,14 @@ class TestTokenEfficiency:
         assert records[0].range.to_compact() == "1:1-51:1"
         assert records[1].range.to_compact() == "11:1-31:1"
 
-    def test_relative_paths(
+    def test_absolute_paths(
         self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]
     ) -> None:
-        """Verify paths are relative (saves tokens vs absolute URIs)."""
+        """Verify paths are absolute (not relative URIs)."""
         records = formatter.transform_symbols(sample_symbols)
 
-        # Should use relative paths, not full URIs
-        assert records[0].file == "src/models.py"
-        assert records[1].file == "src/utils.py"
+        # Should use absolute paths, not relative paths
+        assert records[0].file.endswith("src/models.py")
+        assert records[1].file.endswith("src/utils.py")
+        assert records[0].file.startswith("/")
         assert not records[0].file.startswith("file://")

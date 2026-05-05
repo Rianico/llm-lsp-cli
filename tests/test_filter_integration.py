@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from llm_lsp_cli.config.schema import LanguageTestFilterConfig, TestFilterConfig
+from llm_lsp_cli.config.schema import LanguageTestFilterConfig, FilterTestConfig
 from llm_lsp_cli.test_filter import (
     PatternSet,
     PatternSource,
@@ -314,7 +314,7 @@ class TestConfigurationOverride:
         registry = get_registry()
 
         # Create custom config with minimal patterns
-        custom_config = TestFilterConfig(
+        custom_config = FilterTestConfig(
             defaults=LanguageTestFilterConfig(
                 directory_patterns=["**/custom_tests/**"],
                 suffix_patterns=["_custom.py"],
@@ -343,7 +343,7 @@ class TestConfigurationOverride:
         registry = get_registry()
 
         # Custom config with Python override
-        custom_config = TestFilterConfig(
+        custom_config = FilterTestConfig(
             defaults=LanguageTestFilterConfig(
                 directory_patterns=["**/tests/**"],
                 suffix_patterns=[],
@@ -380,7 +380,7 @@ class TestConfigurationOverride:
         """Empty language config should fall back to defaults."""
         registry = get_registry()
 
-        custom_config = TestFilterConfig(
+        custom_config = FilterTestConfig(
             defaults=LanguageTestFilterConfig(
                 directory_patterns=["**/tests/**"],
                 suffix_patterns=["_test.go"],

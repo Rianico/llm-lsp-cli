@@ -566,7 +566,7 @@ class TestConfigManagerFacadeEdgeCases:
         assert config_dir.exists()
 
     def test_config_manager_save_and_reload(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None, no_project_config: None
     ) -> None:
         """ConfigManager.save() and load() round-trip."""
         # Arrange

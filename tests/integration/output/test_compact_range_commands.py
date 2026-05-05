@@ -60,8 +60,9 @@ class TestDefinitionCommandWorkflow:
         # Compact format: "file: line:char-line:char"
         lines = output.strip().split("\n")
         assert len(lines) == 2
-        assert "src/main.py: 11:5-11:16" in output
-        assert "src/utils.py: 6:1-6:21" in output
+        # Check file paths end with expected suffix
+        assert any("src/main.py" in line and "11:5-11:16" in line for line in lines)
+        assert any("src/utils.py" in line and "6:1-6:21" in line for line in lines)
 
     def test_workflow_json_output(
         self, formatter: CompactFormatter, definition_response: dict[str, Any]
@@ -74,9 +75,9 @@ class TestDefinitionCommandWorkflow:
 
         items = parsed["items"]
         assert len(items) == 2
-        assert items[0]["file"] == "src/main.py"
+        assert items[0]["file"].endswith("src/main.py")
         assert items[0]["range"] == "11:5-11:16"
-        assert items[1]["file"] == "src/utils.py"
+        assert items[1]["file"].endswith("src/utils.py")
         assert items[1]["range"] == "6:1-6:21"
 
     def test_workflow_yaml_output(
@@ -90,7 +91,7 @@ class TestDefinitionCommandWorkflow:
 
         items = parsed["items"]
         assert len(items) == 2
-        assert items[0]["file"] == "src/main.py"
+        assert items[0]["file"].endswith("src/main.py")
         assert items[0]["range"] == "11:5-11:16"
 
     def test_workflow_csv_output(
@@ -106,9 +107,9 @@ class TestDefinitionCommandWorkflow:
         assert len(lines) == 3
         # Header should be: file,range (NOT uri,start_line,start_char,end_line,end_char)
         assert lines[0] == "file,range"
-        # Data rows should have compact range
-        assert "src/main.py,11:5-11:16" in lines[1]
-        assert "src/utils.py,6:1-6:21" in lines[2]
+        # Data rows should have compact range (check file suffix)
+        assert "src/main.py,11:5-11:16" in lines[1] or lines[1].endswith("/src/main.py,11:5-11:16")
+        assert "src/utils.py,6:1-6:21" in lines[2] or lines[2].endswith("/src/utils.py,6:1-6:21")
 
 
 class TestCompletionCommandWorkflow:

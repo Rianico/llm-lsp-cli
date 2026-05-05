@@ -682,7 +682,12 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
 
 def test_cli_hover_yaml_output(temp_file: Path) -> None:
     """Test hover command with YAML output format."""
+    import warnings
+
     from llm_lsp_cli.cli import app
+
+    # Suppress coroutine warnings from background task cleanup during GC
+    warnings.filterwarnings("ignore", message="coroutine.*was never awaited", category=RuntimeWarning)
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,

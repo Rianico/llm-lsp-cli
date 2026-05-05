@@ -6,6 +6,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from llm_lsp_cli.lsp.transport import StdioTransport
 
 
+def _mock_create_task_that_consumes_coroutines():
+    """Mock create_task that closes coroutines to avoid warnings.
+
+    When asyncio.create_task is mocked out, coroutines passed to it
+    are never awaited, causing RuntimeWarning. This mock closes them
+    properly to suppress the warnings.
+    """
+    def side_effect(coro, *args, **kwargs):
+        # Close the coroutine to prevent "never awaited" warning
+        coro.close()
+        return MagicMock()  # Return a mock task
+
+    return MagicMock(side_effect=side_effect)
+
+
 class TestTransportStartNoFileOpen:
     """Test StdioTransport.start does not open log file."""
 
@@ -26,7 +41,7 @@ class TestTransportStartNoFileOpen:
             mock_process.stderr = AsyncMock()
 
             with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-                with patch("asyncio.create_task"):
+                with patch("asyncio.create_task", side_effect=_mock_create_task_that_consumes_coroutines().side_effect):
                     # Act
                     await transport.start()
 
@@ -103,7 +118,7 @@ class TestTransportStartup:
         """Process starts successfully, _running is set to True."""
         with (
             patch("asyncio.create_subprocess_exec") as mock_exec,
-            patch("asyncio.create_task"),  # Mock task creation to avoid background tasks
+            patch("asyncio.create_task", side_effect=_mock_create_task_that_consumes_coroutines().side_effect),
         ):
             # Mock successful process
             mock_process = AsyncMock()
@@ -127,7 +142,7 @@ class TestTransportStartup:
         """Verifies a small stabilization delay is present after process start."""
         with (
             patch("asyncio.create_subprocess_exec") as mock_exec,
-            patch("asyncio.create_task"),  # Mock task creation to avoid background tasks
+            patch("asyncio.create_task", side_effect=_mock_create_task_that_consumes_coroutines().side_effect),
             patch("asyncio.sleep") as mock_sleep,
         ):
             # Mock successful process

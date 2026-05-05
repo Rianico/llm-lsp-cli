@@ -42,7 +42,7 @@ class LanguageTestFilterConfig(BaseModel):
     enabled: bool = Field(default=True)
 
 
-class TestFilterConfig(BaseModel):
+class FilterTestConfig(BaseModel):
     """Root test filter configuration with language-segmented groups."""
 
     model_config = ConfigDict(extra="allow")
@@ -75,7 +75,7 @@ class ClientConfig(BaseModel):
     )
 
     # Test filter configuration
-    test_filter: TestFilterConfig = Field(default_factory=TestFilterConfig)
+    test_filter: FilterTestConfig = Field(default_factory=FilterTestConfig)
 
     # Global settings
     trace_lsp: bool = Field(default=False, description="Enable LSP communication tracing")

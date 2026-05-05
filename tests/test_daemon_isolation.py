@@ -60,11 +60,11 @@ class TestDaemonIsolation:
         workspace_a.mkdir()
         workspace_b.mkdir()
 
-        log_a = ConfigManager.build_log_file_path(
+        log_a = ConfigManager.build_daemon_log_path(
             workspace_path=str(workspace_a),
             language="python",
         )
-        log_b = ConfigManager.build_log_file_path(
+        log_b = ConfigManager.build_daemon_log_path(
             workspace_path=str(workspace_b),
             language="python",
         )
@@ -147,6 +147,8 @@ class TestDaemonIsolation:
 
     def test_daemon_log_path_different_from_lsp_log_path(self, temp_dir: Path) -> None:
         """Test daemon log path is different from LSP server log path."""
+        import warnings
+
         workspace = temp_dir / "my-project"
         workspace.mkdir()
 
@@ -154,10 +156,13 @@ class TestDaemonIsolation:
             workspace_path=str(workspace),
             language="python",
         )
-        lsp_log = ConfigManager.build_log_file_path(
-            workspace_path=str(workspace),
-            language="python",
-        )
+        # Suppress deprecation warning - this test intentionally uses deprecated API
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            lsp_log = ConfigManager.build_log_file_path(
+                workspace_path=str(workspace),
+                language="python",
+            )
 
         assert daemon_log != lsp_log
         assert daemon_log.name == "daemon.log"

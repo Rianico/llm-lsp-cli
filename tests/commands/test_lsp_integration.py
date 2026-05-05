@@ -271,9 +271,9 @@ class TestWorkspaceSymbolGroupedOutput:
                 # Should have exactly 2 files
                 assert len(file_paths) == 2, f"Should have 2 file groups, got {len(file_paths)}"
 
-                # Files should be relative paths
+                # Files should be absolute paths
                 for f in file_paths:
-                    assert not f.startswith("/"), f"File path should be relative, got {f}"
+                    assert f.startswith("/"), f"File path should be absolute, got {f}"
                     assert not f.startswith("file://"), f"File path should not be URI, got {f}"
 
     def test_text_output_has_hierarchical_format(
@@ -509,13 +509,13 @@ class TestWorkspaceDiagnosticsGroupedOutput:
                     assert "diagnostics" in group
                     assert isinstance(group["diagnostics"], list)
 
-    def test_file_paths_are_relative_not_absolute(
+    def test_file_paths_are_absolute(
         self,
         mock_ctx: MagicMock,
         setup_workspace: Path,
         mock_workspace_diagnostics_response: dict[str, Any],
     ) -> None:
-        """File paths are workspace-relative, not absolute URIs."""
+        """File paths are absolute, not relative URIs."""
         import llm_lsp_cli.commands.lsp as lsp_module
 
         mock_ctx.obj.workspace = str(setup_workspace)
@@ -545,8 +545,8 @@ class TestWorkspaceDiagnosticsGroupedOutput:
                 files = data["files"]
                 for group in files:
                     file_path = group["file"]
-                    # Should not be absolute path
-                    assert not file_path.startswith("/"), f"Path should be relative, got: {file_path}"
+                    # Should be absolute path
+                    assert file_path.startswith("/"), f"Path should be absolute, got: {file_path}"
                     # Should not be file:// URI
                     assert not file_path.startswith("file://"), f"Path should not be URI, got: {file_path}"
 

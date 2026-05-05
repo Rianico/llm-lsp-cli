@@ -48,7 +48,7 @@ class TestFullConfigPipeline:
         assert paths.config_dir == config_home / "llm-lsp-cli"
 
     def test_config_manager_uses_repository_pattern(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reset_xdg_paths: None, no_project_config: None
     ) -> None:
         """ConfigManager uses repository pattern for server definitions."""
         config_home = tmp_path / "config"

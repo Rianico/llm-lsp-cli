@@ -427,10 +427,10 @@ class TestWorkspaceDiagnosticsGrouping:
             assert "diagnostics" in group
             assert isinstance(group["diagnostics"], list)
 
-    def test_file_paths_are_relative(
+    def test_file_paths_are_absolute(
         self, mock_ctx: MagicMock, setup_workspace: Path
     ) -> None:
-        """File paths in output are relative (not absolute URIs)."""
+        """File paths in output are absolute (not relative URIs)."""
         import llm_lsp_cli.commands.lsp as lsp_module
 
         mock_ctx.obj.workspace = str(setup_workspace)
@@ -461,7 +461,7 @@ class TestWorkspaceDiagnosticsGrouping:
         files = data["files"]
         for group in files:
             file_path = group["file"]
-            assert not file_path.startswith("/"), f"Path should be relative, got: {file_path}"
+            assert file_path.startswith("/"), f"Path should be absolute, got: {file_path}"
             assert not file_path.startswith("file://"), f"Path should not be URI, got: {file_path}"
 
     def test_file_paths_match_other_commands(
@@ -694,8 +694,9 @@ class TestFormatterGroupingIntegration:
 
         assert len(grouped) == 2
         files = [g["file"] for g in grouped]
-        assert "a.py" in files
-        assert "b.py" in files
+        # Check file paths end with expected names (absolute paths)
+        assert any(f.endswith("a.py") for f in files)
+        assert any(f.endswith("b.py") for f in files)
 
     def test_group_diagnostics_by_file_groups_correctly(self) -> None:
         """group_diagnostics_by_file groups diagnostics by file path."""

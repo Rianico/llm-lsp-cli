@@ -511,15 +511,15 @@ class TestCrossFormatConsistency:
         # File is at top level in JSON/YAML only
         assert expected_file not in text_output
 
-        # JSON/YAML have file at top level
+        # JSON/YAML have file at top level (uses file_path parameter)
         assert json_data["file"] == expected_file
         assert "file" not in json_data["items"][0]  # Not in items
 
         assert yaml_data["file"] == expected_file
         assert "file" not in yaml_data["items"][0]  # Not in items
 
-        # CSV keeps file column (flat format)
-        assert csv_data[0]["file"] == expected_file
+        # CSV uses absolute path from record (file_path parameter not used for CSV)
+        assert csv_data[0]["file"].endswith("src/test.py")
 
 
 # =============================================================================

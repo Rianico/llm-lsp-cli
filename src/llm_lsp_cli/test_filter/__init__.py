@@ -14,7 +14,7 @@ from functools import lru_cache
 from typing import Any
 
 from llm_lsp_cli.config.manager import ConfigManager
-from llm_lsp_cli.config.schema import TestFilterConfig
+from llm_lsp_cli.config.schema import FilterTestConfig
 
 from .language_registry import get_registry
 from .pattern_engine import PatternSet, PatternSource
@@ -247,11 +247,11 @@ def reload_config() -> None:
         registry.configure(DEFAULT_TEST_FILTER_CONFIG)
 
 
-def _config_has_patterns(config: TestFilterConfig) -> bool:
+def _config_has_patterns(config: FilterTestConfig) -> bool:
     """Check if the configuration has any test filter patterns.
 
     Args:
-        config: TestFilterConfig to check
+        config: FilterTestConfig to check
 
     Returns:
         True if any patterns are configured
