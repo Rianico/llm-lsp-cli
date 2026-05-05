@@ -853,6 +853,12 @@ async def run_daemon(
 
     finally:
         logger.info("Shutting down daemon...")
+        # Shutdown all LSP servers before stopping the socket server
+        # This ensures the daemon-to-LSP parent-child lifecycle is respected
+        try:
+            await handler._registry.shutdown_all()
+        except Exception as e:
+            logger.exception(f"Error shutting down LSP servers: {e}")
         await server.stop()
         logger.info("Daemon stopped")
 
