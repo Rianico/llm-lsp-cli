@@ -45,7 +45,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -86,7 +86,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "--depth", "-1", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "--depth", "-1", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -126,7 +126,7 @@ class TestWorkspaceSymbolDepth:
                     "workspace-symbol",
                     "MyClass",
                     "-w",
-                    "/tmp/test_workspace",
+                    "/tmp/test_workspace", "-l", "python",
                     "--depth",
                     "1",
                     "--include-tests",
@@ -167,7 +167,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "--depth", "1", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "--depth", "1", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -206,7 +206,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "--depth", "1", "-o", "yaml"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "--depth", "1", "-o", "yaml"],
             )
 
             assert result.exit_code == 0
@@ -245,7 +245,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "--depth", "1", "-o", "csv"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "--depth", "1", "-o", "csv"],
             )
 
             assert result.exit_code == 0
@@ -274,7 +274,7 @@ class TestWorkspaceSymbolDepth:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "--depth", "1", "-o", "text"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "--depth", "1", "-o", "text"],
             )
 
             assert result.exit_code == 0
@@ -310,7 +310,7 @@ class TestWorkspaceSymbolDepth:
                     "workspace-symbol",
                     "nonexistent",
                     "-w",
-                    "/tmp/test_workspace",
+                    "/tmp/test_workspace", "-l", "python",
                     "--depth",
                     "1",
                     "-o",

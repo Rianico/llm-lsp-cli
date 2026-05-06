@@ -65,7 +65,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "text"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "-o", "text"]
             )
 
             # Note: Current format is verbose (pre-CompactFormatter)
@@ -92,7 +92,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "json"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "-o", "json"]
             )
 
             assert result.exit_code == 0
@@ -131,7 +131,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "yaml"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "-o", "yaml"]
             )
 
             assert result.exit_code == 0
@@ -170,7 +170,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-o", "csv"]
+                app, ["lsp", "workspace-symbol", "MyClass", "-w", "/tmp/test_workspace", "-l", "python", "-o", "csv"]
             )
 
             assert result.exit_code == 0
@@ -197,7 +197,7 @@ class TestWorkspaceSymbolCommand:
             mock_client_class.return_value = mock_client
 
             result = runner.invoke(
-                app, ["lsp", "workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-o", "text"]
+                app, ["lsp", "workspace-symbol", "NonExistent", "-w", "/tmp/test_workspace", "-l", "python", "-o", "text"]
             )
 
             assert result.exit_code == 0

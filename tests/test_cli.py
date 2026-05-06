@@ -230,7 +230,7 @@ def test_diagnostic_log_flag_parsed_when_present(temp_dir: Path) -> None:
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(
-            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir)]
+            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir), "-l", "python"]
         )
         assert result.exit_code == 0
 
@@ -244,7 +244,7 @@ def test_diagnostic_log_flag_default_false(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir), "-l", "python"])
         assert result.exit_code == 0
 
 
@@ -258,7 +258,7 @@ def test_diagnostic_log_flag_passed_to_daemon_manager(temp_dir: Path) -> None:
         mock_manager.return_value = mock_instance
 
         result = runner.invoke(
-            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir)]
+            app, ["daemon", "start", "--diagnostic-log", "--workspace", str(temp_dir), "-l", "python"]
         )
         assert result.exit_code == 0
 
@@ -276,7 +276,7 @@ def test_diagnostic_log_flag_not_passed_when_omitted(temp_dir: Path) -> None:
         mock_instance.is_running.return_value = False
         mock_manager.return_value = mock_instance
 
-        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir)])
+        result = runner.invoke(app, ["daemon", "start", "--workspace", str(temp_dir), "-l", "python"])
         assert result.exit_code == 0
 
 
@@ -765,7 +765,7 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         workspace = str(temp_dir)
         result = runner.invoke(
             app,
-            ["lsp", "workspace-symbol", "MyClass", "--format", "yaml", "-w", workspace],
+            ["lsp", "workspace-symbol", "MyClass", "--format", "yaml", "-w", workspace, "-l", "python"],
         )
         assert result.exit_code == 0
 
@@ -1192,7 +1192,7 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
         mock_send.return_value = mock_response
 
         result = runner.invoke(
-            app, ["lsp", "workspace-symbol", "My", "--format", "json", "-w", str(temp_dir)]
+            app, ["lsp", "workspace-symbol", "My", "--format", "json", "-w", str(temp_dir), "-l", "python"]
         )
         assert result.exit_code == 0
 
@@ -1445,7 +1445,7 @@ def test_cli_workspace_symbol_text_format_includes_range(temp_dir: Path) -> None
 
         result = runner.invoke(
             app,
-            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir), "-l", "python"],
         )
         assert result.exit_code == 0
         # Should include range information from location
@@ -1642,7 +1642,7 @@ def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
 
         result = runner.invoke(
             app,
-            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--format", "text", "-w", str(temp_dir), "-l", "python"],
         )
         assert result.exit_code == 0
 
@@ -1776,7 +1776,7 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
         # Test without --include-tests (should filter out test symbols)
         result = runner.invoke(
             app,
-            ["lsp", "workspace-symbol", "My", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "-w", str(temp_dir), "-l", "python"],
         )
         assert result.exit_code == 0
         # Without flag, test symbols should be filtered
@@ -1805,7 +1805,7 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
         # Test with --include-tests (should include all symbols)
         result = runner.invoke(
             app,
-            ["lsp", "workspace-symbol", "My", "--include-tests", "-w", str(temp_dir)],
+            ["lsp", "workspace-symbol", "My", "--include-tests", "-w", str(temp_dir), "-l", "python"],
         )
         assert result.exit_code == 0
         # With flag, all symbols should be included
@@ -1884,6 +1884,8 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
                 "--include-tests",
                 "-w",
                 str(temp_dir),
+                "-l",
+                "python",
             ],
         )
         assert result.exit_code == 0
@@ -2249,7 +2251,7 @@ class TestWorkspaceSymbolCsvOutput:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
             assert result.exit_code == 0
 
@@ -2272,7 +2274,7 @@ class TestWorkspaceSymbolCsvOutput:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
             assert result.exit_code == 0
 

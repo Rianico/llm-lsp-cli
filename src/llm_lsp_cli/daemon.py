@@ -536,7 +536,9 @@ class RequestHandler:
             workspace_path = params.get("workspacePath", ".")
 
             # Get workspace and ensure client is initialized
-            workspace = await self._registry.get_or_create_workspace(workspace_path)
+            workspace = await self._registry.get_or_create_workspace(
+                workspace_path, language=self._language
+            )
             client = await workspace.ensure_initialized()
 
             # Use per-file lock to serialize requests for the same file
@@ -750,7 +752,9 @@ class RequestHandler:
 
         # Get workspace and client
         workspace_path = params.get("workspacePath", self._workspace_path)
-        workspace = await self._registry.get_or_create_workspace(workspace_path)
+        workspace = await self._registry.get_or_create_workspace(
+            workspace_path, language=self._language
+        )
         client = await workspace.ensure_initialized()
 
         # Get file URI and cache state

@@ -379,7 +379,7 @@ class TestE2ECsvWorkspaceSymbol:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
             assert result.exit_code == 0
 
@@ -404,7 +404,7 @@ class TestE2ECsvWorkspaceSymbol:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
             assert result.exit_code == 0
             rows = parse_csv_output(result.output)
@@ -433,6 +433,8 @@ class TestE2ECsvWorkspaceSymbol:
                     "--include-tests",
                     "-w",
                     str(temp_dir),
+                    "-l",
+                    "python",
                 ],
             )
             assert result.exit_code == 0
@@ -911,7 +913,7 @@ class TestCsvEdgeCasesLargeResultSets:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "Symbol", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "Symbol", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
             assert result.exit_code == 0
 
@@ -1293,7 +1295,7 @@ class TestCsvSchemaValidation:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir)],
+                ["lsp", "workspace-symbol", "My", "--format", "csv", "-w", str(temp_dir), "-l", "python"],
             )
 
             header = get_csv_header(result.output)

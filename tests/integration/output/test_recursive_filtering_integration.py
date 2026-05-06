@@ -561,7 +561,7 @@ class TestWorkspaceSymbolDepthControl:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "test", "-w", "/tmp", "-o", "json"],
+                ["lsp", "workspace-symbol", "test", "-w", "/tmp", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -640,6 +640,8 @@ class TestDepthControlWithTestData:
                     "Class",
                     "-w",
                     "/tmp",
+                    "-l",
+                    "python",
                     "--include-tests",
                     "-o",
                     "json",

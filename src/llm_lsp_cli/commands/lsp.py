@@ -19,6 +19,7 @@ import typer
 from llm_lsp_cli.commands.shared import (
     GlobalOptions,
     build_request_context,
+    require_language_or_detect,
     resolve_effective_options,
     resolve_workspace_path,
     send_request,
@@ -34,7 +35,10 @@ from llm_lsp_cli.output.formatter import (
     group_symbols_by_file,
 )
 from llm_lsp_cli.output.header_builder import CommandInfo, build_alert_header
-from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute, resolve_path_for_header_absolute
+from llm_lsp_cli.output.path_resolver import (
+    normalize_uri_to_absolute,
+    resolve_path_for_header_absolute,
+)
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.output.server_name import get_server_display_name
 from llm_lsp_cli.test_filter import (
@@ -317,10 +321,10 @@ def workspace_symbol(
         global_opts, workspace, language, output_format
     )
 
-    workspace_path = resolve_workspace_path(effective_workspace)
-    language_value = effective_language or "python"
-
     try:
+        workspace_path, language_value = require_language_or_detect(
+            effective_workspace, effective_language
+        )
         response = send_request(
             LSPConstants.WORKSPACE_SYMBOL,
             {"workspacePath": workspace_path, "query": query},
@@ -776,10 +780,10 @@ def workspace_diagnostics(
         global_opts, workspace, language, output_format
     )
 
-    workspace_path = resolve_workspace_path(effective_workspace)
-    language_value = effective_language or "python"
-
     try:
+        workspace_path, language_value = require_language_or_detect(
+            effective_workspace, effective_language
+        )
         response = send_request(
             LSPConstants.WORKSPACE_DIAGNOSTIC,
             {"workspacePath": workspace_path},

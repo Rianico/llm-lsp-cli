@@ -177,7 +177,9 @@ def status(
         effective_workspace = workspace
         effective_language = language
 
-    workspace_path, detected_language = resolve_language(effective_workspace, effective_language)
+    workspace_path, detected_language, _available_languages = resolve_language(
+        effective_workspace, effective_language
+    )
     manager = create_daemon_manager(workspace_path, detected_language, lsp_conf)
 
     if manager.is_running():

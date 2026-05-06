@@ -83,7 +83,7 @@ class TestFilterChainIntegration:
             # Default: exclude test files (variable-kind filtering no longer at CLI level)
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -154,7 +154,7 @@ class TestFilterChainIntegration:
 
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -216,6 +216,8 @@ class TestFilterChainIntegration:
                     "TestMyClass",
                     "-w",
                     "/project",
+                    "-l",
+                    "python",
                     "--include-tests",
                     "-o",
                     "json",
@@ -310,7 +312,7 @@ class TestFilterChainIntegration:
             # Default: exclude test files (no variable filtering at CLI level)
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "Class", "-w", "/project", "-o", "json"],
+                ["lsp", "workspace-symbol", "Class", "-w", "/project", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0
@@ -387,7 +389,7 @@ class TestFilterChainIntegration:
             # All symbols should be included (no variable filtering at CLI level)
             result = runner.invoke(
                 app,
-                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-o", "json"],
+                ["lsp", "workspace-symbol", "MyClass", "-w", "/project", "-l", "python", "-o", "json"],
             )
 
             assert result.exit_code == 0

@@ -147,8 +147,14 @@ def resolve_workspace_path(workspace: str | None) -> str:
     return str(Path(workspace).resolve()) if workspace else str(Path.cwd().resolve())
 
 
-def resolve_language(workspace: str | None, language: str | None) -> tuple[str, str]:
-    """Resolve workspace path and language, returning (workspace_path, language)."""
+def resolve_language(
+    workspace: str | None, language: str | None
+) -> tuple[str, str | None, list[str]]:
+    """Resolve workspace path and language, returning (workspace_path, language_or_none, available_languages).
+
+    Returns None for language when no language can be detected and no explicit language provided.
+    Returns the list of available languages for error messaging without requiring a second config load.
+    """
     from llm_lsp_cli.config import ConfigManager
     from llm_lsp_cli.utils.language_detector import FILE_EXTENSION_MAP
 
@@ -166,6 +172,9 @@ def resolve_language(workspace: str | None, language: str | None) -> tuple[str, 
                 "root_markers": lang_conf.get("root_markers", [])
             }
 
+    # Extract available languages before processing
+    available_languages = list(language_configs.keys())
+
     # Build extension map from FILE_EXTENSION_MAP
     extension_map = dict(FILE_EXTENSION_MAP)
 
@@ -178,8 +187,50 @@ def resolve_language(workspace: str | None, language: str | None) -> tuple[str, 
         extension_map=extension_map,
     )
 
-    # Return as strings for backward compatibility
-    return str(workspace_path), detected_language or "python"
+    # Return workspace path, language (may be None), and available languages
+    return str(workspace_path), detected_language, available_languages
+
+
+def _format_no_language_message(available_languages: list[str]) -> str:
+    """Format error when no language detected.
+
+    Args:
+        available_languages: List of supported language names.
+
+    Returns:
+        Formatted error message with available languages.
+    """
+    langs_str = (
+        ", ".join(sorted(available_languages)) if available_languages else "none configured"
+    )
+    return (
+        f"No language detected in workspace. "
+        f"Supported languages: {langs_str}. "
+        f"Use --language to specify explicitly."
+    )
+
+
+def require_language_or_detect(workspace: str | None, language: str | None) -> tuple[str, str]:
+    """Resolve language or fail with helpful message.
+
+    Args:
+        workspace: Optional workspace path
+        language: Optional explicit language
+
+    Returns:
+        Tuple of (workspace_path, language)
+
+    Raises:
+        CLIError: When no language can be detected
+    """
+    workspace_path, detected_language, available_languages = resolve_language(
+        workspace, language
+    )
+
+    if detected_language is None:
+        raise CLIError(_format_no_language_message(available_languages))
+
+    return workspace_path, detected_language
 
 
 def validate_file_in_workspace(file: str, workspace: str | None) -> Path:
@@ -430,8 +481,12 @@ def run_daemon_command(
         effective_workspace = workspace
         effective_language = language
 
-    workspace_path, detected_language = resolve_language(effective_workspace, effective_language)
-    manager = create_daemon_manager(workspace_path, detected_language, lsp_conf, debug, trace)
+    workspace_path, detected_language = require_language_or_detect(
+        effective_workspace, effective_language
+    )
+    manager = create_daemon_manager(
+        workspace_path, detected_language, lsp_conf, debug, trace
+    )
 
     is_running = manager.is_running()
     if check_running is True and not is_running:

@@ -81,7 +81,7 @@ class TestRestartDebugIntegration:
 
         with patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager:
             mock_manager.return_value = mock_instance
-            result = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp"])
+            result = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp", "--language", "python"])
             assert result.exit_code == 0
 
             call_kwargs = mock_manager.call_args.kwargs
@@ -172,12 +172,12 @@ class TestRestartDebugEdgeCases:
             mock_manager.return_value = mock_instance
 
             # Test --debug before other flags
-            result1 = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp"])
+            result1 = runner.invoke(app, ["daemon", "restart", "--debug", "--workspace", "/tmp", "--language", "python"])
             assert result1.exit_code == 0
             assert mock_manager.call_args.kwargs["debug"] is True
 
             # Test --debug after other flags
-            result2 = runner.invoke(app, ["daemon", "restart", "--workspace", "/tmp", "--debug"])
+            result2 = runner.invoke(app, ["daemon", "restart", "--workspace", "/tmp", "--language", "python", "--debug"])
             assert result2.exit_code == 0
             assert mock_manager.call_args.kwargs["debug"] is True
 
