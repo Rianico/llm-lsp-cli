@@ -8,3 +8,4 @@ __pycache__/
 .full-review/
 .lsz/
 .qwen/
+.llm-lsp-cli.yaml
