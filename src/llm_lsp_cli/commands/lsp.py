@@ -56,8 +56,8 @@ app = typer.Typer(name="lsp", help="LSP operations for code intelligence.")
 def definition(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (0-based)"),
-    column: int = typer.Argument(..., help="Column number (0-based)"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
     workspace: str | None = typer.Option(
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
@@ -134,8 +134,8 @@ def definition(
 def references(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (0-based)"),
-    column: int = typer.Argument(..., help="Column number (0-based)"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
     workspace: str | None = typer.Option(
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
@@ -548,8 +548,8 @@ def outgoing_calls(
 def completion(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (0-based)"),
-    column: int = typer.Argument(..., help="Column number (0-based)"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
     workspace: str | None = typer.Option(
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
@@ -617,8 +617,8 @@ def completion(
 def hover(
     ctx: typer.Context,
     file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (0-based)"),
-    column: int = typer.Argument(..., help="Column number (0-based)"),
+    line: int = typer.Argument(..., help="Line number (1-based)"),
+    column: int = typer.Argument(..., help="Column number (1-based)"),
     workspace: str | None = typer.Option(
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
