@@ -311,6 +311,7 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "basedpyright" },
+    { name = "pytest-asyncio" },
     { name = "pytest-timeout" },
 ]
 
@@ -333,6 +334,7 @@ provides-extras = ["dev"]
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.39.0" },
+    { name = "pytest-asyncio", specifier = ">=0.21.0" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
 ]
 

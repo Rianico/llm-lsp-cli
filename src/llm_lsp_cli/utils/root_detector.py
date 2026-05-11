@@ -147,7 +147,7 @@ def detect_workspace_and_language(
         workspace_path = Path(explicit_workspace)
         # First pass: check language-specific markers only (exclude .git)
         for language, config in language_configs.items():
-            markers = config.get("root_markers", [])
+            markers = get_list_of_str(config, "root_markers")
             specific_markers = [m for m in markers if m != ".git"]
             if specific_markers:
                 root = find_root_by_markers(workspace_path, specific_markers)
@@ -166,7 +166,7 @@ def detect_workspace_and_language(
     # Priority 5: Search all languages from CWD
     # First pass: check language-specific markers only (exclude .git)
     for lang_name, lang_config in language_configs.items():
-        markers = lang_config.get("root_markers", [])
+        markers = get_list_of_str(lang_config, "root_markers")
         specific_markers = [m for m in markers if m != ".git"]
         if specific_markers:
             root = find_root_by_markers(effective_cwd, specific_markers)

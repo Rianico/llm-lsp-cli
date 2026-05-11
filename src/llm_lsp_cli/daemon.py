@@ -440,6 +440,10 @@ class RequestHandler:
             self._file_locks[path_str] = asyncio.Lock()
         return self._file_locks[path_str]
 
+    async def shutdown_servers(self) -> None:
+        """Shutdown all LSP servers managed by this handler."""
+        await self._registry.shutdown_all()
+
     async def handle(self, method: str, params: dict[str, object]) -> dict[str, object]:
         """Route request to appropriate handler."""
         logger.debug(f"Received request: {method} with params: {params}")
@@ -971,7 +975,7 @@ async def run_daemon(
         # Shutdown all LSP servers before stopping the socket server
         # This ensures the daemon-to-LSP parent-child lifecycle is respected
         try:
-            await handler._registry.shutdown_all()
+            await handler.shutdown_servers()
         except Exception as e:
             logger.exception(f"Error shutting down LSP servers: {e}")
         await server.stop()

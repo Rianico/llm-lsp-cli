@@ -14,7 +14,7 @@ from llm_lsp_cli.commands.shared import (
     create_daemon_manager,
     get_global_options,
     get_lsp_server_name,
-    resolve_language,
+    require_language_or_detect,
     run_daemon_command,
 )
 
@@ -178,7 +178,7 @@ def status(
         effective_workspace = workspace
         effective_language = language
 
-    workspace_path, detected_language, _available_languages = resolve_language(
+    workspace_path, detected_language = require_language_or_detect(
         effective_workspace, effective_language
     )
     manager = create_daemon_manager(workspace_path, detected_language, lsp_conf)

@@ -175,5 +175,9 @@ def no_project_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     from llm_lsp_cli.config.manager import ConfigManager
 
+    @classmethod
+    def _return_none(_cls: type[ConfigManager]) -> dict[str, object] | None:
+        return None
+
     # Return None for project config to prevent CWD config override
-    monkeypatch.setattr(ConfigManager, "_load_project_config", classmethod(lambda cls: None))
+    monkeypatch.setattr(ConfigManager, "_load_project_config", _return_none)
