@@ -1,6 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Logging infrastructure for LSP client.
 
 Provides structured, color-coded logging with TTY detection.
@@ -12,7 +9,6 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
 from llm_lsp_cli.domain.value_objects import LogLevel
 
@@ -30,16 +26,16 @@ class Colors:
     """ANSI color codes with TTY detection and NO_COLOR support."""
 
     # ANSI color codes (lowercase to allow redefinition in disable())
-    reset = "\033[0m"
-    cli = "\033[36m"       # Cyan for client
-    server = "\033[33m"    # Yellow for server
-    success = "\033[32m"   # Green for success
-    error = "\033[31m"     # Red for error
-    info = "\033[34m"      # Blue for info
-    debug = "\033[37m"     # White for debug
+    reset: str = "\033[0m"
+    cli: str = "\033[36m"       # Cyan for client
+    server: str = "\033[33m"    # Yellow for server
+    success: str = "\033[32m"   # Green for success
+    error: str = "\033[31m"     # Red for error
+    info: str = "\033[34m"      # Blue for info
+    debug: str = "\033[37m"     # White for debug
 
     # Flag to track explicit disable
-    _disabled = False
+    _disabled: bool = False
 
     @classmethod
     def supported(cls) -> bool:
@@ -79,9 +75,9 @@ class LogEntry:
     level: LogLevel
     component: LogComponent
     message: str
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """Serialize LogEntry to dictionary."""
         return {
             "timestamp": self.timestamp.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -132,9 +128,9 @@ class ColorFormatter:
 class LSPMessageFormatter:
     """Formats LSP messages with truncation and direction indicators."""
 
-    MAX_PAYLOAD_LENGTH = 200
+    MAX_PAYLOAD_LENGTH: int = 200
 
-    def format_trace(self, direction: str, message: dict[str, Any]) -> str:
+    def format_trace(self, direction: str, message: dict[str, object]) -> str:
         """Format an LSP message for trace logging.
 
         Args:
@@ -169,6 +165,9 @@ class LSPLogger:
         use_colors: Force colors on/off (None = auto-detect).
         logger: Optional stdlib logger to delegate to.
     """
+
+    _min_level: LogLevel
+    _logger: logging.Logger
 
     def __init__(
         self,
@@ -219,7 +218,7 @@ class LSPLogger:
         """Log a debug message."""
         self._log(LogLevel.DEBUG, LogComponent.CLIENT, message)
 
-    def debug_event(self, event_type: str, **metadata: Any) -> None:
+    def debug_event(self, event_type: str, **metadata: object) -> None:
         """Log a daemon debug event."""
         message = f"[{event_type}] {metadata}"
         self._log(LogLevel.DEBUG, LogComponent.DAEMON, message)
@@ -228,7 +227,7 @@ class LSPLogger:
         """Log a trace message."""
         self._log(LogLevel.TRACE, LogComponent.CLIENT, message)
 
-    def trace_lsp_message(self, direction: str, message: dict[str, Any]) -> None:
+    def trace_lsp_message(self, direction: str, message: dict[str, object]) -> None:
         """Log an LSP message with direction indicator."""
         if not self._should_log(LogLevel.TRACE):
             return

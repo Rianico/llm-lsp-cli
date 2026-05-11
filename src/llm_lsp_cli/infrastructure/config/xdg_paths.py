@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """XDG directory paths with lazy initialization."""
 
 from __future__ import annotations
@@ -22,7 +21,11 @@ class XdgPaths:
     """
 
     _instance: XdgPaths | None = None
-    _lock = threading.Lock()
+    _lock: threading.Lock = threading.Lock()
+
+    _config_dir: Path
+    _state_dir: Path
+    _runtime_dir: Path
 
     def __init__(self) -> None:
         """Initialize XDG paths (called once by get())."""

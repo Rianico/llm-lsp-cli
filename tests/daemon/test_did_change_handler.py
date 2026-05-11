@@ -21,18 +21,23 @@ import pytest
 from llm_lsp_cli.daemon import RequestHandler
 from llm_lsp_cli.lsp.cache import DiagnosticCache
 from llm_lsp_cli.lsp.constants import LSPConstants
+from tests.conftest import setup_mock_client_cache_accessors
 
 
 @pytest.fixture
-def mock_lsp_client_with_cache(tmp_path: Path) -> MagicMock:
-    """Mock LSPClient with real DiagnosticCache for mtime testing."""
+def mock_lsp_client_with_cache(tmp_path: Path) -> tuple[MagicMock, DiagnosticCache]:
+    """Mock LSPClient with real DiagnosticCache for mtime testing.
+
+    Returns tuple of (client, cache) so tests can manipulate cache directly.
+    """
     client = MagicMock()
-    client._diagnostic_cache = DiagnosticCache(tmp_path)
+    cache = DiagnosticCache(tmp_path)
+    setup_mock_client_cache_accessors(client, cache)
     client._transport = AsyncMock()
     client.language_id = "python"
     client.open_document = AsyncMock(return_value="file:///test/file.py")
     client.send_did_change = AsyncMock(return_value="file:///test/file.py")
-    return client
+    return client, cache
 
 
 @pytest.fixture
@@ -49,7 +54,7 @@ class TestHandleDidChangeDidOpenDecision:
     @pytest.mark.asyncio
     async def test_didopen_sent_when_file_not_in_cache(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify didOpen is sent when file is not in cache.
@@ -58,6 +63,7 @@ class TestHandleDidChangeDidOpenDecision:
         When: _handle_did_change called with file path
         Then: didOpen notification sent before didChange
         """
+        mock_client, _ = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -65,7 +71,7 @@ class TestHandleDidChangeDidOpenDecision:
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             _ = await handler.handle(
                 "textDocument/didChange",
@@ -76,12 +82,12 @@ class TestHandleDidChangeDidOpenDecision:
             )
 
             # Verify didOpen was called (file not in cache)
-            mock_lsp_client_with_cache.open_document.assert_called_once()
+            mock_client.open_document.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_didopen_sent_when_mtime_differs_from_cache(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify didOpen is sent when mtime differs from cache.
@@ -90,6 +96,7 @@ class TestHandleDidChangeDidOpenDecision:
         When: _handle_did_change called with current mtime T2 (T2 > T1)
         Then: didOpen notification sent (file is stale)
         """
+        mock_client, cache = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -97,12 +104,11 @@ class TestHandleDidChangeDidOpenDecision:
 
         # Pre-populate cache with stale mtime
         uri = temp_python_file.as_uri()
-        cache = mock_lsp_client_with_cache._diagnostic_cache
         await cache.on_did_open(uri, mtime=100.0)  # Old mtime
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             # Get current mtime (should be different from 100.0)
             current_mtime = os.stat(temp_python_file).st_mtime
@@ -117,12 +123,12 @@ class TestHandleDidChangeDidOpenDecision:
             )
 
             # Verify didOpen was called (file is stale)
-            mock_lsp_client_with_cache.open_document.assert_called_once()
+            mock_client.open_document.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_didopen_skipped_when_mtime_matches_cache(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify didOpen is skipped when mtime matches cache.
@@ -131,6 +137,7 @@ class TestHandleDidChangeDidOpenDecision:
         When: _handle_did_change called with current mtime T1
         Then: didOpen NOT sent (optimization - file already current)
         """
+        mock_client, cache = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -141,12 +148,11 @@ class TestHandleDidChangeDidOpenDecision:
 
         # Pre-populate cache with matching mtime and is_open=True
         uri = temp_python_file.as_uri()
-        cache = mock_lsp_client_with_cache._diagnostic_cache
         await cache.on_did_open(uri, mtime=current_mtime)
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             _ = await handler.handle(
                 "textDocument/didChange",
@@ -158,7 +164,7 @@ class TestHandleDidChangeDidOpenDecision:
             )
 
             # Verify didOpen was NOT called (optimization)
-            mock_lsp_client_with_cache.open_document.assert_not_called()
+            mock_client.open_document.assert_not_called()
 
 
 class TestHandleDidChangeNotification:
@@ -167,7 +173,7 @@ class TestHandleDidChangeNotification:
     @pytest.mark.asyncio
     async def test_didchange_sent_with_correct_full_text_sync(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify didChange notification has correct contentChanges structure.
@@ -176,6 +182,7 @@ class TestHandleDidChangeNotification:
         When: _handle_did_change called
         Then: didChange notification has contentChanges with full text
         """
+        mock_client, _ = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -183,7 +190,7 @@ class TestHandleDidChangeNotification:
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             _ = await handler.handle(
                 "textDocument/didChange",
@@ -194,8 +201,8 @@ class TestHandleDidChangeNotification:
             )
 
             # Verify send_did_change was called with file_path and content
-            mock_lsp_client_with_cache.send_did_change.assert_called_once()
-            call_args = mock_lsp_client_with_cache.send_did_change.call_args
+            mock_client.send_did_change.assert_called_once()
+            call_args = mock_client.send_did_change.call_args
 
             # First arg should be the file path (Path object)
             assert call_args[0][0] == temp_python_file
@@ -207,10 +214,11 @@ class TestHandleDidChangeNotification:
     @pytest.mark.asyncio
     async def test_didchange_uses_file_content_from_disk(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         tmp_path: Path,
     ) -> None:
         """Verify file content is read from disk for didChange."""
+        mock_client, _ = mock_lsp_client_with_cache
         # Create file with specific content
         test_file = tmp_path / "content_test.py"
         test_content = "# Test content\nx = 42\n"
@@ -223,7 +231,7 @@ class TestHandleDidChangeNotification:
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             _ = await handler.handle(
                 "textDocument/didChange",
@@ -234,7 +242,7 @@ class TestHandleDidChangeNotification:
             )
 
             # Verify content in didChange matches file content
-            transport = mock_lsp_client_with_cache._transport
+            transport = mock_client._transport
             calls = transport.send_notification.call_args_list
             didchange_calls = [
                 c for c in calls
@@ -253,7 +261,7 @@ class TestHandleDidChangeCacheBehavior:
     @pytest.mark.asyncio
     async def test_handler_does_not_update_cache_mtime(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify handler does NOT update cache mtime.
@@ -264,6 +272,7 @@ class TestHandleDidChangeCacheBehavior:
 
         Critical: Per ADR-0010, rely on existing mtime-based invalidation.
         """
+        mock_client, cache = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -271,7 +280,6 @@ class TestHandleDidChangeCacheBehavior:
 
         # Set up cache with initial mtime
         uri = temp_python_file.as_uri()
-        cache = mock_lsp_client_with_cache._diagnostic_cache
         initial_mtime = 100.0
         await cache.on_did_open(uri, mtime=initial_mtime)
 
@@ -281,7 +289,7 @@ class TestHandleDidChangeCacheBehavior:
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             _ = await handler.handle(
                 "textDocument/didChange",
@@ -302,7 +310,7 @@ class TestHandleDidChangeResponse:
     @pytest.mark.asyncio
     async def test_return_acknowledgment_only(
         self,
-        mock_lsp_client_with_cache: MagicMock,
+        mock_lsp_client_with_cache: tuple[MagicMock, DiagnosticCache],
         temp_python_file: Path,
     ) -> None:
         """Verify response is acknowledgment, not diagnostics.
@@ -311,6 +319,7 @@ class TestHandleDidChangeResponse:
         When: _handle_did_change called
         Then: Returns {"status": "acknowledged"} (not diagnostics)
         """
+        mock_client, _ = mock_lsp_client_with_cache
         handler = RequestHandler(
             workspace_path=str(temp_python_file.parent),
             language="python",
@@ -318,7 +327,7 @@ class TestHandleDidChangeResponse:
 
         with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
             mock_workspace = mock_ws.return_value
-            mock_workspace.ensure_initialized.return_value = mock_lsp_client_with_cache
+            mock_workspace.ensure_initialized.return_value = mock_client
 
             result = await handler.handle(
                 "textDocument/didChange",

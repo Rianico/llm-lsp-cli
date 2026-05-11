@@ -279,7 +279,7 @@ class TestSymbolTransformer:
         """Depth 0 returns only root symbols, no children."""
         from llm_lsp_cli.output.symbol_transformer import SymbolNode, transform_symbols
 
-        result = transform_symbols(nested_symbols, depth_limit=0, workspace=Path("/ws"))
+        result = transform_symbols(nested_symbols, depth_limit=0, _workspace=Path("/ws"))
 
         assert isinstance(result, tuple)
         assert len(result) == 2  # Two top-level symbols
@@ -292,7 +292,7 @@ class TestSymbolTransformer:
         """Depth 1 includes root + immediate children."""
         from llm_lsp_cli.output.symbol_transformer import transform_symbols
 
-        result = transform_symbols(nested_symbols, depth_limit=1, workspace=Path("/ws"))
+        result = transform_symbols(nested_symbols, depth_limit=1, _workspace=Path("/ws"))
 
         assert len(result) == 2
         class_node = result[0]
@@ -306,7 +306,7 @@ class TestSymbolTransformer:
         """Depth 2 includes symbols up to depth 2."""
         from llm_lsp_cli.output.symbol_transformer import transform_symbols
 
-        result = transform_symbols(deeply_nested, depth_limit=2, workspace=Path("/ws"))
+        result = transform_symbols(deeply_nested, depth_limit=2, _workspace=Path("/ws"))
 
         method = result[0].children[0]  # depth 1
         assert method.name == "outer_method"
@@ -317,7 +317,7 @@ class TestSymbolTransformer:
         """Depth -1 traverses all levels."""
         from llm_lsp_cli.output.symbol_transformer import transform_symbols
 
-        result = transform_symbols(deeply_nested, depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols(deeply_nested, depth_limit=-1, _workspace=Path("/ws"))
 
         func = result[0].children[0].children[0]  # depth 2
         assert func.name == "nested_function"
@@ -329,7 +329,7 @@ class TestSymbolTransformer:
         from llm_lsp_cli.output.symbol_transformer import transform_symbols
 
         # Should not error, should return full available tree
-        result = transform_symbols(nested_symbols, depth_limit=10, workspace=Path("/ws"))
+        result = transform_symbols(nested_symbols, depth_limit=10, _workspace=Path("/ws"))
         assert len(result) == 2
 
     def test_transform_converts_fields_correctly(self) -> None:
@@ -352,7 +352,7 @@ class TestSymbolTransformer:
                 "detail": "detail",
             }
         ]
-        result = transform_symbols(symbols, depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols(symbols, depth_limit=-1, _workspace=Path("/ws"))
         node = result[0]
         assert node.range == "1:1-11:1"  # 1-based compact format
         assert node.selection_range == "1:7-1:11"
@@ -374,7 +374,7 @@ class TestSymbolTransformer:
                 "tags": [1, 2],
             }
         ]
-        result = transform_symbols(symbols, depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols(symbols, depth_limit=-1, _workspace=Path("/ws"))
         assert result[0].tags == ("@deprecated", "@abstract")
 
     def test_transform_unknown_tag_fallback(self) -> None:
@@ -392,7 +392,7 @@ class TestSymbolTransformer:
                 "tags": [999],
             }
         ]
-        result = transform_symbols(symbols, depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols(symbols, depth_limit=-1, _workspace=Path("/ws"))
         assert result[0].tags == ("@999",)
 
     def test_transform_returns_tuple(self) -> None:
@@ -409,12 +409,12 @@ class TestSymbolTransformer:
                 },
             }
         ]
-        result = transform_symbols(symbols, depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols(symbols, depth_limit=-1, _workspace=Path("/ws"))
         assert isinstance(result, tuple)
 
     def test_transform_empty_symbols(self) -> None:
         """Empty input returns empty tuple."""
         from llm_lsp_cli.output.symbol_transformer import transform_symbols
 
-        result = transform_symbols([], depth_limit=-1, workspace=Path("/ws"))
+        result = transform_symbols([], depth_limit=-1, _workspace=Path("/ws"))
         assert result == ()

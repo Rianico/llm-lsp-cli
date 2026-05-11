@@ -70,15 +70,18 @@ def test_no_cast_calls_for_completion_item() -> None:
     assert len(matches) == 0, f"Found cast(lsp.CompletionItem...) calls: {matches}"
 
 
-def test_rename_cast_calls_remain() -> None:
-    """Verify cast(dict[str, object]) for rename operations remains (out of scope)."""
+def test_no_cast_calls_for_rename_types() -> None:
+    """Verify no cast() calls remain for rename operations.
+
+    After adding WorkspaceEdit and PrepareRenameResult types, the cast() calls
+    were removed. The typed transport methods return validated Pydantic models.
+    """
     client_file = Path("src/llm_lsp_cli/lsp/client.py")
     content = client_file.read_text()
 
-    # Rename operations use cast(dict[str, object] | None, result) - this is expected
-    # The WorkspaceEdit type is out of scope for this refactor
+    # Check for any cast calls with dict[str, object] in rename methods
     rename_cast_pattern = r'cast\(dict\[str, object\] \| None, result\)'
     matches = re.findall(rename_cast_pattern, content)
 
-    # We expect exactly 2: one in request_prepare_rename and one in request_rename
-    assert len(matches) == 2, f"Expected 2 cast() for rename, found {len(matches)}"
+    # No cast() calls should remain - typed transport returns validated models
+    assert len(matches) == 0, f"Found cast() calls for rename: {matches}"

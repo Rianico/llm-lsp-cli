@@ -1,6 +1,5 @@
 """Type stubs for lockfile package."""
 
-from typing import contextmanager
 from types import TracebackType
 
 

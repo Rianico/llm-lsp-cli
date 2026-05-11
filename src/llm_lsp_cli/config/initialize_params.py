@@ -1,13 +1,11 @@
-# pyright: reportExplicitAny=false
 """LSP initialize parameters builder.
 
 Builds standard LSP initialize parameters dynamically.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 import os
 from pathlib import Path
-from typing import Any
 
 from llm_lsp_cli import __version__
 from llm_lsp_cli.config.capabilities import get_capabilities_for_server_path
@@ -17,7 +15,7 @@ def build_initialize_params(
     server_command: str,
     workspace_path: str,
     _custom_conf_path: str | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build LSP initialize parameters dynamically.
 
     Loads server-specific capabilities from JSON files.
@@ -36,7 +34,7 @@ def build_initialize_params(
     caps_data = get_capabilities_for_server_path(server_command)
 
     # Build params with dynamic overrides
-    result: dict[str, Any] = {
+    result: dict[str, object] = {
         "processId": os.getpid(),
         "clientInfo": {
             "name": "llm-lsp-cli",

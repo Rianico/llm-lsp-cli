@@ -32,7 +32,7 @@ class TestRuntimePathBuilderDiagnosticLogPath:
         # Act
         path = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path="/project",
-            language="python",
+            _language="python",
             base_dir=custom_base,
         )
 

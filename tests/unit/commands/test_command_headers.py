@@ -18,6 +18,7 @@ from llm_lsp_cli.commands.lsp import (
     rename,
 )
 from llm_lsp_cli.commands.shared import GlobalOptions
+from llm_lsp_cli.lsp.types import DocumentSymbol, Location, Position, Range
 from llm_lsp_cli.utils import OutputFormat
 
 
@@ -45,11 +46,14 @@ class TestDocumentSymbolHeaders:
         mock_ctx.obj.workspace = str(tmp_path)
         mock_ctx.obj.output_format = OutputFormat.TEXT
 
-        mock_response = {
-            "symbols": [
-                {"name": "foo", "kind": 12, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}}}
-            ]
-        }
+        # Return list of DocumentSymbol objects (typed format)
+        mock_range = Range(
+            start=Position(line=0, character=0),
+            end=Position(line=0, character=15),
+        )
+        mock_response = [
+            DocumentSymbol(name="foo", kind=12, range=mock_range, selection_range=mock_range)
+        ]
 
         output_lines: list[str] = []
 
@@ -81,11 +85,14 @@ class TestDocumentSymbolHeaders:
         mock_ctx.obj.workspace = str(tmp_path)
         mock_ctx.obj.output_format = OutputFormat.JSON
 
-        mock_response = {
-            "symbols": [
-                {"name": "foo", "kind": 12, "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}}}
-            ]
-        }
+        # Return list of DocumentSymbol objects (typed format)
+        mock_range = Range(
+            start=Position(line=0, character=0),
+            end=Position(line=0, character=15),
+        )
+        mock_response = [
+            DocumentSymbol(name="foo", kind=12, range=mock_range, selection_range=mock_range)
+        ]
 
         output_lines: list[str] = []
 
@@ -124,11 +131,13 @@ class TestReferencesHeaders:
         mock_ctx.obj.workspace = str(tmp_path)
         mock_ctx.obj.output_format = OutputFormat.TEXT
 
-        mock_response = {
-            "locations": [
-                {"uri": test_file.as_uri(), "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}}}
-            ]
-        }
+        # Return list of Location objects (typed format)
+        mock_response = [
+            Location(
+                uri=test_file.as_uri(),
+                range={"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}},
+            )
+        ]
 
         output_lines: list[str] = []
 
@@ -161,11 +170,13 @@ class TestReferencesHeaders:
         test_file.write_text("def foo(): pass\nx = foo()\n")
         mock_ctx.obj.workspace = str(tmp_path)
 
-        mock_response = {
-            "locations": [
-                {"uri": test_file.as_uri(), "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}}}
-            ]
-        }
+        # Return list of Location objects (typed format)
+        mock_response = [
+            Location(
+                uri=test_file.as_uri(),
+                range={"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 15}},
+            )
+        ]
 
         output_lines: list[str] = []
 
@@ -207,7 +218,8 @@ class TestIncomingCallsHeaders:
         mock_ctx.obj.workspace = str(tmp_path)
         mock_ctx.obj.output_format = OutputFormat.TEXT
 
-        mock_response = {"calls": []}
+        # Return empty list (typed format for list[CallHierarchyIncomingCall])
+        mock_response = []
 
         output_lines: list[str] = []
 
@@ -530,7 +542,7 @@ class TestRenameHeaders:
                     language=None,
                     output_format=None,
                     apply=False,
-                    dry_run=False,
+                    _dry_run=False,
                     rollback=None,
                 )
 
@@ -573,7 +585,7 @@ class TestRenameHeaders:
                     language=None,
                     output_format=OutputFormat.JSON,
                     apply=False,
-                    dry_run=False,
+                    _dry_run=False,
                     rollback=None,
                 )
 

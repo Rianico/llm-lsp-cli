@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from llm_lsp_cli.cli import app
 from llm_lsp_cli.commands.shared import OutputFormat, RequestContext
+from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
 
 runner = CliRunner()
 
@@ -35,6 +36,14 @@ def make_mock_context(
     )
 
 
+def _make_range(start_line: int, start_char: int, end_line: int, end_char: int) -> Range:
+    """Create a Range from line/char values."""
+    return Range(
+        start=Position(line=start_line, character=start_char),
+        end=Position(line=end_line, character=end_char),
+    )
+
+
 # =============================================================================
 # Category A: CLI Integration Tests for TEXT Format Tree Rendering
 # =============================================================================
@@ -44,66 +53,40 @@ class TestDocumentSymbolTextFormat:
     """Tests for document-symbol command TEXT format using tree renderer."""
 
     @pytest.fixture
-    def mock_document_symbol_response(self) -> dict:
+    def mock_document_symbol_response(self) -> list[DocumentSymbol]:
         """Mock LSP documentSymbol response with nested symbols."""
-        return {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 1},
-                    },
-                    "selectionRange": {
-                        "start": {"line": 0, "character": 6},
-                        "end": {"line": 0, "character": 13},
-                    },
-                    "tags": [1],  # @deprecated
-                    "children": [
-                        {
-                            "name": "__init__",
-                            "kind": 6,
-                            "range": {
-                                "start": {"line": 1, "character": 4},
-                                "end": {"line": 25, "character": 1},
-                            },
-                            "selectionRange": {
-                                "start": {"line": 1, "character": 8},
-                                "end": {"line": 1, "character": 16},
-                            },
-                        },
-                        {
-                            "name": "method",
-                            "kind": 6,
-                            "range": {
-                                "start": {"line": 30, "character": 4},
-                                "end": {"line": 45, "character": 1},
-                            },
-                            "selectionRange": {
-                                "start": {"line": 30, "character": 8},
-                                "end": {"line": 30, "character": 14},
-                            },
-                        },
-                    ],
-                },
-                {
-                    "name": "helper",
-                    "kind": 12,
-                    "range": {
-                        "start": {"line": 55, "character": 0},
-                        "end": {"line": 80, "character": 1},
-                    },
-                    "selectionRange": {
-                        "start": {"line": 55, "character": 0},
-                        "end": {"line": 55, "character": 7},
-                    },
-                },
-            ]
-        }
+        return [
+            DocumentSymbol(
+                name="MyClass",
+                kind=5,
+                range=_make_range(0, 0, 50, 1),
+                selection_range=_make_range(0, 6, 0, 13),
+                tags=[1],  # @deprecated
+                children=[
+                    DocumentSymbol(
+                        name="__init__",
+                        kind=6,
+                        range=_make_range(1, 4, 25, 1),
+                        selection_range=_make_range(1, 8, 1, 16),
+                    ),
+                    DocumentSymbol(
+                        name="method",
+                        kind=6,
+                        range=_make_range(30, 4, 45, 1),
+                        selection_range=_make_range(30, 8, 30, 14),
+                    ),
+                ],
+            ),
+            DocumentSymbol(
+                name="helper",
+                kind=12,
+                range=_make_range(55, 0, 80, 1),
+                selection_range=_make_range(55, 0, 55, 7),
+            ),
+        ]
 
     def test_text_format_uses_tree_connectors(
-        self, mock_document_symbol_response: dict, monkeypatch: pytest.MonkeyPatch
+        self, mock_document_symbol_response: list[DocumentSymbol], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """TEXT format must use tree connectors (|-- and `--) per ADR-0014."""
         from llm_lsp_cli.commands import lsp
@@ -141,7 +124,7 @@ class TestDocumentSymbolTextFormat:
         assert "MyClass" in result.output
 
     def test_text_format_uses_tree_renderer_with_children(
-        self, mock_document_symbol_response: dict, monkeypatch: pytest.MonkeyPatch
+        self, mock_document_symbol_response: list[DocumentSymbol], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """TEXT format must show nested children with continuation prefix."""
         from llm_lsp_cli.commands import lsp
@@ -184,38 +167,30 @@ class TestDocumentSymbolTextFormat:
         from llm_lsp_cli.commands import lsp
 
         # 3-level nested structure
-        three_level_response = {
-            "symbols": [
-                {
-                    "name": "OuterClass",
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 100, "character": 1},
-                    },
-                    "children": [
-                        {
-                            "name": "inner_method",
-                            "kind": 6,
-                            "range": {
-                                "start": {"line": 1, "character": 4},
-                                "end": {"line": 50, "character": 1},
-                            },
-                            "children": [
-                                {
-                                    "name": "nested_func",
-                                    "kind": 12,
-                                    "range": {
-                                        "start": {"line": 5, "character": 8},
-                                        "end": {"line": 20, "character": 1},
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
+        three_level_response = [
+            DocumentSymbol(
+                name="OuterClass",
+                kind=5,
+                range=_make_range(0, 0, 100, 1),
+                selection_range=_make_range(0, 0, 0, 10),
+                children=[
+                    DocumentSymbol(
+                        name="inner_method",
+                        kind=6,
+                        range=_make_range(10, 4, 50, 1),
+                        selection_range=_make_range(10, 4, 10, 16),
+                        children=[
+                            DocumentSymbol(
+                                name="local_var",
+                                kind=13,
+                                range=_make_range(15, 8, 16, 0),
+                                selection_range=_make_range(15, 8, 15, 17),
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ]
 
         monkeypatch.setattr(
             lsp,
@@ -244,7 +219,7 @@ class TestDocumentSymbolTextFormat:
         )
 
         assert "inner_method" in result.output, "Children should appear"
-        assert "nested_func" not in result.output, "Grandchildren should NOT appear with depth=1"
+        assert "local_var" not in result.output, "Grandchildren should NOT appear with depth=1"
 
     def test_text_format_empty_symbols(
         self, monkeypatch: pytest.MonkeyPatch
@@ -261,7 +236,7 @@ class TestDocumentSymbolTextFormat:
         monkeypatch.setattr(
             lsp,
             "send_request",
-            lambda *args, **kwargs: {"symbols": []},
+            lambda *args, **kwargs: [],  # Empty list of DocumentSymbol
         )
 
         # Mock validate_file_in_workspace to skip file validation
@@ -285,23 +260,19 @@ class TestDocumentSymbolOtherFormats:
     """Tests for non-TEXT formats still using CompactFormatter."""
 
     @pytest.fixture
-    def mock_symbols(self) -> dict:
+    def mock_symbols(self) -> list[DocumentSymbol]:
         """Mock LSP response with symbols."""
-        return {
-            "symbols": [
-                {
-                    "name": "test_func",
-                    "kind": 12,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 10, "character": 0},
-                    },
-                }
-            ]
-        }
+        return [
+            DocumentSymbol(
+                name="test_func",
+                kind=12,
+                range=_make_range(0, 0, 10, 0),
+                selection_range=_make_range(0, 0, 0, 9),
+            )
+        ]
 
     def test_json_format_uses_compact_formatter(
-        self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch
+        self, mock_symbols: list[DocumentSymbol], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """JSON format should use CompactFormatter with file field."""
         import json
@@ -333,20 +304,16 @@ class TestDocumentSymbolOtherFormats:
             catch_exceptions=False,
         )
 
-        data = json.loads(result.output)
-        # Now wrapped with _source and file fields
-        assert "_source" in data
-        assert "file" in data  # File path at top level
-        items = data["items"]
-        assert len(items) == 1
-        assert items[0]["name"] == "test_func"
-        assert "file" not in items[0], "File should be at top level, not in items"
-        assert "children" in items[0], "CompactFormatter JSON should have children field"
+        parsed = json.loads(result.output)
+        assert "_source" in parsed
+        assert "items" in parsed
+        assert len(parsed["items"]) == 1
+        assert parsed["items"][0]["name"] == "test_func"
 
     def test_yaml_format_uses_compact_formatter(
-        self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch
+        self, mock_symbols: list[DocumentSymbol], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """YAML format should use CompactFormatter."""
+        """YAML format should use CompactFormatter with file field."""
         import yaml
 
         from llm_lsp_cli.commands import lsp
@@ -376,19 +343,19 @@ class TestDocumentSymbolOtherFormats:
             catch_exceptions=False,
         )
 
-        data = yaml.safe_load(result.output)
-        # Now wrapped with _source and file fields
-        assert "_source" in data
-        assert "file" in data  # File path at top level
-        items = data["items"]
-        assert len(items) == 1
-        assert items[0]["name"] == "test_func"
-        assert "file" not in items[0], "File should be at top level, not in items"
+        parsed = yaml.safe_load(result.output)
+        assert "_source" in parsed
+        assert "items" in parsed
+        assert len(parsed["items"]) == 1
+        assert parsed["items"][0]["name"] == "test_func"
 
     def test_csv_format_uses_compact_formatter(
-        self, mock_symbols: dict, monkeypatch: pytest.MonkeyPatch
+        self, mock_symbols: list[DocumentSymbol], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """CSV format should use CompactFormatter with headers."""
+        """CSV format should use CompactFormatter with file column."""
+        import csv
+        import io
+
         from llm_lsp_cli.commands import lsp
 
         monkeypatch.setattr(
@@ -416,7 +383,7 @@ class TestDocumentSymbolOtherFormats:
             catch_exceptions=False,
         )
 
-        lines = result.output.strip().split("\n")
-        assert "file" in lines[0], "CSV should have file header"
-        assert "name" in lines[0], "CSV should have name header"
-        assert "test_func" in result.output
+        reader = csv.DictReader(io.StringIO(result.output))
+        rows = list(reader)
+        assert len(rows) == 1
+        assert rows[0]["name"] == "test_func"

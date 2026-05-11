@@ -1,24 +1,25 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Daemon lifecycle commands for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from llm_lsp_cli.commands.shared import (
-    GlobalOptions,
     create_daemon_manager,
+    get_global_options,
     get_lsp_server_name,
     resolve_language,
     run_daemon_command,
 )
+
+if TYPE_CHECKING:
+    from llm_lsp_cli.daemon import DaemonManager
 
 app = typer.Typer(name="daemon", help="Manage the LSP daemon server.")
 
@@ -57,7 +58,7 @@ def start(
     - Python: pyproject.toml, setup.py, requirements.txt
     """
 
-    def do_start(manager: Any, cmd: str, detected_lang: str) -> None:
+    def do_start(manager: DaemonManager, cmd: str, detected_lang: str) -> None:
         typer.echo(f"[{cmd}] Initializing daemon...", err=True)
         typer.echo(f"[{cmd}] Spawning {get_lsp_server_name(detected_lang)}...", err=True)
         manager.start(diagnostic_log=diagnostic_log)
@@ -91,7 +92,7 @@ def stop(
 ) -> None:
     """Stop the LSP daemon server."""
 
-    def do_stop(manager: Any, cmd: str, _lang: str = "") -> None:
+    def do_stop(manager: DaemonManager, cmd: str, _lang: str = "") -> None:
         _ = _lang
         typer.echo(f"[{cmd}] Stopping daemon...", err=True)
         manager.stop()
@@ -131,7 +132,7 @@ def restart(
 ) -> None:
     """Restart the LSP daemon server."""
 
-    def do_restart(manager: Any, cmd: str, detected_lang: str) -> None:
+    def do_restart(manager: DaemonManager, cmd: str, detected_lang: str) -> None:
         typer.echo(f"[{cmd}] Restarting daemon...", err=True)
 
         if manager.is_running():
@@ -169,8 +170,8 @@ def status(
     lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
 ) -> None:
     """Show the daemon server status."""
-    if ctx.obj is not None:
-        global_opts: GlobalOptions = ctx.obj
+    global_opts = get_global_options(ctx)
+    if global_opts.workspace is not None or global_opts.language is not None:
         effective_workspace = workspace if workspace is not None else global_opts.workspace
         effective_language = language if language is not None else global_opts.language
     else:

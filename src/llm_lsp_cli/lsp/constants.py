@@ -1,102 +1,109 @@
 """LSP constants based on LSP 3.17 specification."""
 
+from typing import Final
+
 
 class LSPConstants:
-    """LSP protocol constants."""
+    """LSP protocol constants.
+
+    MAINTENANCE NOTE: Method-name constants (those used in send_request calls)
+    have corresponding Literal type declarations in constants.pyi.
+    When adding a new method constant, update BOTH files!
+    """
 
     # JSON-RPC version
-    JSONRPC_VERSION: str = "2.0"
+    JSONRPC_VERSION: Final[str] = "2.0"
 
     # Content type header
-    CONTENT_TYPE: str = "application/vscode-jsonrpc; charset=utf-8"
+    CONTENT_TYPE: Final[str] = "application/vscode-jsonrpc; charset=utf-8"
 
     # Request methods (client -> server)
-    INITIALIZE: str = "initialize"
-    INITIALIZED: str = "initialized"
-    SHUTDOWN: str = "shutdown"
-    EXIT: str = "exit"
+    INITIALIZE: Final[str] = "initialize"
+    INITIALIZED: Final[str] = "initialized"
+    SHUTDOWN: Final[str] = "shutdown"
+    EXIT: Final[str] = "exit"
 
     # Text document synchronization
-    TEXT_DOCUMENT_DID_OPEN: str = "textDocument/didOpen"
-    TEXT_DOCUMENT_DID_CHANGE: str = "textDocument/didChange"
-    TEXT_DOCUMENT_DID_CLOSE: str = "textDocument/didClose"
-    TEXT_DOCUMENT_DID_SAVE: str = "textDocument/didSave"
-    TEXT_DOCUMENT_WILL_SAVE: str = "textDocument/willSave"
-    TEXT_DOCUMENT_WILL_SAVE_WAIT_UNTIL: str = "textDocument/willSaveWaitUntil"
+    TEXT_DOCUMENT_DID_OPEN: Final[str] = "textDocument/didOpen"
+    TEXT_DOCUMENT_DID_CHANGE: Final[str] = "textDocument/didChange"
+    TEXT_DOCUMENT_DID_CLOSE: Final[str] = "textDocument/didClose"
+    TEXT_DOCUMENT_DID_SAVE: Final[str] = "textDocument/didSave"
+    TEXT_DOCUMENT_WILL_SAVE: Final[str] = "textDocument/willSave"
+    TEXT_DOCUMENT_WILL_SAVE_WAIT_UNTIL: Final[str] = "textDocument/willSaveWaitUntil"
 
     # Language features
-    COMPLETION: str = "textDocument/completion"
-    HOVER: str = "textDocument/hover"
-    SIGNATURE_HELP: str = "textDocument/signatureHelp"
-    DEFINITION: str = "textDocument/definition"
-    TYPE_DEFINITION: str = "textDocument/typeDefinition"
-    IMPLEMENTATION: str = "textDocument/implementation"
-    REFERENCES: str = "textDocument/references"
-    DOCUMENT_HIGHLIGHT: str = "textDocument/documentHighlight"
-    DOCUMENT_SYMBOL: str = "textDocument/documentSymbol"
-    CODE_ACTION: str = "textDocument/codeAction"
-    CODE_LENS: str = "textDocument/codeLens"
-    DOCUMENT_LINK: str = "textDocument/documentLink"
-    DOCUMENT_COLOR: str = "textDocument/documentColor"
-    COLOR_PRESENTATION: str = "textDocument/colorPresentation"
-    FORMATTING: str = "textDocument/formatting"
-    RANGE_FORMATTING: str = "textDocument/rangeFormatting"
-    ON_TYPE_FORMATTING: str = "textDocument/onTypeFormatting"
-    RENAME: str = "textDocument/rename"
-    PREPARE_RENAME: str = "textDocument/prepareRename"
-    FOLDING_RANGE: str = "textDocument/foldingRange"
-    SELECTION_RANGE: str = "textDocument/selectionRange"
-    PREPARE_CALL_HIERARCHY: str = "textDocument/prepareCallHierarchy"
-    CALL_HIERARCHY_INCOMING_CALLS: str = "callHierarchy/incomingCalls"
-    CALL_HIERARCHY_OUTGOING_CALLS: str = "callHierarchy/outgoingCalls"
-    SEMANTIC_TOKENS_FULL: str = "textDocument/semanticTokens/full"
-    PREPARE_TYPE_HIERARCHY: str = "textDocument/prepareTypeHierarchy"
-    INLINE_VALUE: str = "textDocument/inlineValue"
-    INLAY_HINT: str = "textDocument/inlayHint"
-    DIAGNOSTIC: str = "textDocument/diagnostic"
+    COMPLETION: Final[str] = "textDocument/completion"
+    HOVER: Final[str] = "textDocument/hover"
+    SIGNATURE_HELP: Final[str] = "textDocument/signatureHelp"
+    DEFINITION: Final[str] = "textDocument/definition"
+    TYPE_DEFINITION: Final[str] = "textDocument/typeDefinition"
+    IMPLEMENTATION: Final[str] = "textDocument/implementation"
+    REFERENCES: Final[str] = "textDocument/references"
+    DOCUMENT_HIGHLIGHT: Final[str] = "textDocument/documentHighlight"
+    DOCUMENT_SYMBOL: Final[str] = "textDocument/documentSymbol"
+    CODE_ACTION: Final[str] = "textDocument/codeAction"
+    CODE_LENS: Final[str] = "textDocument/codeLens"
+    DOCUMENT_LINK: Final[str] = "textDocument/documentLink"
+    DOCUMENT_COLOR: Final[str] = "textDocument/documentColor"
+    COLOR_PRESENTATION: Final[str] = "textDocument/colorPresentation"
+    FORMATTING: Final[str] = "textDocument/formatting"
+    RANGE_FORMATTING: Final[str] = "textDocument/rangeFormatting"
+    ON_TYPE_FORMATTING: Final[str] = "textDocument/onTypeFormatting"
+    RENAME: Final[str] = "textDocument/rename"
+    PREPARE_RENAME: Final[str] = "textDocument/prepareRename"
+    FOLDING_RANGE: Final[str] = "textDocument/foldingRange"
+    SELECTION_RANGE: Final[str] = "textDocument/selectionRange"
+    PREPARE_CALL_HIERARCHY: Final[str] = "textDocument/prepareCallHierarchy"
+    CALL_HIERARCHY_INCOMING_CALLS: Final[str] = "callHierarchy/incomingCalls"
+    CALL_HIERARCHY_OUTGOING_CALLS: Final[str] = "callHierarchy/outgoingCalls"
+    SEMANTIC_TOKENS_FULL: Final[str] = "textDocument/semanticTokens/full"
+    PREPARE_TYPE_HIERARCHY: Final[str] = "textDocument/prepareTypeHierarchy"
+    INLINE_VALUE: Final[str] = "textDocument/inlineValue"
+    INLAY_HINT: Final[str] = "textDocument/inlayHint"
+    DIAGNOSTIC: Final[str] = "textDocument/diagnostic"
 
     # Workspace features
-    WORKSPACE_SYMBOL: str = "workspace/symbol"
-    WORKSPACE_DIAGNOSTIC: str = "workspace/diagnostic"
-    WORKSPACE_EXECUTE_COMMAND: str = "workspace/executeCommand"
-    WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS: str = "workspace/didChangeWorkspaceFolders"
-    WORKSPACE_DID_CREATE_FILES: str = "workspace/didCreateFiles"
-    WORKSPACE_WILL_CREATE_FILES: str = "workspace/willCreateFiles"
-    WORKSPACE_DID_RENAME_FILES: str = "workspace/didRenameFiles"
-    WORKSPACE_WILL_RENAME_FILES: str = "workspace/willRenameFiles"
-    WORKSPACE_DID_DELETE_FILES: str = "workspace/didDeleteFiles"
-    WORKSPACE_WILL_DELETE_FILES: str = "workspace/willDeleteFiles"
+    WORKSPACE_SYMBOL: Final[str] = "workspace/symbol"
+    WORKSPACE_DIAGNOSTIC: Final[str] = "workspace/diagnostic"
+    WORKSPACE_EXECUTE_COMMAND: Final[str] = "workspace/executeCommand"
+    WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS: Final[str] = "workspace/didChangeWorkspaceFolders"
+    WORKSPACE_DID_CREATE_FILES: Final[str] = "workspace/didCreateFiles"
+    WORKSPACE_WILL_CREATE_FILES: Final[str] = "workspace/willCreateFiles"
+    WORKSPACE_DID_RENAME_FILES: Final[str] = "workspace/didRenameFiles"
+    WORKSPACE_WILL_RENAME_FILES: Final[str] = "workspace/willRenameFiles"
+    WORKSPACE_DID_DELETE_FILES: Final[str] = "workspace/didDeleteFiles"
+    WORKSPACE_WILL_DELETE_FILES: Final[str] = "workspace/willDeleteFiles"
 
     # Window features
-    WINDOW_SHOW_MESSAGE: str = "window/showMessage"
-    WINDOW_SHOW_MESSAGE_REQUEST: str = "window/showMessageRequest"
-    WINDOW_LOG_MESSAGE: str = "window/logMessage"
-    WINDOW_WORK_DONE_PROGRESS_CREATE: str = "window/workDoneProgress/create"
+    WINDOW_SHOW_MESSAGE: Final[str] = "window/showMessage"
+    WINDOW_SHOW_MESSAGE_REQUEST: Final[str] = "window/showMessageRequest"
+    WINDOW_LOG_MESSAGE: Final[str] = "window/logMessage"
+    WINDOW_WORK_DONE_PROGRESS_CREATE: Final[str] = "window/workDoneProgress/create"
 
     # Client features
-    CLIENT_REGISTER_CAPABILITY: str = "client/registerCapability"
-    CLIENT_UNREGISTER_CAPABILITY: str = "client/unregisterCapability"
+    CLIENT_REGISTER_CAPABILITY: Final[str] = "client/registerCapability"
+    CLIENT_UNREGISTER_CAPABILITY: Final[str] = "client/unregisterCapability"
 
     # Workspace configuration
-    WORKSPACE_CONFIGURATION: str = "workspace/configuration"
+    WORKSPACE_CONFIGURATION: Final[str] = "workspace/configuration"
 
     # Progress notifications
-    PROGRESS: str = "$/progress"
-    SET_TRACE: str = "$/setTrace"
-    LOG_TRACE: str = "$/logTrace"
+    PROGRESS: Final[str] = "$/progress"
+    SET_TRACE: Final[str] = "$/setTrace"
+    LOG_TRACE: Final[str] = "$/logTrace"
 
     # Cancel request
-    CANCEL_REQUEST: str = "$/cancelRequest"
+    CANCEL_REQUEST: Final[str] = "$/cancelRequest"
 
     # Common field names
-    TEXT_DOCUMENT: str = "textDocument"
-    POSITION: str = "position"
-    RANGE: str = "range"
-    URI: str = "uri"
-    VERSION: str = "version"
-    LANGUAGE_ID: str = "languageId"
-    CONTENT_CHANGES: str = "contentChanges"
-    CONTEXT: str = "context"
+    TEXT_DOCUMENT: Final[str] = "textDocument"
+    POSITION: Final[str] = "position"
+    RANGE: Final[str] = "range"
+    URI: Final[str] = "uri"
+    VERSION: Final[str] = "version"
+    LANGUAGE_ID: Final[str] = "languageId"
+    CONTENT_CHANGES: Final[str] = "contentChanges"
+    CONTEXT: Final[str] = "context"
 
     # Completion trigger kinds
     COMPLETION_TRIGGER_INVOKED: int = 1

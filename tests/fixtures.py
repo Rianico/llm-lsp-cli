@@ -3,13 +3,22 @@
 This module centralizes all mock LSP server responses used in testing.
 Each constant represents a typical response from an LSP command.
 
+Two formats are provided:
+- Dict fixtures (legacy): For tests that mock daemon responses
+- Typed fixtures: For tests that mock send_request (returns Pydantic models)
+
 Usage:
     from tests.fixtures import (
         LOCATION_RESPONSE,
+        TYPED_LOCATION_RESPONSE,  # Returns list[Location]
         DOCUMENT_SYMBOL_RESPONSE,
+        TYPED_DOCUMENT_SYMBOL_RESPONSE,  # Returns list[DocumentSymbol]
         COMPLETION_RESPONSE,
+        TYPED_COMPLETION_RESPONSE,  # Returns list[CompletionItem]
         HOVER_RESPONSE,
+        TYPED_HOVER_RESPONSE,  # Returns Hover | None
         WORKSPACE_SYMBOL_RESPONSE,
+        TYPED_WORKSPACE_SYMBOL_RESPONSE,  # Returns list[SymbolInformation]
         create_location_response_with_test_files,
         create_workspace_symbol_response_with_test_files,
     )
@@ -17,15 +26,33 @@ Usage:
 
 from typing import Any
 
+from llm_lsp_cli.lsp.types import (
+    CompletionItem,
+    DocumentSymbol,
+    Hover,
+    Location,
+    MarkupContent,
+    Position,
+    Range,
+    SymbolInformation,
+)
+
 __all__ = [
-    # Location-Based
+    # Location-Based (dict format for daemon mocks)
     "LOCATION_RESPONSE",
     "LOCATION_RESPONSE_MULTI",
     "LOCATION_RESPONSE_EMPTY",
     "LOCATION_RESPONSE_WITH_COMMAS",
     "LOCATION_RESPONSE_WITH_QUOTES",
     "create_location_response_with_test_files",
-    # Symbol-Based
+    # Location-Based (typed for send_request mocks)
+    "TYPED_LOCATION_RESPONSE",
+    "TYPED_LOCATION_RESPONSE_MULTI",
+    "TYPED_LOCATION_RESPONSE_EMPTY",
+    "TYPED_LOCATION_RESPONSE_WITH_COMMAS",
+    "TYPED_LOCATION_RESPONSE_WITH_QUOTES",
+    "create_typed_location_response_with_test_files",
+    # Symbol-Based (dict format)
     "SYMBOL_RESPONSE",
     "DOCUMENT_SYMBOL_RESPONSE",
     "DOCUMENT_SYMBOL_WITH_CHILDREN",
@@ -33,16 +60,31 @@ __all__ = [
     "create_workspace_symbol_response_with_test_files",
     "create_workspace_symbol_response_with_variables",
     "create_document_symbol_response_with_variables",
-    # Completion-Based
+    # Symbol-Based (typed for send_request mocks)
+    "TYPED_DOCUMENT_SYMBOL_RESPONSE",
+    "TYPED_DOCUMENT_SYMBOL_WITH_CHILDREN",
+    "TYPED_WORKSPACE_SYMBOL_RESPONSE",
+    "create_typed_workspace_symbol_response_with_test_files",
+    "create_typed_document_symbol_response_with_variables",
+    # Completion-Based (dict format)
     "COMPLETION_RESPONSE",
     "COMPLETION_RESPONSE_RICH",
     "COMPLETION_RESPONSE_EMPTY",
     "COMPLETION_RESPONSE_MINIMAL",
     "COMPLETION_RESPONSE_WITH_COMMAS",
-    # Hover-Based
+    # Completion-Based (typed for send_request mocks)
+    "TYPED_COMPLETION_RESPONSE",
+    "TYPED_COMPLETION_RESPONSE_RICH",
+    "TYPED_COMPLETION_RESPONSE_EMPTY",
+    "TYPED_COMPLETION_RESPONSE_WITH_COMMAS",
+    # Hover-Based (dict format)
     "HOVER_RESPONSE",
     "HOVER_RESPONSE_PLAINTEXT",
     "HOVER_RESPONSE_EMPTY",
+    # Hover-Based (typed for send_request mocks)
+    "TYPED_HOVER_RESPONSE",
+    "TYPED_HOVER_RESPONSE_PLAINTEXT",
+    "TYPED_HOVER_RESPONSE_EMPTY",
     # Symbol Kind Constants
     "SYMBOL_KIND_FILE",
     "SYMBOL_KIND_MODULE",
@@ -664,6 +706,10 @@ def create_document_symbol_response_with_variables() -> dict[str, Any]:
                     "start": {"line": 0, "character": 0},
                     "end": {"line": 50, "character": 0},
                 },
+                "selectionRange": {
+                    "start": {"line": 0, "character": 6},
+                    "end": {"line": 0, "character": 13},
+                },
                 "children": [
                     {
                         "name": "__init__",
@@ -672,11 +718,19 @@ def create_document_symbol_response_with_variables() -> dict[str, Any]:
                             "start": {"line": 5, "character": 4},
                             "end": {"line": 10, "character": 0},
                         },
+                        "selectionRange": {
+                            "start": {"line": 5, "character": 8},
+                            "end": {"line": 5, "character": 16},
+                        },
                     },
                     {
                         "name": "instance_var",
                         "kind": 8,  # FIELD
                         "range": {
+                            "start": {"line": 6, "character": 8},
+                            "end": {"line": 6, "character": 20},
+                        },
+                        "selectionRange": {
                             "start": {"line": 6, "character": 8},
                             "end": {"line": 6, "character": 20},
                         },
@@ -689,6 +743,10 @@ def create_document_symbol_response_with_variables() -> dict[str, Any]:
                 "range": {
                     "start": {"line": 55, "character": 0},
                     "end": {"line": 55, "character": 20},
+                },
+                "selectionRange": {
+                    "start": {"line": 55, "character": 0},
+                    "end": {"line": 55, "character": 15},
                 },
             },
         ]
@@ -802,3 +860,261 @@ def create_call_hierarchy_item_with_data(data: dict[str, Any]) -> dict[str, Any]
         },
         "data": data,
     }
+
+
+# =============================================================================
+# TYPED FIXTURES FOR send_request MOCKS
+# These return Pydantic model instances, matching send_request overloads
+# =============================================================================
+
+
+def _make_range(start_line: int, start_char: int, end_line: int, end_char: int) -> Range:
+    """Create a Range from line/char values."""
+    return Range(
+        start=Position(line=start_line, character=start_char),
+        end=Position(line=end_line, character=end_char),
+    )
+
+
+# -----------------------------------------------------------------------------
+# Location fixtures (for definition, references)
+# -----------------------------------------------------------------------------
+
+TYPED_LOCATION_RESPONSE: list[Location] = [
+    Location(
+        uri="file:///path/to/file.py",
+        range=_make_range(10, 4, 10, 20),
+    )
+]
+
+TYPED_LOCATION_RESPONSE_MULTI: list[Location] = [
+    Location(
+        uri="file:///path/to/file1.py",
+        range=_make_range(5, 0, 5, 15),
+    ),
+    Location(
+        uri="file:///path/to/file2.py",
+        range=_make_range(20, 8, 20, 23),
+    ),
+    Location(
+        uri="file:///path/to/file3.py",
+        range=_make_range(100, 12, 100, 30),
+    ),
+]
+
+TYPED_LOCATION_RESPONSE_EMPTY: list[Location] = []
+
+TYPED_LOCATION_RESPONSE_WITH_COMMAS: list[Location] = [
+    Location(
+        uri="file:///path/to/file,with,commas.py",
+        range=_make_range(0, 0, 0, 10),
+    )
+]
+
+TYPED_LOCATION_RESPONSE_WITH_QUOTES: list[Location] = [
+    Location(
+        uri='file:///path/to/file"with"quotes.py',
+        range=_make_range(0, 0, 0, 10),
+    )
+]
+
+
+def create_typed_location_response_with_test_files() -> list[Location]:
+    """Create typed location response with both source and test files."""
+    return [
+        Location(
+            uri="file:///path/to/file.py",
+            range=_make_range(5, 0, 5, 15),
+        ),
+        Location(
+            uri="file:///path/to/tests/test_file.py",
+            range=_make_range(10, 4, 10, 19),
+        ),
+    ]
+
+
+# -----------------------------------------------------------------------------
+# DocumentSymbol fixtures
+# -----------------------------------------------------------------------------
+
+TYPED_DOCUMENT_SYMBOL_RESPONSE: list[DocumentSymbol] = [
+    DocumentSymbol(
+        name="MyClass",
+        kind=SYMBOL_KIND_CLASS,
+        range=_make_range(0, 0, 50, 0),
+        selection_range=_make_range(0, 6, 0, 13),
+    )
+]
+
+TYPED_DOCUMENT_SYMBOL_WITH_CHILDREN: list[DocumentSymbol] = [
+    DocumentSymbol(
+        name="MyClass",
+        kind=SYMBOL_KIND_CLASS,
+        range=_make_range(0, 0, 50, 0),
+        selection_range=_make_range(0, 6, 0, 13),
+        children=[
+            DocumentSymbol(
+                name="__init__",
+                kind=SYMBOL_KIND_METHOD,
+                range=_make_range(5, 4, 10, 0),
+                selection_range=_make_range(5, 8, 5, 16),
+            ),
+            DocumentSymbol(
+                name="my_method",
+                kind=SYMBOL_KIND_METHOD,
+                range=_make_range(15, 4, 25, 0),
+                selection_range=_make_range(15, 8, 15, 17),
+            ),
+        ],
+    ),
+    DocumentSymbol(
+        name="helper_function",
+        kind=SYMBOL_KIND_FUNCTION,
+        range=_make_range(55, 0, 70, 0),
+        selection_range=_make_range(55, 0, 55, 15),
+    ),
+]
+
+
+def create_typed_document_symbol_response_with_variables() -> list[DocumentSymbol]:
+    """Create typed document symbol response with nested structure including variables."""
+    return [
+        DocumentSymbol(
+            name="MyClass",
+            kind=SYMBOL_KIND_CLASS,
+            range=_make_range(0, 0, 50, 0),
+            selection_range=_make_range(0, 6, 0, 13),
+            children=[
+                DocumentSymbol(
+                    name="__init__",
+                    kind=SYMBOL_KIND_METHOD,
+                    range=_make_range(5, 4, 10, 0),
+                    selection_range=_make_range(5, 8, 5, 16),
+                ),
+                DocumentSymbol(
+                    name="instance_var",
+                    kind=SYMBOL_KIND_FIELD,
+                    range=_make_range(6, 8, 6, 20),
+                    selection_range=_make_range(6, 8, 6, 20),
+                ),
+            ],
+        ),
+        DocumentSymbol(
+            name="module_variable",
+            kind=SYMBOL_KIND_VARIABLE,
+            range=_make_range(55, 0, 55, 20),
+            selection_range=_make_range(55, 0, 55, 15),
+        ),
+    ]
+
+
+# -----------------------------------------------------------------------------
+# SymbolInformation fixtures (for workspace/symbol)
+# -----------------------------------------------------------------------------
+
+TYPED_WORKSPACE_SYMBOL_RESPONSE: list[SymbolInformation] = [
+    SymbolInformation(
+        name="MyClass",
+        kind=SYMBOL_KIND_CLASS,
+        location=Location(
+            uri="file:///path/to/myclass.py",
+            range=_make_range(0, 0, 50, 0),
+        ),
+    ),
+    SymbolInformation(
+        name="helper_function",
+        kind=SYMBOL_KIND_FUNCTION,
+        location=Location(
+            uri="file:///path/to/utils.py",
+            range=_make_range(10, 0, 30, 0),
+        ),
+    ),
+]
+
+
+def create_typed_workspace_symbol_response_with_test_files() -> list[SymbolInformation]:
+    """Create typed workspace symbol response with both source and test file symbols."""
+    return [
+        SymbolInformation(
+            name="MyClass",
+            kind=SYMBOL_KIND_CLASS,
+            location=Location(
+                uri="file:///path/to/file.py",
+                range=_make_range(5, 0, 50, 0),
+            ),
+        ),
+        SymbolInformation(
+            name="TestMyClass",
+            kind=SYMBOL_KIND_CLASS,
+            location=Location(
+                uri="file:///path/to/tests/test_file.py",
+                range=_make_range(10, 4, 30, 0),
+            ),
+        ),
+    ]
+
+
+# -----------------------------------------------------------------------------
+# CompletionItem fixtures
+# -----------------------------------------------------------------------------
+
+TYPED_COMPLETION_RESPONSE: list[CompletionItem] = [
+    CompletionItem(
+        label="my_function",
+        kind=SYMBOL_KIND_FUNCTION,
+        detail="def my_function(x: int) -> str",
+        documentation="A sample function",
+    ),
+    CompletionItem(
+        label="my_variable",
+        kind=SYMBOL_KIND_VARIABLE,
+        detail="str",
+    ),
+]
+
+TYPED_COMPLETION_RESPONSE_EMPTY: list[CompletionItem] = []
+
+TYPED_COMPLETION_RESPONSE_RICH: list[CompletionItem] = [
+    CompletionItem(
+        label="complex_function",
+        kind=SYMBOL_KIND_FUNCTION,
+        tags=[1, 2],
+        detail="def complex_function(x: int, y: str) -> tuple",
+        documentation=MarkupContent(
+            kind="markdown",
+            value="Detailed documentation",
+        ),
+    ),
+]
+
+TYPED_COMPLETION_RESPONSE_WITH_COMMAS: list[CompletionItem] = [
+    CompletionItem(
+        label="func_with_args",
+        kind=SYMBOL_KIND_FUNCTION,
+        detail="def func(a, b, c):  # has, commas",
+        documentation="Documentation, with, commas",
+    ),
+]
+
+
+# -----------------------------------------------------------------------------
+# Hover fixtures
+# -----------------------------------------------------------------------------
+
+TYPED_HOVER_RESPONSE: Hover = Hover(
+    contents=MarkupContent(
+        kind="markdown",
+        value="```python\ndef my_function(x: int) -> str\n```\n\nA sample function.",
+    ),
+    range=_make_range(10, 4, 10, 15),
+)
+
+TYPED_HOVER_RESPONSE_PLAINTEXT: Hover = Hover(
+    contents=MarkupContent(
+        kind="plaintext",
+        value="Hover content",
+    ),
+    range=_make_range(0, 0, 0, 10),
+)
+
+TYPED_HOVER_RESPONSE_EMPTY: Hover | None = None

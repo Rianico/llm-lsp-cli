@@ -92,7 +92,7 @@ class TestWorkspaceSymbolWorkflow:
         # Group symbols by file for workspace-level output
         grouped = group_symbols_by_file(records)
         output = dispatcher.format_grouped(
-            grouped, OutputFormat.JSON, items_key="symbols", _source="TestServer"
+            grouped, OutputFormat.JSON, _items_key="symbols", _source="TestServer"
         )
         parsed = json.loads(output)
 

@@ -16,7 +16,7 @@ class TestBuildDiagnosticLogPath:
         workspace = str(tmp_path / "project")
         result = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
             base_dir=tmp_path / "runtime",
         )
 
@@ -28,7 +28,7 @@ class TestBuildDiagnosticLogPath:
         workspace = str(tmp_path / "project")
         result = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
         )
 
         assert result.name == "diagnostics.log"
@@ -40,12 +40,12 @@ class TestBuildDiagnosticLogPath:
 
         diagnostic_path = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
             base_dir=base_dir,
         )
         daemon_path = RuntimePathBuilder.build_daemon_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
             base_dir=base_dir,
         )
 
@@ -58,12 +58,12 @@ class TestBuildDiagnosticLogPath:
 
         python_path = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
             base_dir=base_dir,
         )
         typescript_path = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="typescript",
+            _language="typescript",
             base_dir=base_dir,
         )
 
@@ -75,7 +75,7 @@ class TestBuildDiagnosticLogPath:
         workspace = str(tmp_path / "myproject")
         result = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
         )
 
         expected_parent = Path(workspace) / ".llm-lsp-cli"
@@ -88,7 +88,7 @@ class TestBuildDiagnosticLogPath:
         custom_base = tmp_path / "custom" / "runtime"
         result = RuntimePathBuilder.build_diagnostic_log_path(
             workspace_path=workspace,
-            language="python",
+            _language="python",
             base_dir=custom_base,
         )
 

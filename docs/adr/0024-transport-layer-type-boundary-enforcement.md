@@ -8,6 +8,10 @@ Accepted
 
 Amends [23. LSP Response Types with Pydantic Models](0023-lsp-response-types-with-pydantic-models.md)
 
+Clarified by [25. IPC Layer as Designated Any Containment Zone](0025-ipc-layer-as-designated-any-containment-zone.md)
+
+defines boundary enforced by [27. Output Layer Pydantic Model Consumption](0027-output-layer-pydantic-model-consumption.md)
+
 ## Context
 
 ADR-0023 established Pydantic models and a typed transport adapter pattern, but did not mandate strict boundary enforcement. Current issues:

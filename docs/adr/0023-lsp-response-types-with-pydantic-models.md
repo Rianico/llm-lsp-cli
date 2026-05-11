@@ -8,6 +8,8 @@ Accepted
 
 Amended by [24. Transport Layer Type Boundary Enforcement](0024-transport-layer-type-boundary-enforcement.md)
 
+provides types for [27. Output Layer Pydantic Model Consumption](0027-output-layer-pydantic-model-consumption.md)
+
 ## Context
 
 The LSP protocol layer currently uses `TypedDict` for type definitions (`lsp/types.py`). While this provides static type hints, it offers no runtime validation. The codebase has 763+ type diagnostics stemming from `dict[str, Any]` response types and `cast()` proliferation at call sites.

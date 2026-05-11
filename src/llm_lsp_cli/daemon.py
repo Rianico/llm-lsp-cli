@@ -1,13 +1,8 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportPrivateUsage=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
 """Daemon process management for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data.
+Uses object for unknown data fields; specific types for known structures.
+Dynamic method dispatch via getattr for handling multiple LSP methods.
 """
 
 import asyncio
@@ -16,22 +11,44 @@ import os
 import signal
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from daemon import DaemonContext
 from daemon.pidfile import PIDLockFile as PidFile
-from pydantic import BaseModel
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.domain.services import LspMethodRouter
 from llm_lsp_cli.ipc import UNIXServer
+from llm_lsp_cli.ipc.protocol import serialize_for_json
+from llm_lsp_cli.lsp import types as lsp
 from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.server import ServerRegistry
+
+if TYPE_CHECKING:
+    from llm_lsp_cli.lsp.client import LSPClient
 
 # Constants
 _SHUTDOWN_WAIT_ITERATIONS = 50  # 5 seconds max (50 * 0.1s)
 _SHUTDOWN_POLL_INTERVAL = 0.1  # 100ms between process checks
 _DAEMON_UMASK = 0o077  # Restrictive permissions (owner only)
+
+# Response key for each LSP method
+# Module-level constant for import by commands/shared.py (ADR-0028)
+RESPONSE_KEYS: dict[str, str] = {
+    LSPConstants.DEFINITION: "locations",
+    LSPConstants.REFERENCES: "locations",
+    LSPConstants.COMPLETION: "items",
+    LSPConstants.HOVER: "hover",
+    LSPConstants.DOCUMENT_SYMBOL: "symbols",
+    LSPConstants.DIAGNOSTIC: "diagnostics",
+    LSPConstants.WORKSPACE_SYMBOL: "symbols",
+    LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
+    LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: "calls",
+    LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: "calls",
+    LSPConstants.PREPARE_RENAME: "prepare_rename",
+    LSPConstants.RENAME: "workspace_edit",
+    LSPConstants.TEXT_DOCUMENT_DID_CHANGE: "status",
+}
 
 # Configure logging
 logging.basicConfig(
@@ -39,26 +56,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("llm-lsp-cli.daemon")
-
-
-def _to_json_serializable(obj: Any) -> Any:
-    """Convert Pydantic models and nested structures to JSON-serializable types.
-
-    Args:
-        obj: Object to convert (can be Pydantic model, list, dict, or primitive)
-
-    Returns:
-        JSON-serializable version of the object
-    """
-    if obj is None:
-        return None
-    if isinstance(obj, BaseModel):
-        return obj.model_dump(mode="json")
-    if isinstance(obj, list):
-        return [_to_json_serializable(item) for item in obj]
-    if isinstance(obj, dict):
-        return {k: _to_json_serializable(v) for k, v in obj.items()}
-    return obj
 
 
 def _configure_diagnostic_logger(log_path: Path) -> None:
@@ -263,13 +260,13 @@ class DaemonManager:
         if len(socket_path_str) >= 100:
             raise RuntimeError(
                 f"Socket path too long ({len(socket_path_str)} chars, max ~100): "
-                f"{socket_path_str}\n"
-                f"Try using a shorter workspace path or set TMPDIR to a shorter path."
+                + f"{socket_path_str}\n"
+                + "Try using a shorter workspace path or set TMPDIR to a shorter path."
             )
 
         # Ensure directories exist
-        ConfigManager.ensure_runtime_dir()
-        ConfigManager.ensure_state_dir()
+        _ = ConfigManager.ensure_runtime_dir()
+        _ = ConfigManager.ensure_state_dir()
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         self.daemon_log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -327,7 +324,7 @@ class DocumentSyncContext:
     """Async context manager for document synchronization within daemon.
 
     This context manager handles the didOpen phase for a single file.
-    Per ADR-001, files remain open for the session lifetime:
+    Per ADR-0008, files remain open for the session lifetime:
     - didOpen is sent when entering the context
     - didClose is NOT sent when exiting (file stays open for session)
     - The file URI is returned for use in subsequent requests
@@ -339,7 +336,10 @@ class DocumentSyncContext:
         # File remains open - no didClose sent
     """
 
-    def __init__(self, lsp_client: Any, file_path: Path):
+    lsp_client: "LSPClient"
+    file_path: Path
+
+    def __init__(self, lsp_client: "LSPClient", file_path: Path):
         """
         Initialize document sync context.
 
@@ -354,7 +354,7 @@ class DocumentSyncContext:
     async def __aenter__(self) -> str:
         """Open document and return URI if not already open.
 
-        Per ADR-001, files remain open for the session lifetime.
+        Per ADR-0008, files remain open for the session lifetime.
         This method checks the DiagnosticCache to avoid sending redundant
         didOpen notifications when a file is already open.
 
@@ -362,15 +362,14 @@ class DocumentSyncContext:
             File URI for subsequent LSP requests
         """
         uri = self.file_path.as_uri()
-        cache = self.lsp_client._diagnostic_cache
-        state = await cache.get_file_state(uri)
+        state = await self.lsp_client.get_diagnostic_cache_state(uri)
 
         if not state.is_open:
             # File not yet open - send didOpen notification
             content = self.file_path.read_text(encoding="utf-8")
             self.uri = await self.lsp_client.open_document(self.file_path, content)
             # Mark file as open in cache
-            await cache.on_did_open(uri)
+            await self.lsp_client.mark_diagnostic_cache_open(uri)
         else:
             # File already open - skip didOpen, just return URI
             self.uri = uri
@@ -385,40 +384,35 @@ class DocumentSyncContext:
     ) -> None:
         """Exit context without closing document.
 
-        Per ADR-001, files remain open for the session lifetime.
+        Per ADR-0008, files remain open for the session lifetime.
         No didClose is sent; the file stays open in the LSP server.
         """
-        # No action - file stays open per ADR-001
+        # No action - file stays open per ADR-0008
         pass
 
 
 class RequestHandler:
     """Handles incoming RPC requests."""
 
-    # Response key for each method
-    RESPONSE_KEYS: dict[str, str] = {
-        LSPConstants.DEFINITION: "locations",
-        LSPConstants.REFERENCES: "locations",
-        LSPConstants.COMPLETION: "items",
-        LSPConstants.HOVER: "hover",
-        LSPConstants.DOCUMENT_SYMBOL: "symbols",
-        LSPConstants.DIAGNOSTIC: "diagnostics",
-        LSPConstants.WORKSPACE_SYMBOL: "symbols",
-        LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
-        LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: "calls",
-        LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: "calls",
-        LSPConstants.PREPARE_RENAME: "prepare_rename",
-        LSPConstants.RENAME: "workspace_edit",
-    }
+    # Reference module-level constant for backward compatibility
+    RESPONSE_KEYS: dict[str, str] = RESPONSE_KEYS
 
     # Default values for common params
-    DEFAULTS: dict[str, Any] = {
+    DEFAULTS: dict[str, object] = {
         "workspace_path": ".",
         "file_path": None,
         "line": 0,
         "column": 0,
         "query": "",
     }
+
+    _shutdown: bool
+    _workspace_path: str
+    _language: str
+    _lsp_conf: str | None
+    _registry: ServerRegistry
+    _router: LspMethodRouter
+    _file_locks: dict[str, asyncio.Lock]
 
     def __init__(self, workspace_path: str, language: str, lsp_conf: str | None = None):
         self._shutdown = False
@@ -427,7 +421,7 @@ class RequestHandler:
         self._lsp_conf = lsp_conf
         self._registry = ServerRegistry(lsp_conf=lsp_conf)
         self._router = LspMethodRouter()
-        self._file_locks: dict[str, asyncio.Lock] = {}
+        self._file_locks = {}
 
     def _get_file_lock(self, file_path: Path) -> asyncio.Lock:
         """Get or create an asyncio.Lock for a specific file path.
@@ -446,7 +440,7 @@ class RequestHandler:
             self._file_locks[path_str] = asyncio.Lock()
         return self._file_locks[path_str]
 
-    async def handle(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def handle(self, method: str, params: dict[str, object]) -> dict[str, object]:
         """Route request to appropriate handler."""
         logger.debug(f"Received request: {method} with params: {params}")
 
@@ -492,7 +486,7 @@ class RequestHandler:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    async def _handle_lsp_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_lsp_method(self, method: str, params: dict[str, object]) -> dict[str, object]:
         """Handle LSP feature methods using common pattern.
 
         Args:
@@ -518,7 +512,7 @@ class RequestHandler:
 
         # Check if this method requires document synchronization
         # Methods that operate on specific files need didOpen -> request
-        # (files stay open per ADR-001)
+        # (files stay open per ADR-0008)
         requires_doc_sync = registry_method in {
             "request_diagnostics",
             "request_document_symbols",
@@ -526,26 +520,34 @@ class RequestHandler:
 
         if requires_doc_sync:
             # Extract file path from params
-            file_path = params.get("filePath")
-            if file_path is None:
+            file_path_val = params.get("filePath")
+            if file_path_val is None:
                 raise ValueError("Missing 'filePath' parameter")
+            if not isinstance(file_path_val, str):
+                raise ValueError("'filePath' must be a string")
 
-            file_path_obj = Path(file_path)
+            file_path_obj = Path(file_path_val)
 
             # Get workspace path for registry call
-            workspace_path = params.get("workspacePath", ".")
+            workspace_path_val = params.get("workspacePath", ".")
+            if not isinstance(workspace_path_val, str):
+                workspace_path_val = "."
 
             # Get workspace and ensure client is initialized
-            workspace = await self._registry.get_or_create_workspace(
-                workspace_path, language=self._language
-            )
+            workspace = await self._registry.get_or_create_workspace(workspace_path_val)
             client = await workspace.ensure_initialized()
 
             # Use per-file lock to serialize requests for the same file
             lock = self._get_file_lock(file_path_obj)
             async with lock, DocumentSyncContext(client, file_path_obj) as uri:
-                # Build params for the LSP request
-                lsp_params = {"textDocument": {"uri": uri}}
+                # Build typed params for the LSP request
+                text_doc_id = lsp.TextDocumentIdentifier(uri=uri)
+                if registry_method == "request_diagnostics":
+                    lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams = (
+                        lsp.DocumentDiagnosticParams(textDocument=text_doc_id)
+                    )
+                else:
+                    lsp_params = lsp.DocumentSymbolParams(textDocument=text_doc_id)
                 return await self._send_lsp_request(
                     method,
                     registry_method,
@@ -566,10 +568,10 @@ class RequestHandler:
         method: str,
         registry_method: str,
         response_key: str,
-        lsp_params: dict[str, Any],
-        client: Any,
+        lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams,
+        client: "LSPClient",
         file_path: str,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Send LSP request using client directly.
 
         When called from document sync context, we use the client directly
@@ -579,7 +581,7 @@ class RequestHandler:
             method: LSP method name (for logging)
             registry_method: Name of registry method (for routing)
             response_key: Key to use in response dict
-            lsp_params: Parameters for the LSP request (textDocument, etc.)
+            lsp_params: Typed LSP request parameters
             client: LSPClient instance to use
             file_path: File path for fallback
 
@@ -587,11 +589,11 @@ class RequestHandler:
             Response dict with appropriate key
         """
         try:
-            # Extract URI from lsp_params
-            uri = lsp_params.get("textDocument", {}).get("uri", "")
+            # Extract URI from typed params
+            uri = lsp_params.text_document.uri
 
             # Get file mtime for cache staleness check
-            # Per ADR-001: mtime is ground truth for cache validation
+            # Per ADR-0008: mtime is ground truth for cache validation
             mtime: float | None = None
             try:
                 mtime = os.stat(file_path).st_mtime
@@ -601,19 +603,20 @@ class RequestHandler:
                 logger.debug(f"Could not stat file {file_path}, proceeding without mtime")
 
             # Call client method directly with uri to avoid _ensure_open
+            # Result type varies by method: diagnostics -> list[dict], symbols -> list[DocumentSymbol], etc.
+            result: object
             if registry_method == "request_diagnostics":
                 result = await client.request_diagnostics(file_path=file_path, uri=uri, mtime=mtime)
             elif registry_method == "request_document_symbols":
                 result = await client.request_document_symbols(file_path=file_path, uri=uri)
             else:
-                # Fallback - should not happen for doc sync methods
-                registry_func = getattr(self._registry, registry_method)
-                result = await registry_func(workspace_path=".", file_path=file_path)
+                # This should never happen - doc sync methods are only diagnostics and document_symbols
+                raise ValueError(f"Unsupported doc sync method: {registry_method}")
 
             logger.debug(f"Client method {registry_method} returned for {method}")
 
             # Convert Pydantic models to JSON-serializable dicts
-            result = _to_json_serializable(result)
+            result = serialize_for_json(result)
 
             # Wrap result with appropriate response key
             if response_key == "hover":
@@ -627,10 +630,10 @@ class RequestHandler:
     async def _handle_standard_lsp_method(
         self,
         method: str,
-        params: dict[str, Any],
+        params: dict[str, object],
         registry_method: str,
         response_key: str,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Handle standard LSP methods that don't require document sync.
 
         This handles workspace-level methods and position-based methods
@@ -645,67 +648,174 @@ class RequestHandler:
         Returns:
             Response dict with appropriate key
         """
-        registry_func = getattr(self._registry, registry_method)
-
         try:
             # Build kwargs based on RPC-style params mapping
             # The daemon receives RPC params with camelCase (workspacePath, filePath)
             # Registry methods expect snake_case (workspace_path, file_path)
-            kwargs: dict[str, Any] = {}
+            workspace_path = params.get("workspacePath", self.DEFAULTS["workspace_path"])
+            if not isinstance(workspace_path, str):
+                workspace_path = "."
 
-            # Always include workspace_path for all methods
-            kwargs["workspace_path"] = params.get("workspacePath", self.DEFAULTS["workspace_path"])
-
-            # Include file_path for methods that need it
-            if registry_method in {
-                "request_definition",
-                "request_references",
-                "request_completions",
-                "request_hover",
-                "request_call_hierarchy_incoming",
-                "request_call_hierarchy_outgoing",
-                "request_prepare_rename",
-                "request_rename",
-            }:
+            # Dispatch to the appropriate registry method with explicit typing
+            result: object
+            if registry_method == "request_definition":
                 file_path = params.get("filePath")
                 if file_path is None:
                     raise ValueError("Missing 'filePath' parameter")
-                kwargs["file_path"] = file_path
-
-            # Include line/column for position-based methods
-            if registry_method in {
-                "request_definition",
-                "request_references",
-                "request_completions",
-                "request_hover",
-                "request_call_hierarchy_incoming",
-                "request_call_hierarchy_outgoing",
-                "request_prepare_rename",
-                "request_rename",
-            }:
-                kwargs["line"] = params.get("line", self.DEFAULTS["line"])
-                kwargs["column"] = params.get("column", self.DEFAULTS["column"])
-
-            # Include query for workspace symbol
-            if registry_method == "request_workspace_symbols":
-                kwargs["query"] = params.get("query", self.DEFAULTS["query"])
-                logger.debug(
-                    f"Workspace symbol request: workspace={kwargs.get('workspace_path')}, "
-                    f"query={kwargs.get('query')}"
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_definition(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
                 )
-
-            # Include newName for rename method
-            if registry_method == "request_rename":
+            elif registry_method == "request_references":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_references(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_completions":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_completions(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_hover":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_hover(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_document_symbols":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                result = await self._registry.request_document_symbols(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                )
+            elif registry_method == "request_workspace_symbols":
+                query = params.get("query", self.DEFAULTS["query"])
+                logger.debug(
+                    f"Workspace symbol request: workspace={workspace_path}, query={query}"
+                )
+                result = await self._registry.request_workspace_symbols(
+                    workspace_path=workspace_path,
+                    query=query if isinstance(query, str) else "",
+                )
+            elif registry_method == "request_diagnostics":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                result = await self._registry.request_diagnostics(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                )
+            elif registry_method == "request_workspace_diagnostics":
+                result = await self._registry.request_workspace_diagnostics(
+                    workspace_path=workspace_path,
+                )
+            elif registry_method == "request_call_hierarchy_incoming":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_call_hierarchy_incoming(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_call_hierarchy_outgoing":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_call_hierarchy_outgoing(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_prepare_rename":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
+                result = await self._registry.request_prepare_rename(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                )
+            elif registry_method == "request_rename":
+                file_path = params.get("filePath")
+                if file_path is None:
+                    raise ValueError("Missing 'filePath' parameter")
+                if not isinstance(file_path, str):
+                    raise ValueError("'filePath' must be a string")
+                line = params.get("line", self.DEFAULTS["line"])
+                column = params.get("column", self.DEFAULTS["column"])
                 new_name = params.get("newName")
                 if new_name is None:
                     raise ValueError("Missing 'newName' parameter")
-                kwargs["new_name"] = new_name
+                if not isinstance(new_name, str):
+                    raise ValueError("'newName' must be a string")
+                result = await self._registry.request_rename(
+                    workspace_path=workspace_path,
+                    file_path=file_path,
+                    line=line if isinstance(line, int) else 0,
+                    column=column if isinstance(column, int) else 0,
+                    new_name=new_name,
+                )
+            else:
+                raise ValueError(f"Unknown registry method: {registry_method}")
 
-            result = await registry_func(**kwargs)
             logger.debug(f"Registry method returned for {method}")
 
             # Convert Pydantic models to JSON-serializable dicts
-            result = _to_json_serializable(result)
+            result = serialize_for_json(result)
 
             # Wrap result with appropriate response key
             if response_key == "hover":
@@ -716,7 +826,7 @@ class RequestHandler:
             logger.exception(f"Error handling LSP method {method}: {e}")
             raise
 
-    async def _handle_did_change(self, params: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_did_change(self, params: dict[str, object]) -> dict[str, object]:
         """Handle textDocument/didChange for external file change notification.
 
         Per ADR-0010, this method:
@@ -737,11 +847,13 @@ class RequestHandler:
             FileNotFoundError: If file does not exist
         """
         # Extract and validate file path
-        file_path_str = params.get("filePath")
-        if file_path_str is None:
+        file_path_val = params.get("filePath")
+        if file_path_val is None:
             raise ValueError("Missing 'filePath' parameter")
+        if not isinstance(file_path_val, str):
+            raise ValueError("'filePath' must be a string")
 
-        file_path = Path(file_path_str)
+        file_path = Path(file_path_val)
 
         # Verify file exists
         if not file_path.exists():
@@ -751,16 +863,15 @@ class RequestHandler:
         current_mtime = os.stat(file_path).st_mtime
 
         # Get workspace and client
-        workspace_path = params.get("workspacePath", self._workspace_path)
-        workspace = await self._registry.get_or_create_workspace(
-            workspace_path, language=self._language
-        )
+        workspace_path_val = params.get("workspacePath", self._workspace_path)
+        if not isinstance(workspace_path_val, str):
+            workspace_path_val = self._workspace_path
+        workspace = await self._registry.get_or_create_workspace(workspace_path_val)
         client = await workspace.ensure_initialized()
 
         # Get file URI and cache state
         uri = file_path.as_uri()
-        cache = client._diagnostic_cache
-        file_state = await cache.get_file_state(uri)
+        file_state = await client.get_diagnostic_cache_state(uri)
 
         # Decide if didOpen is needed:
         # - File not open (is_open=False) -> send didOpen
@@ -768,20 +879,20 @@ class RequestHandler:
         # - mtime matches and is_open -> skip didOpen (optimization)
         needs_didopen = not file_state.is_open
         if not needs_didopen and file_state.mtime > 0:
-            is_stale = await cache.is_stale(uri, current_mtime)
+            is_stale = await client.is_diagnostic_cache_stale(uri, current_mtime)
             needs_didopen = is_stale
 
         if needs_didopen:
             # Send didOpen with current content
             content = file_path.read_text(encoding="utf-8")
-            await client.open_document(file_path, content)
+            _ = await client.open_document(file_path, content)
             # Mark as open in cache WITHOUT updating mtime
             # Per ADR-0010: rely on existing mtime-based invalidation
-            await cache.on_did_open(uri)
+            await client.mark_diagnostic_cache_open(uri)
 
         # Read current content and send didChange
         content = file_path.read_text(encoding="utf-8")
-        await client.send_did_change(file_path, content)
+        _ = await client.send_did_change(file_path, content)
 
         # Return acknowledgment (not diagnostics)
         return {"status": "acknowledged"}
@@ -845,7 +956,7 @@ async def run_daemon(
         logger.info("Daemon server started")
 
         # Wait for shutdown signal
-        await shutdown_event.wait()
+        _ = await shutdown_event.wait()
 
     except asyncio.CancelledError:
         logger.info("[ASYNC] Daemon task cancelled")

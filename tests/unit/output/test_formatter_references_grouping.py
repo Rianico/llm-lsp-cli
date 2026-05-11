@@ -240,7 +240,7 @@ class TestJsonFormatGrouped:
         output = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.JSON,
-            items_key="references",
+            _items_key="references",
             _source="pyright",
             command="references",
         )
@@ -264,7 +264,7 @@ class TestYamlFormatGrouped:
         output = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.YAML,
-            items_key="references",
+            _items_key="references",
             _source="pyright",
         )
         data = yaml.safe_load(output)

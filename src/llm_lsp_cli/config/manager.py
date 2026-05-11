@@ -1,15 +1,12 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportMissingTypeStubs=false
 """Configuration manager for llm-lsp-cli - facade for configuration operations.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
+DEFAULT_CONFIG uses Any for nested dict values; validated by Pydantic at runtime.
 """
 
 import warnings
 from pathlib import Path
-from typing import Any
 
 import typer
 import yaml
@@ -17,6 +14,7 @@ import yaml
 from llm_lsp_cli.infrastructure.config.exceptions import ConfigParseError
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 from llm_lsp_cli.infrastructure.config.xdg_paths import XdgPaths
+from llm_lsp_cli.utils.type_helpers import get_dict, get_list_of_str, get_str
 from llm_lsp_cli.utils.yaml_formatter import dump_config
 
 from .defaults import DEFAULT_CONFIG
@@ -160,10 +158,10 @@ class ConfigManager:
         if project_data:
             merged = deep_merge(merged, project_data)
 
-        return ClientConfig(**merged)
+        return ClientConfig.model_validate(merged)
 
     @classmethod
-    def _load_global_config(cls) -> tuple[dict[str, Any], bool]:
+    def _load_global_config(cls) -> tuple[dict[str, object], bool]:
         """Load global config, creating it if missing.
 
         Returns:
@@ -174,13 +172,13 @@ class ConfigManager:
 
         if not global_path.exists():
             global_path.parent.mkdir(parents=True, exist_ok=True)
-            global_path.write_text(dump_config(DEFAULT_CONFIG))
+            _ = global_path.write_text(dump_config(DEFAULT_CONFIG))
             return ConfigLoader.load(global_path, defaults={}), True
 
         return ConfigLoader.load(global_path, defaults={}), False
 
     @classmethod
-    def _load_project_config(cls) -> dict[str, Any] | None:
+    def _load_project_config(cls) -> dict[str, object] | None:
         """Load project config from CWD if it exists.
 
         Returns:
@@ -231,7 +229,7 @@ class ConfigManager:
         if config_file.exists():
             return False
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        config_file.write_text(dump_config(DEFAULT_CONFIG))
+        _ = config_file.write_text(dump_config(DEFAULT_CONFIG))
         return True
 
     @classmethod
@@ -241,13 +239,14 @@ class ConfigManager:
         lang_config = config.languages.get(language)
         if lang_config is None:
             return None
-        if language in DEFAULT_CONFIG["languages"]:
-            defaults = DEFAULT_CONFIG["languages"][language]
+        languages_defaults = get_dict(DEFAULT_CONFIG, "languages")
+        if language in languages_defaults:
+            defaults = get_dict(languages_defaults, language)
             data = lang_config.model_dump()
             for key, value in defaults.items():
                 if key not in data:
                     data[key] = value
-            return LanguageServerConfig(**data)
+            return LanguageServerConfig.model_validate(data)
         return lang_config
 
     @classmethod
@@ -278,20 +277,21 @@ class ConfigManager:
         if lang_config:
             try:
                 resolved = validate_server_installed(
-                    lang_config.command, language=language
+                    lang_config.command, _language=language
                 )
                 return resolved, lang_config.args
             except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
 
         # Fall back to defaults
-        if language in DEFAULT_CONFIG["languages"]:
-            defaults = DEFAULT_CONFIG["languages"][language]
+        languages_defaults = get_dict(DEFAULT_CONFIG, "languages")
+        if language in languages_defaults:
+            defaults = get_dict(languages_defaults, language)
+            command = get_str(defaults, "command")
+            args = get_list_of_str(defaults, "args")
             try:
-                resolved = validate_server_installed(
-                    defaults["command"], language=language
-                )
-                return resolved, defaults.get("args", [])
+                resolved = validate_server_installed(command, _language=language)
+                return resolved, args
             except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
 
@@ -307,7 +307,7 @@ class ConfigManager:
         server_command: str,
         workspace_path: str,
         custom_conf_path: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, object]:
         """Load LSP initialize parameters.
 
         Delegates to build_initialize_params for dynamic parameter generation.
@@ -339,6 +339,8 @@ class ConfigManager:
             return Path(lang_config.command).name
 
         # Fall back to defaults
-        if language in DEFAULT_CONFIG["languages"]:
-            return Path(DEFAULT_CONFIG["languages"][language]["command"]).name
+        languages_defaults = get_dict(DEFAULT_CONFIG, "languages")
+        if language in languages_defaults:
+            defaults = get_dict(languages_defaults, language)
+            return Path(get_str(defaults, "command")).name
         return language

@@ -13,6 +13,7 @@ import pytest
 from llm_lsp_cli.daemon import DocumentSyncContext, RequestHandler
 from llm_lsp_cli.lsp.cache import DiagnosticCache
 from llm_lsp_cli.lsp.client import LSPClient
+from tests.conftest import setup_mock_client_cache_accessors
 
 
 class TestDocumentSyncIntegration:
@@ -24,7 +25,8 @@ class TestDocumentSyncIntegration:
         client = AsyncMock(spec=LSPClient)
         client.open_document = AsyncMock(return_value="file:///test/file.py")
         client.close_document = AsyncMock()
-        client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
+        cache = DiagnosticCache(Path("/workspace"))
+        setup_mock_client_cache_accessors(client, cache)
         return client
 
     @pytest.fixture

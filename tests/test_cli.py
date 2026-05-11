@@ -11,6 +11,23 @@ import yaml  # type: ignore[import-untested]
 from typer.testing import CliRunner
 
 from tests.fixtures import (
+    # Typed fixtures for send_request mocks
+    TYPED_COMPLETION_RESPONSE,
+    TYPED_COMPLETION_RESPONSE_EMPTY,
+    TYPED_COMPLETION_RESPONSE_RICH,
+    TYPED_COMPLETION_RESPONSE_WITH_COMMAS,
+    TYPED_DOCUMENT_SYMBOL_RESPONSE,
+    TYPED_DOCUMENT_SYMBOL_WITH_CHILDREN,
+    TYPED_HOVER_RESPONSE,
+    TYPED_HOVER_RESPONSE_EMPTY,
+    TYPED_HOVER_RESPONSE_PLAINTEXT,
+    TYPED_LOCATION_RESPONSE,
+    TYPED_LOCATION_RESPONSE_EMPTY,
+    TYPED_LOCATION_RESPONSE_MULTI,
+    TYPED_WORKSPACE_SYMBOL_RESPONSE,
+    create_typed_location_response_with_test_files,
+    create_typed_workspace_symbol_response_with_test_files,
+    # Legacy dict fixtures (for daemon-level mocks)
     COMPLETION_RESPONSE,
     COMPLETION_RESPONSE_WITH_COMMAS,
     DOCUMENT_SYMBOL_RESPONSE,
@@ -595,7 +612,7 @@ def test_cli_definition_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = LOCATION_RESPONSE
+        mock_send.return_value = TYPED_LOCATION_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -626,7 +643,7 @@ def test_cli_references_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = LOCATION_RESPONSE_MULTI
+        mock_send.return_value = TYPED_LOCATION_RESPONSE_MULTI
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -657,7 +674,7 @@ def test_cli_completion_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = COMPLETION_RESPONSE
+        mock_send.return_value = TYPED_COMPLETION_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -696,7 +713,7 @@ def test_cli_hover_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = HOVER_RESPONSE
+        mock_send.return_value = TYPED_HOVER_RESPONSE
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -727,7 +744,7 @@ def test_cli_document_symbol_yaml_output(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = DOCUMENT_SYMBOL_WITH_CHILDREN
+        mock_send.return_value = TYPED_DOCUMENT_SYMBOL_WITH_CHILDREN
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -760,7 +777,7 @@ def test_cli_workspace_symbol_yaml_output(temp_dir: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
+        mock_send.return_value = TYPED_WORKSPACE_SYMBOL_RESPONSE
 
         workspace = str(temp_dir)
         result = runner.invoke(
@@ -798,7 +815,7 @@ def test_cli_format_explicit_text(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = LOCATION_RESPONSE
+        mock_send.return_value = TYPED_LOCATION_RESPONSE
 
         workspace = str(temp_file.parent)
         # Test with explicit text format
@@ -833,37 +850,28 @@ def test_cli_format_invalid_option(temp_file: Path) -> None:
 def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
     """Test that YAML output preserves key fields from LSP responses in compact format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import CompletionItem, MarkupContent, Range, Position, TextEdit
 
     # Comprehensive mock response with many LSP fields
-    mock_response = {
-        "items": [
-            {
-                "label": "complex_function",
-                "kind": 3,
-                "tags": [1, 2],
-                "detail": "def complex_function(x: int, y: str) -> tuple",
-                "documentation": {
-                    "kind": "markdown",
-                    "value": "Detailed documentation",
-                },
-                "deprecated": False,
-                "preselect": True,
-                "filterText": "complex_function",
-                "insertText": "complex_function(${1:x}, ${2:y})",
-                "insertTextFormat": 2,
-                "textEdit": {
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 10, "character": 5},
-                    },
-                    "newText": "complex_function(x, y)",
-                },
-                "additionalTextEdits": [],
-                "commitCharacters": ["(", "{"],
-                "data": {"custom": "metadata"},
-            }
-        ]
-    }
+    mock_response = [
+        CompletionItem(
+            label="complex_function",
+            kind=3,
+            tags=[1, 2],
+            detail="def complex_function(x: int, y: str) -> tuple",
+            documentation=MarkupContent(
+                kind="markdown",
+                value="Detailed documentation",
+            ),
+            text_edit=TextEdit(
+                range=Range(
+                    start=Position(line=10, character=0),
+                    end=Position(line=10, character=5),
+                ),
+                new_text="complex_function(x, y)",
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -905,18 +913,17 @@ def test_cli_yaml_output_preserves_all_fields(temp_file: Path) -> None:
 def test_cli_definition_json_output(temp_file: Path) -> None:
     """Test definition command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Location, Range, Position
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 20},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        Location(
+            uri="file:///path/to/file.py",
+            range=Range(
+                start=Position(line=10, character=4),
+                end=Position(line=10, character=20),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -949,25 +956,24 @@ def test_cli_definition_json_output(temp_file: Path) -> None:
 def test_cli_references_json_output(temp_file: Path) -> None:
     """Test references command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Location, Range, Position
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file1.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            },
-            {
-                "uri": "file:///path/to/file2.py",
-                "range": {
-                    "start": {"line": 20, "character": 8},
-                    "end": {"line": 20, "character": 23},
-                },
-            },
-        ]
-    }
+    mock_response = [
+        Location(
+            uri="file:///path/to/file1.py",
+            range=Range(
+                start=Position(line=5, character=0),
+                end=Position(line=5, character=15),
+            ),
+        ),
+        Location(
+            uri="file:///path/to/file2.py",
+            range=Range(
+                start=Position(line=20, character=8),
+                end=Position(line=20, character=23),
+            ),
+        ),
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -999,29 +1005,28 @@ def test_cli_references_json_output(temp_file: Path) -> None:
 def test_cli_completion_json_output(temp_file: Path) -> None:
     """Test completion command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import CompletionItem, Range, Position, TextEdit
 
-    mock_response = {
-        "items": [
-            {
-                "label": "my_function",
-                "kind": 12,  # Function
-                "detail": "def my_function(x: int) -> str",
-                "documentation": "A sample function",
-                "textEdit": {
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 10, "character": 5},
-                    },
-                    "newText": "my_function()",
-                },
-            },
-            {
-                "label": "my_variable",
-                "kind": 6,
-                "detail": "str",
-            },
-        ]
-    }
+    mock_response = [
+        CompletionItem(
+            label="my_function",
+            kind=12,  # Function
+            detail="def my_function(x: int) -> str",
+            documentation="A sample function",
+            text_edit=TextEdit(
+                range=Range(
+                    start=Position(line=10, character=0),
+                    end=Position(line=10, character=5),
+                ),
+                new_text="my_function()",
+            ),
+        ),
+        CompletionItem(
+            label="my_variable",
+            kind=6,
+            detail="str",
+        ),
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1058,19 +1063,18 @@ def test_cli_completion_json_output(temp_file: Path) -> None:
 def test_cli_hover_json_output(temp_file: Path) -> None:
     """Test hover command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Hover, MarkupContent, Range, Position
 
-    mock_response = {
-        "hover": {
-            "contents": {
-                "kind": "markdown",
-                "value": "```python\ndef my_function(x: int) -> str\n```\n\nA sample function.",
-            },
-            "range": {
-                "start": {"line": 10, "character": 4},
-                "end": {"line": 10, "character": 15},
-            },
-        }
-    }
+    mock_response = Hover(
+        contents=MarkupContent(
+            kind="markdown",
+            value="```python\ndef my_function(x: int) -> str\n```\n\nA sample function.",
+        ),
+        range=Range(
+            start=Position(line=10, character=4),
+            end=Position(line=10, character=15),
+        ),
+    )
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1104,23 +1108,22 @@ def test_cli_hover_json_output(temp_file: Path) -> None:
 def test_cli_document_symbol_json_output(temp_file: Path) -> None:
     """Test document-symbol command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 50, "character": 0},
-                },
-                "selectionRange": {
-                    "start": {"line": 0, "character": 6},
-                    "end": {"line": 0, "character": 13},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        DocumentSymbol(
+            name="MyClass",
+            kind=5,
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=50, character=0),
+            ),
+            selection_range=Range(
+                start=Position(line=0, character=6),
+                end=Position(line=0, character=13),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1154,33 +1157,32 @@ def test_cli_document_symbol_json_output(temp_file: Path) -> None:
 def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
     """Test workspace-symbol command with JSON output format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "helper_function",
-                "kind": 12,
-                "location": {
-                    "uri": "file:///path/to/utils.py",
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 25, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
+    mock_response = [
+        SymbolInformation(
+            name="MyClass",
+            kind=5,
+            location=Location(
+                uri="file:///path/to/myclass.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=50, character=0),
+                ),
+            ),
+        ),
+        SymbolInformation(
+            name="helper_function",
+            kind=12,
+            location=Location(
+                uri="file:///path/to/utils.py",
+                range=Range(
+                    start=Position(line=10, character=0),
+                    end=Position(line=25, character=0),
+                ),
+            ),
+        ),
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1222,18 +1224,17 @@ def test_cli_workspace_symbol_json_output(temp_dir: Path) -> None:
 def test_cli_definition_text_format_shows_full_range(temp_file: Path) -> None:
     """Test that text format shows full start-end range, not just start position."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Location, Range, Position
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 20},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        Location(
+            uri="file:///path/to/file.py",
+            range=Range(
+                start=Position(line=10, character=4),
+                end=Position(line=10, character=20),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1263,18 +1264,17 @@ def test_cli_definition_text_format_shows_full_range(temp_file: Path) -> None:
 def test_cli_references_text_format_shows_full_range(temp_file: Path) -> None:
     """Test that references text format shows full start-end range."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Location, Range, Position
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file1.py",
-                "range": {
-                    "start": {"line": 5, "character": 0},
-                    "end": {"line": 5, "character": 15},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        Location(
+            uri="file:///path/to/file1.py",
+            range=Range(
+                start=Position(line=5, character=0),
+                end=Position(line=5, character=15),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1299,23 +1299,22 @@ def test_cli_references_text_format_shows_full_range(temp_file: Path) -> None:
 def test_cli_completion_text_format_includes_range(temp_file: Path) -> None:
     """Test that completion text format includes textEdit range when available."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import CompletionItem, Range, Position, TextEdit
 
-    mock_response = {
-        "items": [
-            {
-                "label": "my_function",
-                "kind": 3,
-                "detail": "def my_function(x: int) -> str",
-                "textEdit": {
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 10, "character": 5},
-                    },
-                    "newText": "my_function()",
-                },
-            }
-        ]
-    }
+    mock_response = [
+        CompletionItem(
+            label="my_function",
+            kind=3,
+            detail="def my_function(x: int) -> str",
+            text_edit=TextEdit(
+                range=Range(
+                    start=Position(line=10, character=0),
+                    end=Position(line=10, character=5),
+                ),
+                new_text="my_function()",
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1340,19 +1339,18 @@ def test_cli_completion_text_format_includes_range(temp_file: Path) -> None:
 def test_cli_hover_text_format_includes_range(temp_file: Path) -> None:
     """Test that hover text format includes hover range."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Hover, MarkupContent, Range, Position
 
-    mock_response = {
-        "hover": {
-            "contents": {
-                "kind": "markdown",
-                "value": "```python\ndef my_function(x: int) -> str\n```",
-            },
-            "range": {
-                "start": {"line": 10, "character": 4},
-                "end": {"line": 10, "character": 15},
-            },
-        }
-    }
+    mock_response = Hover(
+        contents=MarkupContent(
+            kind="markdown",
+            value="```python\ndef my_function(x: int) -> str\n```",
+        ),
+        range=Range(
+            start=Position(line=10, character=4),
+            end=Position(line=10, character=15),
+        ),
+    )
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1377,19 +1375,22 @@ def test_cli_hover_text_format_includes_range(temp_file: Path) -> None:
 def test_cli_document_symbol_text_format_shows_full_range(temp_file: Path) -> None:
     """Test that document-symbol text format shows full range (start-end), not just start."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 50, "character": 0},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        DocumentSymbol(
+            name="MyClass",
+            kind=5,
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=50, character=0),
+            ),
+            selection_range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=0, character=7),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1417,22 +1418,21 @@ def test_cli_document_symbol_text_format_shows_full_range(temp_file: Path) -> No
 def test_cli_workspace_symbol_text_format_includes_range(temp_dir: Path) -> None:
     """Test that workspace-symbol text format includes range from location."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            }
-        ]
-    }
+    mock_response = [
+        SymbolInformation(
+            name="MyClass",
+            kind=5,
+            location=Location(
+                uri="file:///path/to/myclass.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=50, character=0),
+                ),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1462,18 +1462,17 @@ def test_cli_workspace_symbol_text_format_includes_range(temp_dir: Path) -> None
 def test_cli_default_format_is_json(temp_file: Path) -> None:
     """Test that the default output format is JSON (not text)."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import Location, Range, Position
 
-    mock_response = {
-        "locations": [
-            {
-                "uri": "file:///path/to/file.py",
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 10, "character": 20},
-                },
-            }
-        ]
-    }
+    mock_response = [
+        Location(
+            uri="file:///path/to/file.py",
+            range=Range(
+                start=Position(line=10, character=4),
+                end=Position(line=10, character=20),
+            ),
+        )
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1531,35 +1530,46 @@ def test_symbol_kind_translation_unknown_kind() -> None:
 def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
     """Test that document-symbol text output uses compact numeric kind format."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,  # Class
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 50, "character": 0},
-                },
-            },
-            {
-                "name": "myFunction",
-                "kind": 12,  # Function
-                "range": {
-                    "start": {"line": 55, "character": 0},
-                    "end": {"line": 70, "character": 0},
-                },
-            },
-            {
-                "name": "myMethod",
-                "kind": 6,  # Method
-                "range": {
-                    "start": {"line": 10, "character": 4},
-                    "end": {"line": 20, "character": 4},
-                },
-            },
-        ]
-    }
+    mock_response = [
+        DocumentSymbol(
+            name="MyClass",
+            kind=5,  # Class
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=50, character=0),
+            ),
+            selection_range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=0, character=7),
+            ),
+        ),
+        DocumentSymbol(
+            name="myFunction",
+            kind=12,  # Function
+            range=Range(
+                start=Position(line=55, character=0),
+                end=Position(line=70, character=0),
+            ),
+            selection_range=Range(
+                start=Position(line=55, character=0),
+                end=Position(line=55, character=10),
+            ),
+        ),
+        DocumentSymbol(
+            name="myMethod",
+            kind=6,  # Method
+            range=Range(
+                start=Position(line=10, character=4),
+                end=Position(line=20, character=4),
+            ),
+            selection_range=Range(
+                start=Position(line=10, character=4),
+                end=Position(line=10, character=12),
+            ),
+        ),
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1592,44 +1602,43 @@ def test_document_symbol_text_format_translates_kind(temp_file: Path) -> None:
 def test_workspace_symbol_text_format_translates_kind(temp_dir: Path) -> None:
     """Test that workspace-symbol text output translates kind numbers to names."""
     from llm_lsp_cli.cli import app
+    from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
 
-    mock_response = {
-        "symbols": [
-            {
-                "name": "MyClass",
-                "kind": 5,  # Class
-                "location": {
-                    "uri": "file:///path/to/myclass.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "helper_function",
-                "kind": 12,  # Function
-                "location": {
-                    "uri": "file:///path/to/utils.py",
-                    "range": {
-                        "start": {"line": 10, "character": 0},
-                        "end": {"line": 25, "character": 0},
-                    },
-                },
-            },
-            {
-                "name": "CONFIG_VALUE",
-                "kind": 14,  # Constant
-                "location": {
-                    "uri": "file:///path/to/config.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                },
-            },
-        ]
-    }
+    mock_response = [
+        SymbolInformation(
+            name="MyClass",
+            kind=5,  # Class
+            location=Location(
+                uri="file:///path/to/myclass.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=50, character=0),
+                ),
+            ),
+        ),
+        SymbolInformation(
+            name="helper_function",
+            kind=12,  # Function
+            location=Location(
+                uri="file:///path/to/utils.py",
+                range=Range(
+                    start=Position(line=10, character=0),
+                    end=Position(line=25, character=0),
+                ),
+            ),
+        ),
+        SymbolInformation(
+            name="CONFIG_VALUE",
+            kind=14,  # Constant
+            location=Location(
+                uri="file:///path/to/config.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=1, character=0),
+                ),
+            ),
+        ),
+    ]
 
     with (
         patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1710,7 +1719,7 @@ def test_cli_references_filters_tests_by_default(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_location_response_with_test_files()
+        mock_send.return_value = create_typed_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
 
@@ -1741,7 +1750,7 @@ def test_cli_references_include_tests_flag(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_location_response_with_test_files()
+        mock_send.return_value = create_typed_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
 
@@ -1771,7 +1780,7 @@ def test_cli_workspace_symbol_filters_tests_by_default(temp_dir: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_workspace_symbol_response_with_test_files()
+        mock_send.return_value = create_typed_workspace_symbol_response_with_test_files()
 
         # Test without --include-tests (should filter out test symbols)
         result = runner.invoke(
@@ -1800,7 +1809,7 @@ def test_cli_workspace_symbol_include_tests_flag(temp_dir: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_workspace_symbol_response_with_test_files()
+        mock_send.return_value = create_typed_workspace_symbol_response_with_test_files()
 
         # Test with --include-tests (should include all symbols)
         result = runner.invoke(
@@ -1830,7 +1839,7 @@ def test_cli_references_yaml_with_include_tests(temp_file: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_location_response_with_test_files()
+        mock_send.return_value = create_typed_location_response_with_test_files()
 
         workspace = str(temp_file.parent)
         result = runner.invoke(
@@ -1871,7 +1880,7 @@ def test_cli_workspace_symbol_yaml_with_include_tests(temp_dir: Path) -> None:
         mock_instance = MagicMock()
         mock_instance.is_running.return_value = True
         mock_manager.return_value = mock_instance
-        mock_send.return_value = create_workspace_symbol_response_with_test_files()
+        mock_send.return_value = create_typed_workspace_symbol_response_with_test_files()
 
         result = runner.invoke(
             app,
@@ -1917,7 +1926,7 @@ class TestDefinitionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1945,7 +1954,7 @@ class TestDefinitionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE_MULTI
+            mock_send.return_value = TYPED_LOCATION_RESPONSE_MULTI
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1969,7 +1978,7 @@ class TestDefinitionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -1997,7 +2006,7 @@ class TestReferencesCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2023,7 +2032,7 @@ class TestReferencesCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2051,7 +2060,7 @@ class TestCompletionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2076,7 +2085,7 @@ class TestCompletionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2104,7 +2113,7 @@ class TestCompletionCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE_WITH_COMMAS
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2139,7 +2148,7 @@ class TestHoverCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = HOVER_RESPONSE
+            mock_send.return_value = TYPED_HOVER_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2167,7 +2176,7 @@ class TestHoverCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = HOVER_RESPONSE_PLAINTEXT
+            mock_send.return_value = TYPED_HOVER_RESPONSE_PLAINTEXT
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2194,7 +2203,7 @@ class TestDocumentSymbolCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = DOCUMENT_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_DOCUMENT_SYMBOL_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2218,7 +2227,7 @@ class TestDocumentSymbolCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = DOCUMENT_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_DOCUMENT_SYMBOL_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2247,7 +2256,7 @@ class TestWorkspaceSymbolCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_WORKSPACE_SYMBOL_RESPONSE
 
             result = runner.invoke(
                 app,
@@ -2270,7 +2279,7 @@ class TestWorkspaceSymbolCsvOutput:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_WORKSPACE_SYMBOL_RESPONSE
 
             result = runner.invoke(
                 app,
@@ -2297,7 +2306,7 @@ class TestCsvFormatOption:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -2318,7 +2327,7 @@ class TestCsvFormatOption:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(

@@ -8,6 +8,7 @@ import pytest
 
 from llm_lsp_cli.daemon import DocumentSyncContext, RequestHandler
 from llm_lsp_cli.lsp.cache import DiagnosticCache
+from tests.conftest import setup_mock_client_cache_accessors
 
 
 class TestDocumentSyncEdgeCases:
@@ -19,7 +20,8 @@ class TestDocumentSyncEdgeCases:
         client = AsyncMock()
         client.open_document = AsyncMock(return_value="file:///test/file.py")
         client.close_document = AsyncMock()
-        client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
+        cache = DiagnosticCache(Path("/workspace"))
+        setup_mock_client_cache_accessors(client, cache)
         return client
 
     @pytest.mark.asyncio
@@ -262,7 +264,8 @@ class TestDocumentSyncCleanup:
         mock_client = AsyncMock()
         mock_client.open_document = AsyncMock(return_value="file:///test/file.py")
         mock_client.close_document = AsyncMock()
-        mock_client._diagnostic_cache = DiagnosticCache(tmp_path)
+        cache = DiagnosticCache(tmp_path)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         test_file = tmp_path / "test.py"
         test_file.write_text("content")
@@ -288,7 +291,8 @@ class TestDocumentSyncCleanup:
         mock_client = AsyncMock()
         mock_client.open_document = AsyncMock(return_value="file:///test/file.py")
         mock_client.close_document = AsyncMock()
-        mock_client._diagnostic_cache = DiagnosticCache(tmp_path)
+        cache = DiagnosticCache(tmp_path)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         test_file = tmp_path / "test.py"
         test_file.write_text("content")

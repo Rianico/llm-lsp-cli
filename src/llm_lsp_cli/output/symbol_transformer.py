@@ -1,19 +1,26 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Symbol transformer for depth-controlled hierarchical symbol traversal.
 
 This module implements ADR-0014: hierarchical symbol output with depth-controlled
 traversal, returning immutable SymbolNode tuples for tree-structured rendering.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 from llm_lsp_cli.utils.formatter import get_symbol_kind_name
+from llm_lsp_cli.utils.type_helpers import (
+    get_dict,
+    get_int,
+    get_optional_dict,
+    get_optional_list,
+    get_optional_str,
+    get_str,
+)
+
 
 # Tag mapping: LSP SymbolTag numeric values to string representations
 TAG_MAP: dict[int, str] = {
@@ -52,7 +59,7 @@ class SymbolNode:
     depth: int
 
 
-def _format_range(range_obj: dict[str, Any]) -> str:
+def _format_range(range_obj: dict[str, object]) -> str:
     """Convert LSP range dict to compact string format (1-based).
 
     Args:
@@ -61,13 +68,13 @@ def _format_range(range_obj: dict[str, Any]) -> str:
     Returns:
         Compact string "line:char-line:char" (1-based)
     """
-    start = range_obj.get("start", {})
-    end = range_obj.get("end", {})
+    start = get_dict(range_obj, "start")
+    end = get_dict(range_obj, "end")
 
-    start_line = (start.get("line", 0) or 0) + 1
-    start_char = (start.get("character", 0) or 0) + 1
-    end_line = (end.get("line", 0) or 0) + 1
-    end_char = (end.get("character", 0) or 0) + 1
+    start_line = (get_int(start, "line", 0) or 0) + 1
+    start_char = (get_int(start, "character", 0) or 0) + 1
+    end_line = (get_int(end, "line", 0) or 0) + 1
+    end_char = (get_int(end, "character", 0) or 0) + 1
 
     return f"{start_line}:{start_char}-{end_line}:{end_char}"
 
@@ -94,7 +101,7 @@ def _map_tags(tag_values: list[int] | None) -> tuple[str, ...]:
 
 
 def _transform_symbol(
-    sym: dict[str, Any],
+    sym: dict[str, object],
     depth_limit: int,
     current_depth: int,
 ) -> SymbolNode:
@@ -109,41 +116,59 @@ def _transform_symbol(
         SymbolNode with nested children
     """
     # Get range - handle both document and workspace symbol formats
-    location = sym.get("location", sym)
-    range_obj = location.get("range", sym.get("range", {}))
+    location_raw = sym.get("location")
+    location: dict[str, object]
+    if isinstance(location_raw, dict):
+        location = cast(dict[str, object], location_raw)
+    else:
+        location = sym
+
+    range_raw = location.get("range")
+    if range_raw is None or not isinstance(range_raw, dict):
+        range_raw = sym.get("range")
+    range_obj: dict[str, object]
+    if isinstance(range_raw, dict):
+        range_obj = cast(dict[str, object], range_raw)
+    else:
+        range_obj = {}
 
     # Format range as compact string
     range_str = _format_range(range_obj)
 
     # Format selection range if present
     selection_range_str: str | None = None
-    if "selectionRange" in sym:
-        selection_range_str = _format_range(sym["selectionRange"])
+    sel_range = get_optional_dict(sym, "selectionRange")
+    if sel_range:
+        selection_range_str = _format_range(sel_range)
 
     # Get kind info
-    kind = sym.get("kind", 0)
+    kind = get_int(sym, "kind", 0)
     kind_name = get_symbol_kind_name(kind)
 
     # Map tags
-    tags = _map_tags(sym.get("tags"))
+    tags_raw = get_optional_list(sym, "tags")
+    tags_ints: list[int] = [t for t in (tags_raw or []) if isinstance(t, int)]
+    tags = _map_tags(tags_ints)
 
     # Get detail
-    detail = sym.get("detail")
+    detail = get_optional_str(sym, "detail")
 
     # Process children if depth allows
     children: tuple[SymbolNode, ...] = ()
     if depth_limit != 0:
-        raw_children = sym.get("children")
+        raw_children = get_optional_list(sym, "children")
         if raw_children:
             child_depth = depth_limit - 1 if depth_limit > 0 else -1
             child_nodes: list[SymbolNode] = []
             for child_sym in raw_children:
-                child_node = _transform_symbol(child_sym, child_depth, current_depth + 1)
-                child_nodes.append(child_node)
+                if isinstance(child_sym, dict):
+                    child_dict = cast(dict[str, object], child_sym)
+                    child_node = _transform_symbol(child_dict, child_depth, current_depth + 1)
+                    child_nodes.append(child_node)
             children = tuple(child_nodes)
 
     return SymbolNode(
-        name=sym.get("name", ""),
+        name=get_str(sym, "name"),
         kind=kind,
         kind_name=kind_name,
         range=range_str,
@@ -156,9 +181,9 @@ def _transform_symbol(
 
 
 def transform_symbols(
-    symbols: list[dict[str, Any]],
+    symbols: list[dict[str, object]],
     depth_limit: int,
-    workspace: Path,  # pyright: ignore[reportUnusedParameter]
+    _workspace: Path,
 ) -> tuple[SymbolNode, ...]:
     """Transform LSP symbols to SymbolNode tuple with depth-controlled traversal.
 

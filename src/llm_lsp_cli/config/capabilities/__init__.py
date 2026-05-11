@@ -1,6 +1,3 @@
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
 """LSP server capabilities definitions.
 
 Provides server server capability configurations for different LSP servers.
@@ -54,7 +51,7 @@ def _load_server_capability(
     with contextlib.suppress(json.JSONDecodeError):
         loaded = cast(object, json.loads(content))
         if isinstance(loaded, dict):
-            return loaded
+            return cast(dict[str, object], loaded)
     return None
 
 
@@ -163,15 +160,15 @@ def get_capabilities_for_server_path(server_path: str) -> dict[str, object]:
         default_path = capabilities_dir / "default.json"
         if not default_path.exists():
             raise FileNotFoundError(
-                f"Capabilities file not found for server '{server_name}' "
-                "and default.json is missing"
+                (f"Capabilities file not found for server '{server_name}' "
+                 "and default.json is missing")
             )
         # Load default.json directly to propagate JSONDecodeError
         content = default_path.read_text()
         loaded = cast(object, json.loads(content))
         # Type narrow: json.loads returns Any, but we expect dict for valid config
         assert isinstance(loaded, dict)
-        capabilities = loaded
+        capabilities = cast(dict[str, object], loaded)
 
     # Cache the result keyed by server name
     _capabilities_cache[server_name] = capabilities
@@ -249,7 +246,7 @@ def format_capabilities(
             yaml.safe_dump(capabilities, default_flow_style=False, sort_keys=False)
         )
     elif format == "text":
-        lines = []
+        lines: list[str] = []
         for server_name, server_caps in capabilities.items():
             # If single server, don't print server name prefix
             if len(capabilities) == 1:
@@ -261,7 +258,8 @@ def format_capabilities(
                 value = server_caps[key]
                 if isinstance(value, dict):
                     lines.append(f"  {key}:")
-                    for subkey in sorted(value.keys())[:5]:  # Limit subkeys
+                    value_dict = cast(dict[str, object], value)
+                    for subkey in sorted(value_dict.keys())[:5]:  # Limit subkeys
                         lines.append(f"    {subkey}: ...")
                 else:
                     lines.append(f"  {key}: {value}")

@@ -9,7 +9,7 @@ from urllib.parse import unquote, urlparse
 __all__ = ["uri_to_absolute_path"]
 
 
-def uri_to_absolute_path(uri: str, workspace_root: Path) -> str:
+def uri_to_absolute_path(uri: str, _workspace_root: Path) -> str:
     """Convert a file URI to an absolute path.
 
     Args:

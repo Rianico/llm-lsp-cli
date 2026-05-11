@@ -1,10 +1,9 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportAny=false
 """Backup manager for LSP rename operations.
 
 Manages session-based backups for atomic file modifications during rename operations.
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
+json.loads returns Any; validated via isinstance checks.
 """
 
 from __future__ import annotations
@@ -15,10 +14,34 @@ import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
+
+from pydantic import BaseModel, field_validator
 
 if TYPE_CHECKING:
     from llm_lsp_cli.output.formatter import Position
+
+
+class RenameManifest(BaseModel):
+    """Pydantic model for rename session manifest file."""
+
+    session_id: str
+    timestamp: str
+    affected_files: dict[str, str]
+    status: str
+
+    @field_validator("affected_files", mode="before")
+    @classmethod
+    def validate_affected_files(cls, v: object) -> dict[str, str]:
+        """Validate affected_files is a dict with string keys and values."""
+        if not isinstance(v, dict):
+            return {}
+        result: dict[str, str] = {}
+        raw_dict = cast(dict[object, object], v)
+        for key, val in raw_dict.items():
+            if isinstance(key, str) and isinstance(val, str):
+                result[key] = val
+        return result
 
 
 @dataclass
@@ -43,7 +66,7 @@ class BackupManager:
     during LSP rename operations.
     """
 
-    SESSIONS_DIR = ".llm-lsp-cli/rename_sessions"
+    SESSIONS_DIR: str = ".llm-lsp-cli/rename_sessions"
 
     def __init__(self, workspace_path: Path):
         """Initialize the backup manager.
@@ -51,8 +74,13 @@ class BackupManager:
         Args:
             workspace_path: Root path of the workspace
         """
-        self._workspace_path = Path(workspace_path).resolve()
+        self._workspace_path: Path = Path(workspace_path).resolve()
         self._sessions: dict[str, RenameSession] = {}
+
+    @property
+    def workspace_path(self) -> Path:
+        """Get the workspace path for this backup manager."""
+        return self._workspace_path
 
     def create_session(
         self,
@@ -148,7 +176,7 @@ class BackupManager:
             backup_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Copy file to backup
-            shutil.copy2(file_path, backup_path)
+            _ = shutil.copy2(file_path, backup_path)
 
             # Update mapping
             session.affected_files[file_path] = backup_path
@@ -161,7 +189,7 @@ class BackupManager:
         """
         for original_path, backup_path in session.affected_files.items():
             if backup_path.exists():
-                shutil.copy2(backup_path, original_path)
+                _ = shutil.copy2(backup_path, original_path)
 
         session.status = "rolled_back"
 
@@ -191,17 +219,17 @@ class BackupManager:
         if not manifest_path.exists():
             raise ValueError(f"Session manifest not found: {session_id}")
 
-        manifest = json.loads(manifest_path.read_text())
-        affected_files = {
-            Path(orig): session_dir / backup_name
-            for orig, backup_name in manifest.get("affected_files", {}).items()
-        }
+        # Parse and validate manifest with Pydantic model
+        manifest = RenameManifest.model_validate_json(manifest_path.read_text())
+        affected_files: dict[Path, Path] = {}
+        for orig_key, backup_val in manifest.affected_files.items():
+            affected_files[Path(orig_key)] = session_dir / backup_val
 
         # Restore files
         for original_path, backup_path in affected_files.items():
             if backup_path.exists():
                 original_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(backup_path, original_path)
+                _ = shutil.copy2(backup_path, original_path)
 
         # Clean up session directory after successful restore
         shutil.rmtree(session_dir, ignore_errors=True)
@@ -233,7 +261,7 @@ class BackupManager:
             "status": session.status,
         }
 
-        manifest_path.write_text(json.dumps(manifest_data, indent=2))
+        _ = manifest_path.write_text(json.dumps(manifest_data, indent=2))
 
     def write_request_json(self, session: RenameSession) -> None:
         """Write request.json with original request details.
@@ -253,4 +281,4 @@ class BackupManager:
             "new_name": session.new_name,
         }
 
-        request_path.write_text(json.dumps(request_data, indent=2))
+        _ = request_path.write_text(json.dumps(request_data, indent=2))

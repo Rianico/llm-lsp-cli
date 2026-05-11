@@ -14,6 +14,7 @@ import pytest
 
 from llm_lsp_cli.daemon import DocumentSyncContext
 from llm_lsp_cli.lsp.cache import DiagnosticCache
+from tests.conftest import setup_mock_client_cache_accessors
 
 
 class TestDocumentSyncContextNoDidClose:
@@ -35,7 +36,8 @@ class TestDocumentSyncContextNoDidClose:
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("test.py").as_uri())
         mock_client.close_document = AsyncMock()
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         # Create test file
         test_file = temp_dir / "test.py"
@@ -62,7 +64,8 @@ class TestDocumentSyncContextNoDidClose:
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("test.py").as_uri())
         mock_client.close_document = AsyncMock()
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         # Create test file
         test_file = temp_dir / "test.py"
@@ -86,7 +89,8 @@ class TestDocumentSyncContextNoDidClose:
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("test.py").as_uri())
         mock_client.close_document = AsyncMock()
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         # Create test file
         test_file = temp_dir / "test.py"
@@ -125,12 +129,13 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         # Arrange
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("module.py").as_uri())
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
         file_path = temp_dir / "module.py"
         file_path.write_text("# test content")
 
         # Pre-condition: file not tracked as open
-        state = await mock_client._diagnostic_cache.get_file_state(file_path.as_uri())
+        state = await cache.get_file_state(file_path.as_uri())
         assert state.is_open is False
 
         # Act
@@ -140,7 +145,7 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         # Assert - open_document was called
         assert mock_client.open_document.call_count == 1
         # Assert - is_open is now True (DocumentSyncContext must call on_did_open)
-        state = await mock_client._diagnostic_cache.get_file_state(file_path.as_uri())
+        state = await cache.get_file_state(file_path.as_uri())
         assert state.is_open is True, "is_open must be True after DocumentSyncContext sends didOpen"
 
     @pytest.mark.asyncio
@@ -149,12 +154,13 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         # Arrange
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("module.py").as_uri())
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
         file_path = temp_dir / "module.py"
         file_path.write_text("# test content")
 
         # Simulate first request already completed - file is marked as open
-        await mock_client._diagnostic_cache.on_did_open(file_path.as_uri())
+        await cache.on_did_open(file_path.as_uri())
 
         # Act - second request
         async with DocumentSyncContext(mock_client, file_path) as _:
@@ -165,7 +171,7 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         assert mock_client.open_document.call_count == 0, (
             "open_document should NOT be called when file is already open"
         )
-        state = await mock_client._diagnostic_cache.get_file_state(file_path.as_uri())
+        state = await cache.get_file_state(file_path.as_uri())
         assert state.is_open is True
 
     @pytest.mark.asyncio
@@ -179,7 +185,8 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         file_b.write_text("# file b")
 
         mock_client.open_document = AsyncMock(side_effect=[file_a.as_uri(), file_b.as_uri()])
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
 
         # Act
         async with DocumentSyncContext(mock_client, file_a) as uri_a:
@@ -195,15 +202,16 @@ class TestDocumentSyncContextRedundantDidOpenPrevention:
         """DocumentSyncContext should check cache.is_open before sending didOpen."""
         mock_client = MagicMock()
         mock_client.open_document = AsyncMock(return_value=temp_dir.joinpath("module.py").as_uri())
-        mock_client._diagnostic_cache = DiagnosticCache(temp_dir)
+        cache = DiagnosticCache(temp_dir)
+        setup_mock_client_cache_accessors(mock_client, cache)
         file_path = temp_dir / "module.py"
         file_path.write_text("# test content")
 
         # Manually mark file as open in cache
-        await mock_client._diagnostic_cache.on_did_open(file_path.as_uri())
+        await cache.on_did_open(file_path.as_uri())
 
         # Pre-condition: file is already tracked as open
-        state_before = await mock_client._diagnostic_cache.get_file_state(file_path.as_uri())
+        state_before = await cache.get_file_state(file_path.as_uri())
         assert state_before.is_open is True
 
         # Act - enter context for already-open file

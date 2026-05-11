@@ -1,4 +1,3 @@
-# pyright: reportMissingTypeStubs=false
 """Configuration infrastructure package."""
 
 from llm_lsp_cli.infrastructure.config.exceptions import (

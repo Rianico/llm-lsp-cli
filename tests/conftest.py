@@ -1,16 +1,50 @@
 """Pytest configuration and fixtures."""
 
+# pyright: reportMissingTypeStubs=false
+
 import logging
 import shutil
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
 
 if TYPE_CHECKING:
     from llm_lsp_cli.output.formatter import Position
+
+
+def setup_mock_client_cache_accessors(mock_client: MagicMock, cache: "DiagnosticCache") -> None:
+    """Set up mock accessor methods that delegate to the cache.
+
+    The public accessor methods get_diagnostic_cache_state,
+    mark_diagnostic_cache_open, and is_diagnostic_cache_stale
+    need to be mocked to work with the real cache.
+
+    Args:
+        mock_client: Mock client to configure with cache accessor methods
+        cache: Real DiagnosticCache instance to delegate to
+    """
+    from llm_lsp_cli.lsp.cache import FileState
+
+    async def get_diagnostic_cache_state(uri: str) -> FileState:
+        return await cache.get_file_state(uri)
+
+    async def mark_diagnostic_cache_open(uri: str) -> None:
+        await cache.on_did_open(uri)
+
+    async def is_diagnostic_cache_stale(uri: str, mtime: float) -> bool:
+        return await cache.is_stale(uri, mtime)
+
+    mock_client.get_diagnostic_cache_state = get_diagnostic_cache_state
+    mock_client.mark_diagnostic_cache_open = mark_diagnostic_cache_open
+    mock_client.is_diagnostic_cache_stale = is_diagnostic_cache_stale
+
+
+# Import for type hints only
+from llm_lsp_cli.lsp.cache import DiagnosticCache  # noqa: E402
 
 
 @pytest.fixture
@@ -44,7 +78,7 @@ if __name__ == "__main__":
     hello()
 """
     filepath = temp_dir / "sample.py"
-    filepath.write_text(content)
+    _ = filepath.write_text(content)
     return filepath
 
 
@@ -83,7 +117,7 @@ def temp_workspace(tmp_path: Path) -> Path:
     src.mkdir()
 
     # Create sample module
-    (src / "main.py").write_text('''
+    _ = (src / "main.py").write_text('''
 class OldClassName:
     def method(self):
         return OldClassName()
@@ -94,7 +128,7 @@ def standalone_func():
 ''')
 
     # Create second module with imports
-    (src / "utils.py").write_text('''
+    _ = (src / "utils.py").write_text('''
 from main import OldClassName
 
 def use_class():

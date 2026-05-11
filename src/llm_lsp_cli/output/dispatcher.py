@@ -1,9 +1,7 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Output dispatcher for unified format handling.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
@@ -13,12 +11,12 @@ import io
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any
 
 import yaml
 
 from llm_lsp_cli.output.protocol import FormattableRecord
 from llm_lsp_cli.utils import OutputFormat
+from llm_lsp_cli.utils.type_helpers import get_list, get_str
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ def _build_top_level_dict(
     _source: str | None,
     file_path: str | None,
     command: str | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Build top-level metadata dict with non-None values.
 
     Args:
@@ -38,7 +36,7 @@ def _build_top_level_dict(
     Returns:
         Dict with only the provided non-None values.
     """
-    top_level: dict[str, Any] = {}
+    top_level: dict[str, object] = {}
     if _source is not None:
         top_level["_source"] = _source
     if file_path is not None:
@@ -66,7 +64,7 @@ class OutputDispatcher:
         """Format a single record in the specified format.
 
         Args:
-            record: Any object implementing FormattableRecord protocol
+            record: An object implementing FormattableRecord protocol
             fmt: Output format (JSON, YAML, CSV, TEXT)
             _source: Server name for JSON/YAML output (ignored for TEXT/CSV)
             file_path: Optional file path to include at top level
@@ -184,9 +182,9 @@ class OutputDispatcher:
 
     def format_grouped(
         self,
-        grouped_data: list[dict[str, Any]],
+        grouped_data: list[dict[str, object]],
         fmt: OutputFormat,
-        items_key: str = "symbols",
+        _items_key: str = "symbols",
         _source: str | None = None,
         command: str | None = None,
     ) -> str:
@@ -224,7 +222,7 @@ class OutputDispatcher:
 
     def format_references_csv(
         self,
-        grouped_data: list[dict[str, Any]],
+        grouped_data: list[dict[str, object]],
     ) -> str:
         """Format grouped references as CSV with file and ranges columns.
 
@@ -243,9 +241,14 @@ class OutputDispatcher:
         writer.writeheader()
 
         for group in grouped_data:
-            file_path = group.get("file", "")
-            references = group.get("references", [])
-            ranges = [ref.get("range", "") for ref in references]
+            file_path = get_str(group, "file")
+            references_raw = get_list(group, "references")
+            ranges: list[str] = []
+            for ref in references_raw:
+                # get_str accepts object, so pass ref directly
+                range_val = get_str(ref, "range")
+                if range_val:
+                    ranges.append(range_val)
             ranges_str = "|".join(ranges)
             writer.writerow({"file": file_path, "ranges": ranges_str})
 
@@ -253,7 +256,7 @@ class OutputDispatcher:
 
     def format_grouped_text(
         self,
-        grouped_data: list[dict[str, Any]],
+        grouped_data: list[dict[str, object]],
         items_key: str = "symbols",
         header: str | None = None,
     ) -> str:
@@ -282,8 +285,8 @@ class OutputDispatcher:
 
     def format_grouped_flat(
         self,
-        grouped_data: list[dict[str, Any]],
-        fmt: OutputFormat,
+        grouped_data: list[dict[str, object]],
+        _fmt: OutputFormat,
         items_key: str = "symbols",
         headers: list[str] | None = None,
     ) -> str:
@@ -304,13 +307,14 @@ class OutputDispatcher:
             return ""
 
         # Flatten the grouped data
-        flat_rows: list[dict[str, Any]] = []
+        flat_rows: list[dict[str, object]] = []
         for group in grouped_data:
-            file_path = group.get("file", "")
-            items = group.get(items_key, [])
-            for item in items:
-                row = {"file": file_path, **item}
-                flat_rows.append(row)
+            file_path = get_str(group, "file")
+            items_raw = get_list(group, items_key)
+            for item in items_raw:
+                if isinstance(item, dict):
+                    row: dict[str, object] = {"file": file_path, **item}
+                    flat_rows.append(row)
 
         if not flat_rows:
             return ""

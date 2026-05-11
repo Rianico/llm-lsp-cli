@@ -1,6 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Daemon client for auto-start functionality.
 
 This module provides the DaemonClient class which abstracts daemon lifecycle
@@ -10,7 +7,8 @@ management from the CLI, enabling transparent auto-start behavior.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from pathlib import Path
+from typing import Literal, overload
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.daemon import DaemonManager
@@ -21,6 +19,27 @@ from llm_lsp_cli.exceptions import (
     DaemonStartupTimeoutError,
 )
 from llm_lsp_cli.ipc import UNIXClient
+from llm_lsp_cli.ipc.method_registry import MethodName
+from llm_lsp_cli.ipc.models import (
+    CompletionParams,
+    DaemonStatusResult,
+    EmptyParams,
+    PingResult,
+    ReferenceParams,
+    RenameParams,
+    ShutdownResult,
+    TextDocumentPositionParams,
+    WorkspaceSymbolParams,
+)
+from llm_lsp_cli.lsp.types import (
+    CompletionItem,
+    DocumentSymbol,
+    Hover,
+    Location,
+    PrepareRenameResult,
+    SymbolInformation,
+    WorkspaceEdit,
+)
 
 
 class DaemonClient:
@@ -37,12 +56,21 @@ class DaemonClient:
     """
 
     # Exponential backoff configuration
-    BACKOFF_INITIAL = 0.05  # 50ms initial delay
-    BACKOFF_MULTIPLIER = 2.0
-    BACKOFF_MAX = 1.0  # Cap at 1 second
+    BACKOFF_INITIAL: float = 0.05  # 50ms initial delay
+    BACKOFF_MULTIPLIER: float = 2.0
+    BACKOFF_MAX: float = 1.0  # Cap at 1 second
 
     # Subprocess spawn configuration
-    SUBPROCESS_STARTUP_DELAY = 0.1  # 100ms delay after spawning daemon subprocess
+    SUBPROCESS_STARTUP_DELAY: float = 0.1  # 100ms delay after spawning daemon subprocess
+
+    # Instance attributes
+    workspace_path: str
+    language: str
+    startup_timeout: float
+    connection_timeout: float
+    socket_path: Path
+    _client: UNIXClient | None
+    _manager: DaemonManager | None
 
     def __init__(
         self,
@@ -71,18 +99,115 @@ class DaemonClient:
         )
 
         # Internal state
-        self._client: UNIXClient | None = None
-        self._manager: DaemonManager | None = None
+        self._client = None
+        self._manager = None
 
-    async def request(self, method: str, params: dict[str, Any]) -> Any:
+    # =========================================================================
+    # @overload declarations for compile-time type safety
+    # =========================================================================
+
+    @overload
+    async def request(
+        self,
+        method: Literal["ping"],
+        params: EmptyParams,
+    ) -> PingResult: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["shutdown"],
+        params: EmptyParams,
+    ) -> ShutdownResult: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["status"],
+        params: EmptyParams,
+    ) -> DaemonStatusResult: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/definition"],
+        params: TextDocumentPositionParams,
+    ) -> list[Location]: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/hover"],
+        params: TextDocumentPositionParams,
+    ) -> Hover | None: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/documentSymbol"],
+        params: TextDocumentPositionParams,
+    ) -> list[DocumentSymbol]: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["workspace/symbol"],
+        params: WorkspaceSymbolParams,
+    ) -> list[SymbolInformation]: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/prepareRename"],
+        params: TextDocumentPositionParams,
+    ) -> PrepareRenameResult: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/rename"],
+        params: RenameParams,
+    ) -> WorkspaceEdit: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/references"],
+        params: ReferenceParams,
+    ) -> list[Location]: ...
+
+    @overload
+    async def request(
+        self,
+        method: Literal["textDocument/completion"],
+        params: CompletionParams,
+    ) -> list[CompletionItem] | None: ...
+
+    # Fallback overload - type error for unknown methods
+    @overload
+    async def request(
+        self,
+        method: MethodName,
+        params: object,
+    ) -> object: ...
+
+    # =========================================================================
+    # Generic implementation
+    # =========================================================================
+
+    async def request(
+        self,
+        method: MethodName,
+        params: object,
+    ) -> object:
         """Send an LSP request, auto-starting daemon if needed.
 
         Args:
             method: LSP method name (e.g., 'textDocument/definition')
-            params: Request parameters
+            params: Request parameters as dict
 
         Returns:
-            LSP response
+            LSP response (typed based on method via UNIXClient overloads)
 
         Raises:
             DaemonStartupError: If daemon fails to start
@@ -100,6 +225,7 @@ class DaemonClient:
         )
 
         try:
+            # UNIXClient has overloads that provide typed returns for known methods
             response = await self._client.request(method, params)
             return response
         except FileNotFoundError:
@@ -113,8 +239,8 @@ class DaemonClient:
             # Enhanced timeout error with LSP initialization context
             raise DaemonError(
                 f"LSP initialization timed out after {self.connection_timeout}s. "
-                f"Workspace: {self.workspace_path}, Language: {self.language}. "
-                f"Check that the LSP server is properly configured and can start.",
+                + f"Workspace: {self.workspace_path}, Language: {self.language}. "
+                + "Check that the LSP server is properly configured and can start.",
                 workspace=self.workspace_path,
                 language=self.language,
             ) from e
@@ -122,12 +248,12 @@ class DaemonClient:
             await self._client.close()
             self._client = None
 
-    async def notify(self, method: str, params: dict[str, Any]) -> None:
+    async def notify(self, method: str, params: dict[str, object]) -> None:
         """Send an LSP notification, auto-starting daemon if needed.
 
         Args:
             method: LSP notification method name
-            params: Notification parameters
+            params: Notification parameters as dict
 
         Raises:
             DaemonStartupError: If daemon fails to start
@@ -148,7 +274,7 @@ class DaemonClient:
             await self._client.close()
             self._client = None
 
-    async def send_notification(self, method: str, params: dict[str, Any]) -> None:
+    async def send_notification(self, method: str, params: dict[str, object]) -> None:
         """Send a notification to the daemon with error handling.
 
         This is a convenience wrapper around notify() with consistent error handling
@@ -156,7 +282,7 @@ class DaemonClient:
 
         Args:
             method: Notification method name
-            params: Notification parameters
+            params: Notification parameters as dict
 
         Raises:
             CLIError: For connection errors
@@ -172,8 +298,7 @@ class DaemonClient:
                 else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
             )
             raise CLIError(
-                f"Failed to start daemon: {e}\n"
-                f"Check logs at: {log_file}"
+                f"Failed to start daemon: {e}\n" + f"Check logs at: {log_file}"
             ) from e
         except DaemonCrashedError as e:
             log_file = (
@@ -182,13 +307,12 @@ class DaemonClient:
                 else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
             )
             raise CLIError(
-                f"Daemon crashed: {e}\n"
-                f"Check logs at: {log_file}"
+                f"Daemon crashed: {e}\n" + f"Check logs at: {log_file}"
             ) from e
         except FileNotFoundError:
             raise CLIError(
                 "Cannot connect to daemon. Socket not found.\n"
-                "Ensure the daemon is running: llm-lsp-cli status"
+                + "Ensure the daemon is running: llm-lsp-cli status"
             ) from None
         except OSError as e:
             raise CLIError(
@@ -237,10 +361,8 @@ class DaemonClient:
 
         Spawns `llm-lsp-cli daemon start` as a detached subprocess and returns immediately.
         """
-        import asyncio
         import sys
         import tempfile
-        from pathlib import Path
 
         # Build command to start daemon
         cmd = [

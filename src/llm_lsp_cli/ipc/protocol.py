@@ -1,5 +1,7 @@
 # pyright: reportExplicitAny=false
 # pyright: reportAny=false
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
 """JSON-RPC 2.0 protocol definitions for IPC communication.
 
 This module handles LSP response data (dict[str, Any]).
@@ -9,6 +11,35 @@ LSP responses are inherently dynamic, so Any is used for dict value types.
 import json
 from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel
+
+
+def serialize_for_json(obj: object) -> object:
+    """Convert Pydantic models and nested structures to JSON-serializable types.
+
+    This is the designated serialization boundary for IPC communication.
+    Per ADR-0024: This module is allowed to use Any for dynamic JSON handling.
+
+    Args:
+        obj: Object to convert (can be Pydantic model, list, dict, or primitive)
+
+    Returns:
+        JSON-serializable version of the object
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode="json")
+    if isinstance(obj, list):
+        return [serialize_for_json(item) for item in obj]
+    if isinstance(obj, dict):
+        result: dict[str, object] = {}
+        for k, v in obj.items():
+            if isinstance(k, str):
+                result[k] = serialize_for_json(v)
+        return result
+    return obj
 
 
 @dataclass
@@ -48,7 +79,7 @@ class JSONRPCRequest:
 class JSONRPCResponse:
     """JSON-RPC 2.0 response."""
 
-    result: Any
+    result: object
     id: int
     error: dict[str, Any] | None = None
 
@@ -109,14 +140,18 @@ def build_request(method: str, params: dict[str, Any], request_id: int) -> JSONR
     return JSONRPCRequest(method=method, params=params, id=request_id)
 
 
-def build_response(result: Any, request_id: int) -> JSONRPCResponse:
-    """Build a JSON-RPC response."""
-    return JSONRPCResponse(result=result, id=request_id)
+def build_response(result: object, request_id: int) -> JSONRPCResponse:
+    """Build a JSON-RPC response.
+
+    Serializes Pydantic models to dict for JSON compatibility.
+    """
+    serialized = serialize_for_json(result)
+    return JSONRPCResponse(result=serialized, id=request_id)
 
 
-def build_error(code: int, message: str, request_id: int, data: Any = None) -> JSONRPCResponse:
+def build_error(code: int, message: str, request_id: int, data: object = None) -> JSONRPCResponse:
     """Build a JSON-RPC error response."""
-    error = {
+    error: dict[str, Any] = {
         "code": code,
         "message": message,
     }

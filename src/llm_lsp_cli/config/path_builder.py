@@ -1,8 +1,7 @@
-# pyright: reportAny=false
 """Path building utilities for llm-lsp-cli runtime files.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ import warnings
 from pathlib import Path
 
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
+from llm_lsp_cli.utils.type_helpers import get_dict, get_str
 
 
 class RuntimePathBuilder:
@@ -49,8 +49,10 @@ class RuntimePathBuilder:
             parameter to build_* methods or use ConfigManager.get_lsp_server_name().
         """
         # Only use defaults to avoid import cycle with ConfigManager
-        if language in DEFAULT_CONFIG["languages"]:
-            return Path(DEFAULT_CONFIG["languages"][language]["command"]).name
+        languages_defaults = get_dict(DEFAULT_CONFIG, "languages")
+        if language in languages_defaults:
+            defaults = get_dict(languages_defaults, language)
+            return Path(get_str(defaults, "command")).name
         return language
 
     @classmethod
@@ -132,7 +134,7 @@ class RuntimePathBuilder:
     def build_daemon_log_path(
         cls,
         workspace_path: str,
-        language: str,  # pyright: ignore[reportUnusedParameter]
+        _language: str,
         base_dir: Path | None = None,
     ) -> Path:
         """Build daemon log file path.
@@ -153,7 +155,7 @@ class RuntimePathBuilder:
     def build_diagnostic_log_path(
         cls,
         workspace_path: str,
-        language: str,  # pyright: ignore[reportUnusedParameter]
+        _language: str,
         base_dir: Path | None = None,
     ) -> Path:
         """Build diagnostic log file path.

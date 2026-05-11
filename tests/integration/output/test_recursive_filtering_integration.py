@@ -22,6 +22,14 @@ from tests.fixtures import (
 runner = CliRunner()
 
 
+def _make_range(start_line: int, start_char: int, end_line: int, end_char: int) -> dict:
+    """Create a range dict for mock responses."""
+    return {
+        "start": {"line": start_line, "character": start_char},
+        "end": {"line": end_line, "character": end_char},
+    }
+
+
 class TestDocumentSymbolDepthControl:
     """Integration tests for depth control with document-symbol command."""
 
@@ -38,15 +46,12 @@ class TestDocumentSymbolDepthControl:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 50, 0),
                     "children": [
-                        {"name": "__init__", "kind": SYMBOL_KIND_METHOD},
-                        {"name": "instance_field", "kind": SYMBOL_KIND_FIELD},
-                        {"name": "my_method", "kind": SYMBOL_KIND_METHOD},
-                        {"name": "another_field", "kind": SYMBOL_KIND_FIELD},
+                        {"name": "__init__", "kind": SYMBOL_KIND_METHOD, "range": _make_range(5, 4, 10, 0)},
+                        {"name": "instance_field", "kind": SYMBOL_KIND_FIELD, "range": _make_range(11, 4, 12, 0)},
+                        {"name": "my_method", "kind": SYMBOL_KIND_METHOD, "range": _make_range(15, 4, 20, 0)},
+                        {"name": "another_field", "kind": SYMBOL_KIND_FIELD, "range": _make_range(21, 4, 22, 0)},
                     ],
                 },
             ]
@@ -101,13 +106,10 @@ class TestDocumentSymbolDepthControl:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 50, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 50, 0),
                     "children": [
-                        {"name": "__init__", "kind": SYMBOL_KIND_METHOD},
-                        {"name": "instance_field", "kind": SYMBOL_KIND_FIELD},
+                        {"name": "__init__", "kind": SYMBOL_KIND_METHOD, "range": _make_range(5, 4, 10, 0)},
+                        {"name": "instance_field", "kind": SYMBOL_KIND_FIELD, "range": _make_range(11, 4, 12, 0)},
                     ],
                 },
             ]
@@ -165,28 +167,19 @@ class TestDocumentSymbolDepthControl:
                 {
                     "name": "mymodule",
                     "kind": SYMBOL_KIND_MODULE,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 100, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 100, 0),
                     "children": [
                         {
                             "name": "MyClass",
                             "kind": SYMBOL_KIND_CLASS,
-                            "range": {
-                                "start": {"line": 5, "character": 0},
-                                "end": {"line": 50, "character": 0},
-                            },
+                            "range": _make_range(5, 0, 50, 0),
                             "children": [
                                 {
                                     "name": "my_method",
                                     "kind": SYMBOL_KIND_METHOD,
-                                    "range": {
-                                        "start": {"line": 10, "character": 4},
-                                        "end": {"line": 30, "character": 0},
-                                    },
+                                    "range": _make_range(10, 4, 30, 0),
                                     "children": [
-                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
+                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(15, 8, 16, 0)},
                                     ],
                                 },
                             ],
@@ -260,38 +253,26 @@ class TestDeepNestedDepthControl:
                 {
                     "name": "mymodule",
                     "kind": SYMBOL_KIND_MODULE,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 100, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 100, 0),
                     "children": [
                         {
                             "name": "MyClass",
                             "kind": SYMBOL_KIND_CLASS,
-                            "range": {
-                                "start": {"line": 5, "character": 0},
-                                "end": {"line": 50, "character": 0},
-                            },
+                            "range": _make_range(5, 0, 50, 0),
                             "children": [
                                 {
                                     "name": "my_method",
                                     "kind": SYMBOL_KIND_METHOD,
-                                    "range": {
-                                        "start": {"line": 10, "character": 4},
-                                        "end": {"line": 30, "character": 0},
-                                    },
+                                    "range": _make_range(10, 4, 30, 0),
                                     "children": [
-                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
-                                        {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE},
+                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(15, 8, 16, 0)},
+                                        {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(17, 8, 18, 0)},
                                     ],
                                 },
                                 {
                                     "name": "class_field",
                                     "kind": SYMBOL_KIND_FIELD,
-                                    "range": {
-                                        "start": {"line": 6, "character": 8},
-                                        "end": {"line": 6, "character": 20},
-                                    },
+                                    "range": _make_range(6, 8, 6, 20),
                                 },
                             ],
                         },
@@ -352,29 +333,20 @@ class TestDeepNestedDepthControl:
                 {
                     "name": "mymodule",
                     "kind": SYMBOL_KIND_MODULE,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 100, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 100, 0),
                     "children": [
                         {
                             "name": "MyClass",
                             "kind": SYMBOL_KIND_CLASS,
-                            "range": {
-                                "start": {"line": 5, "character": 0},
-                                "end": {"line": 50, "character": 0},
-                            },
+                            "range": _make_range(5, 0, 50, 0),
                             "children": [
                                 {
                                     "name": "my_method",
                                     "kind": SYMBOL_KIND_METHOD,
-                                    "range": {
-                                        "start": {"line": 10, "character": 4},
-                                        "end": {"line": 30, "character": 0},
-                                    },
+                                    "range": _make_range(10, 4, 30, 0),
                                     "children": [
-                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
-                                        {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE},
+                                        {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(15, 8, 16, 0)},
+                                        {"name": "another_local", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(17, 8, 18, 0)},
                                     ],
                                 },
                             ],
@@ -437,28 +409,28 @@ class TestMultiBranchDepthControl:
                 {
                     "name": "MyClass",
                     "kind": SYMBOL_KIND_CLASS,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 100, "character": 0},
-                    },
+                    "range": _make_range(0, 0, 100, 0),
                     "children": [
                         {
                             "name": "method_a",
                             "kind": SYMBOL_KIND_METHOD,
+                            "range": _make_range(10, 4, 30, 0),
                             "children": [
-                                {"name": "var_a", "kind": SYMBOL_KIND_VARIABLE},
+                                {"name": "var_a", "kind": SYMBOL_KIND_VARIABLE, "range": _make_range(15, 8, 16, 0)},
                             ],
                         },
                         {
                             "name": "method_b",
                             "kind": SYMBOL_KIND_METHOD,
+                            "range": _make_range(35, 4, 55, 0),
                             "children": [
-                                {"name": "func_b", "kind": SYMBOL_KIND_FUNCTION},
+                                {"name": "func_b", "kind": SYMBOL_KIND_FUNCTION, "range": _make_range(40, 8, 50, 0)},
                             ],
                         },
                         {
                             "name": "field_c",
                             "kind": SYMBOL_KIND_FIELD,
+                            "range": _make_range(60, 4, 61, 0),
                             "children": [],
                         },
                     ],
@@ -524,7 +496,7 @@ class TestWorkspaceSymbolDepthControl:
                     "kind": SYMBOL_KIND_CLASS,
                     "location": {
                         "uri": "file:///test.py",
-                        "range": {"start": {"line": 0}, "end": {"line": 50}},
+                        "range": _make_range(0, 0, 50, 0),
                     },
                 },
                 {
@@ -532,7 +504,7 @@ class TestWorkspaceSymbolDepthControl:
                     "kind": SYMBOL_KIND_FUNCTION,
                     "location": {
                         "uri": "file:///test.py",
-                        "range": {"start": {"line": 55}, "end": {"line": 70}},
+                        "range": _make_range(55, 0, 70, 0),
                     },
                 },
                 {
@@ -540,7 +512,7 @@ class TestWorkspaceSymbolDepthControl:
                     "kind": SYMBOL_KIND_VARIABLE,
                     "location": {
                         "uri": "file:///test.py",
-                        "range": {"start": {"line": 5}, "end": {"line": 5}},
+                        "range": _make_range(5, 0, 5, 0),
                     },
                 },
             ]
@@ -590,6 +562,8 @@ class TestDepthControlWithTestData:
         """Verify --include-tests with nested symbols includes both source and test."""
         from llm_lsp_cli.cli import app
 
+        # Note: workspace-symbol returns SymbolInformation which has no children field
+        # The test needs to mock at the right level
         mock_response = {
             "symbols": [
                 {
@@ -597,24 +571,16 @@ class TestDepthControlWithTestData:
                     "kind": SYMBOL_KIND_CLASS,
                     "location": {
                         "uri": "file:///src/models.py",
-                        "range": {"start": {"line": 0}, "end": {"line": 50}},
+                        "range": _make_range(0, 0, 50, 0),
                     },
-                    "children": [
-                        {"name": "field", "kind": SYMBOL_KIND_FIELD},
-                        {"name": "method", "kind": SYMBOL_KIND_METHOD},
-                    ],
                 },
                 {
                     "name": "TestMyClass",
                     "kind": SYMBOL_KIND_CLASS,
                     "location": {
                         "uri": "file:///tests/test_models.py",
-                        "range": {"start": {"line": 0}, "end": {"line": 30}},
+                        "range": _make_range(0, 0, 30, 0),
                     },
-                    "children": [
-                        {"name": "test_field", "kind": SYMBOL_KIND_FIELD},
-                        {"name": "test_method", "kind": SYMBOL_KIND_METHOD},
-                    ],
                 },
             ]
         }
@@ -662,16 +628,8 @@ class TestDepthControlWithTestData:
 
             assert len(all_symbols) == 2
 
-            # MyClass children included
-            my_class = [s for s in all_symbols if s["name"] == "MyClass"][0]
-            assert len(my_class["children"]) == 2
-            children_names = [c["name"] for c in my_class["children"]]
-            assert "field" in children_names
-            assert "method" in children_names
-
-            # TestMyClass children included
-            test_class = [s for s in all_symbols if s["name"] == "TestMyClass"][0]
-            assert len(test_class["children"]) == 2
-            test_children_names = [c["name"] for c in test_class["children"]]
-            assert "test_field" in test_children_names
-            assert "test_method" in test_children_names
+            # workspace-symbol returns flat SymbolInformation (no children field)
+            # Just verify both symbols are present
+            names = [s["name"] for s in all_symbols]
+            assert "MyClass" in names
+            assert "TestMyClass" in names

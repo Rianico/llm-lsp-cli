@@ -1,13 +1,12 @@
-# pyright: reportExplicitAny=false
 """TypedDict configurations for type-safe dictionary structures.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from llm_lsp_cli.lsp.types import (
     ClientCapabilities,
@@ -66,7 +65,7 @@ class InitializeParams(TypedDict, total=False):
     locale: str
     rootPath: str | None
     rootUri: str | None
-    initializationOptions: Any
+    initializationOptions: object
     capabilities: ClientCapabilities
     trace: str
     workspaceFolders: list[WorkspaceFolder] | None
@@ -95,13 +94,13 @@ class CapabilityConfig(TypedDict, total=False):
         workspaceSymbolProvider: Whether workspace symbol provider is enabled.
     """
 
-    textDocumentSync: dict[str, Any] | int
+    textDocumentSync: dict[str, object] | int
     definitionProvider: bool
     referencesProvider: bool
-    completionProvider: dict[str, Any]
-    hoverProvider: bool | dict[str, Any]
+    completionProvider: dict[str, object]
+    hoverProvider: bool | dict[str, object]
     documentSymbolProvider: bool
-    workspaceSymbolProvider: bool | dict[str, Any]
+    workspaceSymbolProvider: bool | dict[str, object]
 
 
 class LspMethodConfigDict(TypedDict):

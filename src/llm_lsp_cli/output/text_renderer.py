@@ -1,18 +1,25 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
 """Text renderer for tree-structured symbol output.
 
 This module implements ADR-0014: tree-structured TEXT format with
 complete field display, null field omission, and tree connectors.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from llm_lsp_cli.utils.type_helpers import (
+    get_list,
+    get_optional_list,
+    get_optional_str,
+    get_str,
+)
 
 if TYPE_CHECKING:
     from llm_lsp_cli.output.symbol_transformer import SymbolNode
+
 
 # Tree connector constants per ADR-0014
 CONNECTOR_INTERMEDIATE = "├──"
@@ -156,8 +163,8 @@ def render_text(
 
 
 def _render_group_with_tree_connectors(
-    items: list[dict[str, Any]],
-    item_renderer: Any,
+    items: list[dict[str, object]],
+    item_renderer: Callable[[dict[str, object]], str],
 ) -> list[str]:
     """Render a list of items with tree connectors.
 
@@ -176,7 +183,7 @@ def _render_group_with_tree_connectors(
     return lines
 
 
-def _render_symbol_line(symbol: dict[str, Any]) -> str:
+def _render_symbol_line(symbol: dict[str, object]) -> str:
     """Render a single symbol as a text line.
 
     Format: "name (kind_name), range: <range>, selection_range: <selection_range>"
@@ -189,14 +196,14 @@ def _render_symbol_line(symbol: dict[str, Any]) -> str:
         Formatted string with comma-separated fields
     """
     return format_symbol_text_line(
-        name=symbol.get("name", ""),
-        kind_name=symbol.get("kind_name", ""),
-        range_str=symbol.get("range", ""),
-        selection_range=symbol.get("selection_range"),
+        name=get_str(symbol, "name"),
+        kind_name=get_str(symbol, "kind_name"),
+        range_str=get_str(symbol, "range"),
+        selection_range=get_optional_str(symbol, "selection_range"),
     )
 
 
-def _render_diagnostic_line(diag: dict[str, Any]) -> str:
+def _render_diagnostic_line(diag: dict[str, object]) -> str:
     """Render a single diagnostic as a text line.
 
     Format: "severity: message, code: <code>, range: <range>, tags: [<tags>]"
@@ -208,24 +215,29 @@ def _render_diagnostic_line(diag: dict[str, Any]) -> str:
     Returns:
         Formatted string with comma-separated fields
     """
-    severity = diag.get("severity_name", "Error")
-    message = diag.get("message", "")
-    range_str = diag.get("range", "")
+    severity = get_str(diag, "severity_name", "Error")
+    message = get_str(diag, "message")
+    range_str = get_str(diag, "range")
 
     # Build parts: severity: message first
     parts: list[str] = [f"{severity}: {message}"]
 
-    # Add code if present and non-empty
-    code = diag.get("code")
-    if code is not None and code != "":
-        parts.append(f"code: {code}")
+    # Add code if present and non-empty (handles both string and numeric codes)
+    code_val = diag.get("code")
+    if code_val is not None:
+        if isinstance(code_val, str) and code_val != "":
+            parts.append(f"code: {code_val}")
+        elif isinstance(code_val, int):
+            parts.append(f"code: {code_val}")
 
     # Always include range with prefix
     parts.append(f"range: {range_str}")
 
     # Add tags if present and non-empty list
-    tags = diag.get("tags")
-    if tags:
+    tags_raw = get_optional_list(diag, "tags")
+    if tags_raw:
+        # Convert to strings
+        tags = [str(t) for t in tags_raw]
         tag_str = ", ".join(tags)
         parts.append(f"tags: [{tag_str}]")
 
@@ -233,7 +245,7 @@ def _render_diagnostic_line(diag: dict[str, Any]) -> str:
 
 
 def render_workspace_symbols_grouped(
-    grouped_data: list[dict[str, Any]],
+    grouped_data: list[dict[str, object]],
     header: str | None = None,
 ) -> str:
     """Render grouped symbols as hierarchical TEXT output.
@@ -256,8 +268,11 @@ def render_workspace_symbols_grouped(
 
     # Render each file group
     for group in grouped_data:
-        file_path = group.get("file", "")
-        symbols = group.get("symbols", [])
+        file_path = get_str(group, "file")
+        symbols_raw = get_list(group, "symbols")
+        symbols: list[dict[str, object]] = [
+            s for s in symbols_raw if isinstance(s, dict)
+        ]
 
         # Add file header
         lines.append(f"{file_path}:")
@@ -269,7 +284,7 @@ def render_workspace_symbols_grouped(
 
 
 def render_workspace_diagnostics_grouped(
-    grouped_data: list[dict[str, Any]],
+    grouped_data: list[dict[str, object]],
     header: str | None = None,
 ) -> str:
     """Render grouped diagnostics as hierarchical TEXT output.
@@ -292,8 +307,11 @@ def render_workspace_diagnostics_grouped(
 
     # Render each file group
     for group in grouped_data:
-        file_path = group.get("file", "")
-        diagnostics = group.get("diagnostics", [])
+        file_path = get_str(group, "file")
+        diagnostics_raw = get_list(group, "diagnostics")
+        diagnostics: list[dict[str, object]] = [
+            d for d in diagnostics_raw if isinstance(d, dict)
+        ]
 
         # Add file header
         lines.append(f"{file_path}:")
@@ -307,7 +325,7 @@ def render_workspace_diagnostics_grouped(
 
 
 def render_references_grouped(
-    grouped_data: list[dict[str, Any]],
+    grouped_data: list[dict[str, object]],
     header: str | None = None,
 ) -> str:
     """Render grouped references as compact TEXT output.
@@ -332,11 +350,14 @@ def render_references_grouped(
 
     # Render each file group on a single line
     for group in grouped_data:
-        file_path = group.get("file", "")
-        references = group.get("references", [])
+        file_path = get_str(group, "file")
+        references_raw = get_list(group, "references")
+        references: list[dict[str, object]] = [
+            r for r in references_raw if isinstance(r, dict)
+        ]
 
         # Extract ranges and format as bracketed list
-        ranges = [ref.get("range", "") for ref in references]
+        ranges = [get_str(ref, "range") for ref in references]
         ranges_str = ", ".join(ranges)
         lines.append(f"{file_path}, ranges: [{ranges_str}]")
 

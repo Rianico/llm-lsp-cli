@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from llm_lsp_cli.commands.shared import GlobalOptions
+from llm_lsp_cli.lsp.types import Location, SymbolInformation
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import (
     group_diagnostics_by_file,
@@ -45,34 +46,35 @@ class TestWorkspaceSymbolGrouping:
         (src / "services.py").write_text("class UserService: pass")
         return tmp_path
 
-    def _make_symbols_response(self, workspace: Path) -> dict[str, Any]:
-        """Create mock response with URIs relative to workspace."""
-        return {
-            "symbols": [
-                {
-                    "name": "User",
-                    "kind": 5,
-                    "location": {
-                        "uri": (workspace / "src" / "models.py").as_uri(),
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 10, "character": 0},
-                        },
+    def _make_symbols_response(self, workspace: Path) -> list[SymbolInformation]:
+        """Create mock response with URIs relative to workspace.
+
+        Returns list of SymbolInformation objects (the typed return format).
+        """
+        return [
+            SymbolInformation(
+                name="User",
+                kind=5,
+                location=Location(
+                    uri=(workspace / "src" / "models.py").as_uri(),
+                    range={
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 10, "character": 0},
                     },
-                },
-                {
-                    "name": "UserService",
-                    "kind": 5,
-                    "location": {
-                        "uri": (workspace / "src" / "services.py").as_uri(),
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 20, "character": 0},
-                        },
+                ),
+            ),
+            SymbolInformation(
+                name="UserService",
+                kind=5,
+                location=Location(
+                    uri=(workspace / "src" / "services.py").as_uri(),
+                    range={
+                        "start": {"line": 0, "character": 0},
+                        "end": {"line": 20, "character": 0},
                     },
-                },
-            ]
-        }
+                ),
+            ),
+        ]
 
     def test_json_output_grouped_structure(
         self, mock_ctx: MagicMock, setup_workspace: Path
@@ -249,7 +251,8 @@ class TestWorkspaceSymbolGrouping:
         mock_ctx.obj.workspace = str(setup_workspace)
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"symbols": []}),
+            # Return empty list (typed format for list[SymbolInformation])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(
                 lsp_module, "resolve_workspace_path", return_value=str(setup_workspace)
             ),
@@ -281,35 +284,34 @@ class TestWorkspaceSymbolGrouping:
     ) -> None:
         """File groups appear in alphabetical order."""
         import llm_lsp_cli.commands.lsp as lsp_module
+        from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
 
         mock_ctx.obj.workspace = str(setup_workspace)
-        # Create symbols from z.py and a.py
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "Z",
-                    "kind": 5,
-                    "location": {
-                        "uri": (setup_workspace / "src" / "z.py").as_uri(),
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 10, "character": 0},
-                        },
-                    },
-                },
-                {
-                    "name": "A",
-                    "kind": 5,
-                    "location": {
-                        "uri": (setup_workspace / "src" / "a.py").as_uri(),
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 10, "character": 0},
-                        },
-                    },
-                },
-            ]
-        }
+        # Create symbols from z.py and a.py as typed models
+        mock_response = [
+            SymbolInformation(
+                name="Z",
+                kind=5,
+                location=Location(
+                    uri=(setup_workspace / "src" / "z.py").as_uri(),
+                    range=Range(
+                        start=Position(line=0, character=0),
+                        end=Position(line=10, character=0),
+                    ),
+                ),
+            ),
+            SymbolInformation(
+                name="A",
+                kind=5,
+                location=Location(
+                    uri=(setup_workspace / "src" / "a.py").as_uri(),
+                    range=Range(
+                        start=Position(line=0, character=0),
+                        end=Position(line=10, character=0),
+                    ),
+                ),
+            ),
+        ]
 
         with (
             patch.object(lsp_module, "send_request", return_value=mock_response),

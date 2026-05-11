@@ -76,7 +76,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"symbols": []}),
+            # Return empty list (typed format for list[DocumentSymbol])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -111,7 +112,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"locations": []}),
+            # Return empty list (typed format for list[Location])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -143,7 +145,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"locations": []}),
+            # Return empty list (typed format for list[Location])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -162,6 +165,7 @@ class TestFileLevelCommandHeaders:
                 language=None,
                 output_format=None,
                 include_tests=False,
+                raw=False,
             )
 
         output = output_lines[0] if output_lines else ""
@@ -174,7 +178,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"items": []}),
+            # Return empty list (typed format for list[CompletionItem])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -205,7 +210,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"hover": None}),
+            # Return None (typed format for Hover | None)
+            patch.object(lsp_module, "send_request", return_value=None),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -236,7 +242,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"calls": []}),
+            # Return empty list (typed format for list[CallHierarchyIncomingCall])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -255,6 +262,7 @@ class TestFileLevelCommandHeaders:
                 language=None,
                 output_format=None,
                 include_tests=False,
+                raw=False,
             )
 
         output = output_lines[0] if output_lines else ""
@@ -267,7 +275,8 @@ class TestFileLevelCommandHeaders:
         import llm_lsp_cli.commands.lsp as lsp_module
 
         with (
-            patch.object(lsp_module, "send_request", return_value={"calls": []}),
+            # Return empty list (typed format for list[CallHierarchyOutgoingCall])
+            patch.object(lsp_module, "send_request", return_value=[]),
             patch.object(lsp_module, "validate_file_in_workspace", return_value=test_file),
             patch.object(lsp_module, "typer") as mock_typer,
         ):
@@ -286,6 +295,7 @@ class TestFileLevelCommandHeaders:
                 language=None,
                 output_format=None,
                 include_tests=False,
+                raw=False,
             )
 
         output = output_lines[0] if output_lines else ""

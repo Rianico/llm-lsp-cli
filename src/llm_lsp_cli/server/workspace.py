@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Workspace manager for LSP servers."""
 
 import asyncio
@@ -12,6 +11,17 @@ logger = logging.getLogger(__name__)
 
 class WorkspaceManager:
     """Manages a single workspace and its LSP client."""
+
+    workspace_path: Path
+    server_command: str
+    server_args: list[str]
+    language_id: str
+    trace: bool
+    timeout: float
+    lsp_conf: str | None
+    _client: LSPClient | None
+    _lock: asyncio.Lock
+    _initialized: bool
 
     def __init__(
         self,
@@ -31,7 +41,7 @@ class WorkspaceManager:
         self.timeout = timeout
         self.lsp_conf = lsp_conf
 
-        self._client: LSPClient | None = None
+        self._client = None
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -57,14 +67,13 @@ class WorkspaceManager:
                 )
                 try:
                     # Wrap initialization with timeout
-                    await asyncio.wait_for(
+                    _ = await asyncio.wait_for(
                         self._client.initialize(),
                         timeout=self.timeout,
                     )
                 except asyncio.TimeoutError:
                     logger.error(
-                        f"LSP server initialization timed out after {self.timeout}s. "
-                        f"Server: {self.server_command}, Workspace: {self.workspace_path}"
+                        f"LSP server initialization timed out after {self.timeout}s. Server: {self.server_command}, Workspace: {self.workspace_path}"
                     )
                     raise
                 self._initialized = True

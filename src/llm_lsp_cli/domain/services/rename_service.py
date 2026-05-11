@@ -1,23 +1,15 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
-# pyright: reportPrivateUsage=false
 """Rename service for LSP rename operations.
 
 Orchestrates the rename flow: prepare -> rename -> backup -> apply.
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, cast
 
+from llm_lsp_cli.lsp.types import TextEdit, WorkspaceEdit
 from llm_lsp_cli.output.formatter import Position, Range, RenameEditRecord
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 
@@ -32,6 +24,8 @@ logger = logging.getLogger(__name__)
 class RenameService:
     """Orchestrates the rename flow: prepare -> rename -> backup -> apply."""
 
+    _backup_manager: BackupManager
+
     def __init__(self, backup_manager: BackupManager):
         """Initialize the rename service.
 
@@ -40,7 +34,7 @@ class RenameService:
         """
         self._backup_manager = backup_manager
 
-    def supports_prepare_rename(self, client: Any) -> bool:
+    def supports_prepare_rename(self, client: LSPClient) -> bool:
         """Check if the LSP server supports prepareRename.
 
         Args:
@@ -49,11 +43,13 @@ class RenameService:
         Returns:
             True if server supports prepareRename, False otherwise
         """
-        capabilities = getattr(client, "server_capabilities", {}) or {}
+        capabilities = client.server_capabilities
         rename_provider = capabilities.get("renameProvider")
 
         if isinstance(rename_provider, dict):
-            return bool(rename_provider.get("prepareProvider", False))
+            # After isinstance, rename_provider is dict[object, object], so we cast
+            provider_dict = cast(dict[str, object], rename_provider)
+            return bool(provider_dict.get("prepareProvider", False))
         return False
 
     async def preview(
@@ -79,14 +75,12 @@ class RenameService:
         # Optionally call prepareRename if supported
         if self.supports_prepare_rename(client):
             try:
-                await client.request_prepare_rename(file_path, line, character)
+                _ = await client.request_prepare_rename(file_path, line, character)
             except Exception as e:
                 logger.warning(f"prepareRename failed: {e}")
 
         # Request rename
-        workspace_edit = await client.request_rename(
-            file_path, line, character, new_name
-        )
+        workspace_edit = await client.request_rename(file_path, line, character, new_name)
 
         # Handle null or empty response
         if workspace_edit is None:
@@ -115,7 +109,7 @@ class RenameService:
         Returns:
             Tuple of (list of RenameEditRecord, RenameSession)
         """
-        workspace_path = self._backup_manager._workspace_path
+        workspace_path = self._backup_manager.workspace_path
 
         # Create session
         position = Position(line=line, character=character)
@@ -128,14 +122,12 @@ class RenameService:
         # Optionally call prepareRename if supported
         if self.supports_prepare_rename(client):
             try:
-                await client.request_prepare_rename(file_path, line, character)
+                _ = await client.request_prepare_rename(file_path, line, character)
             except Exception as e:
                 logger.warning(f"prepareRename failed: {e}")
 
         # Request rename
-        workspace_edit = await client.request_rename(
-            file_path, line, character, new_name
-        )
+        workspace_edit = await client.request_rename(file_path, line, character, new_name)
 
         # Handle null or empty response
         if workspace_edit is None:
@@ -185,7 +177,7 @@ class RenameService:
 
     def preview_from_edit(
         self,
-        workspace_edit: dict[str, Any] | None,
+        workspace_edit: WorkspaceEdit | object | None,
         file_path: str,
         position: Position,
         new_name: str,
@@ -196,7 +188,7 @@ class RenameService:
         already been obtained (e.g., from the daemon).
 
         Args:
-            workspace_edit: LSP WorkspaceEdit response (can be None)
+            workspace_edit: LSP WorkspaceEdit response (can be None, dict, or Pydantic model)
             file_path: Relative path to the file (unused, for API consistency)
             position: Position object with line and character (unused, for API consistency)
             new_name: New name for the symbol (unused, for API consistency)
@@ -208,11 +200,18 @@ class RenameService:
         if workspace_edit is None:
             return []
 
-        return self._extract_edit_records_from_dict(workspace_edit)
+        # Convert to WorkspaceEdit if needed
+        if isinstance(workspace_edit, WorkspaceEdit):
+            typed_edit = workspace_edit
+        else:
+            # Must be a dict or other object - validate it
+            typed_edit = WorkspaceEdit.model_validate(workspace_edit)
+
+        return self._extract_edit_records_from_workspace_edit(typed_edit)
 
     def apply_from_edit(
         self,
-        workspace_edit: dict[str, Any] | None,
+        workspace_edit: WorkspaceEdit | object | None,
         file_path: str,
         position: Position,
         new_name: str,
@@ -223,7 +222,7 @@ class RenameService:
         already been obtained (e.g., from the daemon).
 
         Args:
-            workspace_edit: LSP WorkspaceEdit response (can be None)
+            workspace_edit: LSP WorkspaceEdit response (can be None, dict, or Pydantic model)
             file_path: Relative path to the file
             position: Position object with line and character
             new_name: New name for the symbol
@@ -231,7 +230,7 @@ class RenameService:
         Returns:
             Tuple of (list of RenameEditRecord, RenameSession)
         """
-        workspace_path = self._backup_manager._workspace_path
+        workspace_path = self._backup_manager.workspace_path
 
         # Create session
         session = self._backup_manager.create_session(
@@ -245,8 +244,15 @@ class RenameService:
             session.status = "failed"
             return [], session
 
+        # Convert to WorkspaceEdit if needed
+        if isinstance(workspace_edit, WorkspaceEdit):
+            typed_edit = workspace_edit
+        else:
+            # Must be a dict or other object - validate it
+            typed_edit = WorkspaceEdit.model_validate(workspace_edit)
+
         # Extract records from WorkspaceEdit
-        records = self._extract_edit_records_from_dict(workspace_edit)
+        records = self._extract_edit_records_from_workspace_edit(typed_edit)
 
         if not records:
             session.status = "applied"
@@ -280,92 +286,115 @@ class RenameService:
 
     def _extract_edit_records(
         self,
-        workspace_edit: dict[str, Any],
-        client: LSPClient,  # pyright: ignore[reportUnusedParameter]
+        workspace_edit: WorkspaceEdit | object,
+        _client: LSPClient,
     ) -> list[RenameEditRecord]:
         """Extract RenameEditRecord from WorkspaceEdit.
 
         Args:
-            workspace_edit: LSP WorkspaceEdit response
+            workspace_edit: LSP WorkspaceEdit response (dict or Pydantic model)
             client: LSP client for workspace path
 
         Returns:
             List of RenameEditRecord objects
         """
-        return self._extract_edit_records_from_dict(workspace_edit)
-
-    def _extract_edit_records_from_dict(
-        self,
-        workspace_edit: dict[str, Any],
-    ) -> list[RenameEditRecord]:
-        """Extract RenameEditRecord from WorkspaceEdit dict.
-
-        This method does not require an LSPClient and is used by
-        the synchronous `*_from_edit()` methods.
-
-        Args:
-            workspace_edit: LSP WorkspaceEdit response
-
-        Returns:
-            List of RenameEditRecord objects
-        """
-        records: list[RenameEditRecord] = []
-        workspace_path = self._backup_manager._workspace_path
-
-        # Get documentChanges (we only support TextDocumentEdit, not file operations)
-        document_changes = workspace_edit.get("documentChanges", [])
-
-        if not document_changes:
-            # Fallback to changes field
-            changes = workspace_edit.get("changes", {})
-            for uri, edits in changes.items():
-                file_path = normalize_uri_to_absolute(uri, workspace_path)
-                full_path = workspace_path / file_path
-                content = full_path.read_text() if full_path.exists() else ""
-                records.extend(self._create_edit_records(file_path, content, edits))
+        # Convert to WorkspaceEdit if needed
+        if isinstance(workspace_edit, WorkspaceEdit):
+            typed_edit = workspace_edit
         else:
-            for doc_change in document_changes:
-                # Skip file operations (have 'kind' field)
-                if "kind" in doc_change:
-                    continue
+            # Must be a dict or other object - validate it
+            typed_edit = WorkspaceEdit.model_validate(workspace_edit)
 
-                text_doc = doc_change.get("textDocument", {})
-                uri = text_doc.get("uri", "")
-                file_path = normalize_uri_to_absolute(uri, workspace_path)
-                full_path = workspace_path / file_path
-                content = full_path.read_text() if full_path.exists() else ""
-                edits = doc_change.get("edits", [])
-                records.extend(self._create_edit_records(file_path, content, edits))
+        return self._extract_edit_records_from_workspace_edit(typed_edit)
 
-        return records
-
-    def _create_edit_records(
+    def _create_edit_records_from_typed(
         self,
         file_path: str,
         content: str,
-        edits: list[dict[str, Any]],
+        edits: list[TextEdit],
     ) -> list[RenameEditRecord]:
-        """Create RenameEditRecord objects from a list of edits.
+        """Create RenameEditRecord objects from typed TextEdit list.
 
         Args:
             file_path: Relative path to the file
             content: File content for extracting old_text
-            edits: List of LSP TextEdit objects
+            edits: List of LSP TextEdit objects (Pydantic models)
 
         Returns:
             List of RenameEditRecord objects
         """
         records: list[RenameEditRecord] = []
         for edit in edits:
-            range_obj = Range.from_dict(edit.get("range", {}))
+            # Convert lsp.types.Range to formatter Range
+            range_obj = Range(
+                start=Position(
+                    line=edit.range.start.line,
+                    character=edit.range.start.character,
+                ),
+                end=Position(
+                    line=edit.range.end.line,
+                    character=edit.range.end.character,
+                ),
+            )
             old_text = self._extract_text_at_range(content, range_obj)
-            new_text = edit.get("newText", "")
-            records.append(RenameEditRecord(
-                file=file_path,
-                range=range_obj,
-                old_text=old_text,
-                new_text=new_text,
-            ))
+            records.append(
+                RenameEditRecord(
+                    file=file_path,
+                    range=range_obj,
+                    old_text=old_text,
+                    new_text=edit.new_text,
+                )
+            )
+        return records
+
+    def _extract_edit_records_from_workspace_edit(
+        self,
+        workspace_edit: WorkspaceEdit,
+    ) -> list[RenameEditRecord]:
+        """Extract RenameEditRecord from typed WorkspaceEdit.
+
+        This method does not require an LSPClient and is used by
+        the synchronous `*_from_edit()` methods.
+
+        Args:
+            workspace_edit: LSP WorkspaceEdit response (Pydantic model)
+
+        Returns:
+            List of RenameEditRecord objects
+        """
+        records: list[RenameEditRecord] = []
+        workspace_path = self._backup_manager.workspace_path
+
+        # Get documentChanges (we only support TextDocumentEdit, not file operations)
+        document_changes = workspace_edit.document_changes
+
+        if not document_changes:
+            # Fallback to changes field
+            changes = workspace_edit.changes
+            if changes:
+                for uri, edits in changes.items():
+                    file_path = normalize_uri_to_absolute(uri, workspace_path)
+                    full_path = workspace_path / file_path
+                    content = full_path.read_text() if full_path.exists() else ""
+                    records.extend(self._create_edit_records_from_typed(file_path, content, edits))
+        else:
+            for doc_change in document_changes:
+                # Skip file operations (have 'kind' field)
+                if doc_change.kind is not None:
+                    continue
+
+                # Skip if text_document or edits are None
+                if doc_change.text_document is None or doc_change.edits is None:
+                    continue
+
+                text_doc = doc_change.text_document
+                uri = text_doc.uri
+                file_path = normalize_uri_to_absolute(uri, workspace_path)
+                full_path = workspace_path / file_path
+                content = full_path.read_text() if full_path.exists() else ""
+                edits = doc_change.edits
+                records.extend(self._create_edit_records_from_typed(file_path, content, edits))
+
         return records
 
     def _extract_text_at_range(self, content: str, range_obj: Range) -> str:
@@ -391,7 +420,7 @@ class RenameService:
             return ""
 
         # Multi-line (not typical for rename, but handle it)
-        result = []
+        result: list[str] = []
         for i in range(start_line, end_line + 1):
             if i >= len(lines):
                 break
@@ -472,9 +501,7 @@ class RenameService:
                     # Single line edit
                     if start_line < len(lines):
                         line = lines[start_line]
-                        lines[start_line] = (
-                            line[:start_char] + record.new_text + line[end_char:]
-                        )
+                        lines[start_line] = line[:start_char] + record.new_text + line[end_char:]
                 else:
                     # Multi-line edit (replace entire range)
                     new_lines = record.new_text.split("\n")
@@ -487,11 +514,7 @@ class RenameService:
                         new_lines[-1] = new_lines[-1] + suffix
 
                         # Replace the lines
-                        lines = (
-                            lines[:start_line]
-                            + new_lines
-                            + lines[end_line + 1 :]
-                        )
+                        lines = lines[:start_line] + new_lines + lines[end_line + 1 :]
 
             # Write back to file
-            full_path.write_text("\n".join(lines))
+            _ = full_path.write_text("\n".join(lines))

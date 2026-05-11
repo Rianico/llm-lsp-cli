@@ -1,7 +1,8 @@
 """Type stubs for lockfile.pidlockfile module."""
 
-from typing import TracebackType
-from lockfile import LockBase, LockTimeout
+from typing import TracebackType, override
+
+from lockfile import LockBase
 
 
 class PIDLockFile(LockBase):
@@ -32,6 +33,7 @@ class PIDLockFile(LockBase):
         """
         ...
 
+    @override
     def is_locked(self) -> bool:
         """Check if the lock is currently held.
 
@@ -40,6 +42,7 @@ class PIDLockFile(LockBase):
         """
         ...
 
+    @override
     def acquire(self, timeout: float | None = None) -> None:
         """Acquire the lock.
 
@@ -51,16 +54,20 @@ class PIDLockFile(LockBase):
         """
         ...
 
+    @override
     def release(self) -> None:
         """Release the lock."""
         ...
 
+    @override
     def break_lock(self) -> None:
         """Break an existing lock."""
         ...
 
+    @override
     def __enter__(self) -> "PIDLockFile": ...
 
+    @override
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
@@ -87,6 +94,7 @@ class TimeoutPIDLockFile(PIDLockFile):
         """
         ...
 
+    @override
     def acquire(self, timeout: float | None = None) -> None:
         """Acquire the lock with optional timeout override.
 

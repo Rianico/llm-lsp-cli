@@ -7,17 +7,18 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from llm_lsp_cli.daemon import DocumentSyncContext
+from llm_lsp_cli.lsp.cache import DiagnosticCache
+from tests.conftest import setup_mock_client_cache_accessors
 
 
 @pytest.fixture
 def mock_lsp_client() -> AsyncMock:
     """Mock LSPClient with async open_document and close_document methods."""
-    from llm_lsp_cli.lsp.cache import DiagnosticCache
-
     client = AsyncMock()
     client.open_document = AsyncMock(return_value="file:///test/file.py")
     client.close_document = AsyncMock()
-    client._diagnostic_cache = DiagnosticCache(Path("/workspace"))
+    cache = DiagnosticCache(Path("/workspace"))
+    setup_mock_client_cache_accessors(client, cache)
     return client
 
 

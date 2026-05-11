@@ -14,6 +14,7 @@ from llm_lsp_cli.exceptions import (
     DaemonStartupError,
     DaemonStartupTimeoutError,
 )
+from llm_lsp_cli.ipc.models import EmptyParams
 
 # =============================================================================
 # Fixtures
@@ -277,7 +278,7 @@ class TestDaemonClientAutoStart:
         client = DaemonClient("/workspace", "python")
 
         # Execute
-        await client.notify("textDocument/didOpen", {"filePath": "/test.py"})
+        await client.notify("textDocument/didOpen", EmptyParams())
 
         # Verify daemon subprocess was spawned
         mock_asyncio_create_subprocess.assert_called_once()

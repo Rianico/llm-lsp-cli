@@ -1,15 +1,13 @@
-# pyright: reportExplicitAny=false
 """Default configuration values for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles configuration data (dict[str, object]).
+Configuration uses object for dict value types due to nested structure.
+Validated at runtime by Pydantic models.
 """
-
-from typing import Any
 
 from .schema import LanguageTestFilterConfig, FilterTestConfig
 
-DEFAULT_CONFIG: dict[str, Any] = {
+DEFAULT_CONFIG: dict[str, object] = {
     "languages": {
         # Python:
         #   - basedpyright-langserver (Recommended) - https://github.com/DetachHead/basedpyright

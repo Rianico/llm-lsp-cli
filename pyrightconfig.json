@@ -1,4 +1,7 @@
 {
   "typeCheckingMode": "recommended",
-  "extraPaths": ["./typings"]
+  "extraPaths": ["./typings"],
+  "reportMissingTypeStubs": false,
+  "reportCallInDefaultInitializer": false,
+  "reportImplicitStringConcatenation": false
 }

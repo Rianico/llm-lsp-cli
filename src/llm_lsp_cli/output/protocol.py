@@ -1,13 +1,12 @@
-# pyright: reportExplicitAny=false
 """FormattableRecord Protocol for unified output formatting.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -19,7 +18,7 @@ class FormattableRecord(Protocol):
     CSV, and TEXT output formats.
     """
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert record to a dict suitable for JSON/YAML output.
 
         Returns:

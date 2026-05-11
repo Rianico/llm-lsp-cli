@@ -28,6 +28,7 @@ from llm_lsp_cli.exceptions import (
     DaemonStartupTimeoutError,
 )
 from llm_lsp_cli.ipc import UNIXClient, UNIXServer
+from llm_lsp_cli.ipc.models import EmptyParams
 
 from .conftest import is_pyright_langserver_installed
 
@@ -166,7 +167,7 @@ class TestAutoStartLogic:
         with patch.object(client, "_ensure_daemon_ready", new_callable=AsyncMock) as mock_ensure:
             mock_client_obj = make_mock_unix_client()
             with patch("llm_lsp_cli.daemon_client.UNIXClient", return_value=mock_client_obj):
-                await client.notify("textDocument/didOpen", {"filePath": "/test.py"})
+                await client.notify("textDocument/didOpen", EmptyParams())
 
                 mock_ensure.assert_called_once()
                 mock_client_obj.notify.assert_called_once()

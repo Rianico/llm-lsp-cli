@@ -1,9 +1,7 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportAny=false
 """UID-based validation for strict mode IPC authentication.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
@@ -12,6 +10,7 @@ import asyncio
 import logging
 import socket
 import struct
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,9 @@ class UidValidator:
 
     Design: Optional strict mode for deployment flexibility.
     """
+
+    _strict_mode: bool
+    _current_uid: int
 
     def __init__(self, strict_mode: bool = False) -> None:
         """Initialize the UID validator.
@@ -73,19 +75,22 @@ class UidValidator:
         """
         try:
             transport = writer.transport
-            if transport is None:
-                return None
-
-            sock = transport.get_extra_info("socket")
+            sock = cast(socket.socket | None, transport.get_extra_info("socket"))
             if sock is None:
                 return None
 
-            peer_creds = sock.getsockopt(
-                socket.SOL_SOCKET,
-                getattr(socket, "SO_PEERCRED", 0),
+            peer_creds: bytes = cast(
+                bytes,
+                cast(
+                    object,
+                    sock.getsockopt(
+                        socket.SOL_SOCKET,
+                        getattr(socket, "SO_PEERCRED", 0),
+                    ),
+                ),
             )
-            uid: int
-            uid, _, _ = struct.unpack("iii", peer_creds[:12])
+            uid_bytes = struct.unpack("iii", peer_creds[:12])
+            uid = cast(int, uid_bytes[0])
             return uid
         except Exception:
             logger.debug("Could not retrieve peer UID")

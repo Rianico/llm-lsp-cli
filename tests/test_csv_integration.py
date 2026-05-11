@@ -18,19 +18,20 @@ from typer.testing import CliRunner
 
 from llm_lsp_cli.cli import app
 from tests.fixtures import (
-    COMPLETION_RESPONSE,
-    COMPLETION_RESPONSE_EMPTY,
-    COMPLETION_RESPONSE_WITH_COMMAS,
-    DOCUMENT_SYMBOL_RESPONSE,
-    HOVER_RESPONSE,
-    HOVER_RESPONSE_EMPTY,
-    LOCATION_RESPONSE,
-    LOCATION_RESPONSE_EMPTY,
-    LOCATION_RESPONSE_WITH_COMMAS,
-    LOCATION_RESPONSE_WITH_QUOTES,
-    WORKSPACE_SYMBOL_RESPONSE,
-    create_location_response_with_test_files,
-    create_workspace_symbol_response_with_test_files,
+    # Typed fixtures for send_request mocks
+    TYPED_COMPLETION_RESPONSE,
+    TYPED_COMPLETION_RESPONSE_EMPTY,
+    TYPED_COMPLETION_RESPONSE_WITH_COMMAS,
+    TYPED_DOCUMENT_SYMBOL_RESPONSE,
+    TYPED_HOVER_RESPONSE,
+    TYPED_HOVER_RESPONSE_EMPTY,
+    TYPED_LOCATION_RESPONSE,
+    TYPED_LOCATION_RESPONSE_EMPTY,
+    TYPED_LOCATION_RESPONSE_WITH_COMMAS,
+    TYPED_LOCATION_RESPONSE_WITH_QUOTES,
+    TYPED_WORKSPACE_SYMBOL_RESPONSE,
+    create_typed_location_response_with_test_files,
+    create_typed_workspace_symbol_response_with_test_files,
 )
 
 runner = CliRunner()
@@ -83,7 +84,7 @@ class TestE2ECsvDefinition:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -110,7 +111,7 @@ class TestE2ECsvDefinition:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE_EMPTY
+            mock_send.return_value = TYPED_LOCATION_RESPONSE_EMPTY
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -123,18 +124,19 @@ class TestE2ECsvDefinition:
 
     def test_e2e_definition_csv_large_result_set(self, temp_file: Path) -> None:
         """Test definition CSV with many locations."""
-        # Create 1000 locations
-        locations = [
-            {
-                "uri": f"file:///path/to/file{i}.py",
-                "range": {
-                    "start": {"line": i * 10, "character": 0},
-                    "end": {"line": i * 10, "character": 20},
-                },
-            }
+        from llm_lsp_cli.lsp.types import Location, Range, Position
+
+        # Create 1000 locations as typed models
+        mock_response = [
+            Location(
+                uri=f"file:///path/to/file{i}.py",
+                range=Range(
+                    start=Position(line=i * 10, character=0),
+                    end=Position(line=i * 10, character=20),
+                ),
+            )
             for i in range(1000)
         ]
-        mock_response = {"locations": locations}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -173,7 +175,7 @@ class TestE2ECsvReferences:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE
+            mock_send.return_value = TYPED_LOCATION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -199,7 +201,7 @@ class TestE2ECsvReferences:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = create_location_response_with_test_files()
+            mock_send.return_value = create_typed_location_response_with_test_files()
 
             result = runner.invoke(
                 app,
@@ -219,7 +221,7 @@ class TestE2ECsvReferences:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = create_location_response_with_test_files()
+            mock_send.return_value = create_typed_location_response_with_test_files()
 
             result = runner.invoke(
                 app,
@@ -253,7 +255,7 @@ class TestE2ECsvCompletion:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -277,7 +279,7 @@ class TestE2ECsvCompletion:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE_EMPTY
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE_EMPTY
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -300,7 +302,7 @@ class TestE2ECsvHover:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = HOVER_RESPONSE
+            mock_send.return_value = TYPED_HOVER_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -323,7 +325,7 @@ class TestE2ECsvHover:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = HOVER_RESPONSE_EMPTY
+            mock_send.return_value = TYPED_HOVER_RESPONSE_EMPTY
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -347,7 +349,7 @@ class TestE2ECsvDocumentSymbol:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = DOCUMENT_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_DOCUMENT_SYMBOL_RESPONSE
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -375,7 +377,7 @@ class TestE2ECsvWorkspaceSymbol:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = WORKSPACE_SYMBOL_RESPONSE
+            mock_send.return_value = TYPED_WORKSPACE_SYMBOL_RESPONSE
 
             result = runner.invoke(
                 app,
@@ -400,7 +402,7 @@ class TestE2ECsvWorkspaceSymbol:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = create_workspace_symbol_response_with_test_files()
+            mock_send.return_value = create_typed_workspace_symbol_response_with_test_files()
 
             result = runner.invoke(
                 app,
@@ -420,7 +422,7 @@ class TestE2ECsvWorkspaceSymbol:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = create_workspace_symbol_response_with_test_files()
+            mock_send.return_value = create_typed_workspace_symbol_response_with_test_files()
 
             result = runner.invoke(
                 app,
@@ -459,7 +461,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE_WITH_COMMAS
+            mock_send.return_value = TYPED_LOCATION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -483,7 +485,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = LOCATION_RESPONSE_WITH_QUOTES
+            mock_send.return_value = TYPED_LOCATION_RESPONSE_WITH_QUOTES
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -507,7 +509,7 @@ class TestCsvEdgeCasesSpecialCharacters:
             mock_instance = MagicMock()
             mock_instance.is_running.return_value = True
             mock_manager.return_value = mock_instance
-            mock_send.return_value = COMPLETION_RESPONSE_WITH_COMMAS
+            mock_send.return_value = TYPED_COMPLETION_RESPONSE_WITH_COMMAS
 
             workspace = str(temp_file.parent)
             result = runner.invoke(
@@ -522,16 +524,16 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_documentation_with_quotes(self, temp_file: Path) -> None:
         """Test CSV escaping when documentation contains quotes."""
-        mock_response = {
-            "items": [
-                {
-                    "label": "func",
-                    "kind": 12,
-                    "detail": "A function",
-                    "documentation": 'Docs with "quotes" inside',
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label="func",
+                kind=12,
+                detail="A function",
+                documentation='Docs with "quotes" inside',
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -555,15 +557,15 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_content_with_newline(self, temp_file: Path) -> None:
         """Test CSV escaping when content contains newlines."""
-        mock_response = {
-            "hover": {
-                "contents": {"kind": "plaintext", "value": "Line1\nLine2\nLine3"},
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 10},
-                },
-            }
-        }
+        from llm_lsp_cli.lsp.types import Hover, MarkupContent, Range, Position
+
+        mock_response = Hover(
+            contents=MarkupContent(kind="plaintext", value="Line1\nLine2\nLine3"),
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=0, character=10),
+            ),
+        )
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -588,18 +590,18 @@ class TestCsvEdgeCasesSpecialCharacters:
 
     def test_csv_symbol_name_with_special_chars(self, temp_file: Path) -> None:
         """Test CSV handles special characters in symbol names."""
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "function_with_underscore_and_123_numbers",
-                    "kind": 12,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
+
+        mock_response = [
+            DocumentSymbol(
+                name="function_with_underscore_and_123_numbers",
+                kind=12,
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=1, character=0),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -627,11 +629,12 @@ class TestCsvEdgeCasesEmptyAndNone:
 
     def test_csv_all_commands_empty_results(self, temp_file: Path) -> None:
         """Test all commands return empty CSV for empty results."""
+        # All commands return empty list when no results (typed)
         empty_responses = {
-            "definition": {"locations": []},
-            "references": {"locations": []},
-            "completion": {"items": []},
-            "document-symbol": {"symbols": []},
+            "definition": [],  # list[Location]
+            "references": [],  # list[Location]
+            "completion": [],  # list[CompletionItem]
+            "document-symbol": [],  # list[DocumentSymbol]
         }
 
         for command, response in empty_responses.items():
@@ -660,7 +663,7 @@ class TestCsvEdgeCasesEmptyAndNone:
 
     def test_csv_hover_none_hover(self, temp_file: Path) -> None:
         """Test hover CSV returns message for None hover."""
-        mock_response = {"hover": None}
+        mock_response: None = None  # Hover | None = None
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -682,7 +685,11 @@ class TestCsvEdgeCasesEmptyAndNone:
 
     def test_csv_missing_optional_fields(self, temp_file: Path) -> None:
         """Test CSV handles missing optional fields gracefully."""
-        mock_response = {"items": [{"label": "simple_item", "kind": 1}]}
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(label="simple_item", kind=1)
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -713,16 +720,16 @@ class TestCsvEdgeCasesUnicode:
 
     def test_csv_unicode_in_label(self, temp_file: Path) -> None:
         """Test CSV handles Unicode in labels."""
-        mock_response = {
-            "items": [
-                {
-                    "label": "\u03b1\u03b2\u03b3_func",  # Greek letters
-                    "kind": 12,
-                    "detail": "function",
-                    "documentation": "Docs",
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label="\u03b1\u03b2\u03b3_func",  # Greek letters
+                kind=12,
+                detail="function",
+                documentation="Docs",
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -746,16 +753,16 @@ class TestCsvEdgeCasesUnicode:
 
     def test_csv_unicode_in_detail(self, temp_file: Path) -> None:
         """Test CSV handles Unicode in detail."""
-        mock_response = {
-            "items": [
-                {
-                    "label": "func",
-                    "kind": 12,
-                    "detail": "function with \u4e2d\u6587 chars",  # Chinese
-                    "documentation": "Docs",
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label="func",
+                kind=12,
+                detail="function with \u4e2d\u6587 chars",  # Chinese
+                documentation="Docs",
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -779,18 +786,18 @@ class TestCsvEdgeCasesUnicode:
 
     def test_csv_unicode_in_symbol_name(self, temp_file: Path) -> None:
         """Test CSV handles Unicode in symbol names."""
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "\u65e5\u672c\u8a9e_class",  # Japanese
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
+
+        mock_response = [
+            DocumentSymbol(
+                name="\u65e5\u672c\u8a9e_class",  # Japanese
+                kind=5,
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=1, character=0),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -818,16 +825,17 @@ class TestCsvEdgeCasesLargeResultSets:
 
     def test_csv_large_completion_set(self, temp_file: Path) -> None:
         """Test CSV with 5000 completion items."""
-        items = [
-            {
-                "label": f"item_{i}",
-                "kind": 12,
-                "detail": f"Detail for item {i}",
-                "documentation": f"Documentation {i}",
-            }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label=f"item_{i}",
+                kind=12,
+                detail=f"Detail for item {i}",
+                documentation=f"Documentation {i}",
+            )
             for i in range(5000)
         ]
-        mock_response = {"items": items}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -852,18 +860,19 @@ class TestCsvEdgeCasesLargeResultSets:
 
     def test_csv_large_symbol_set(self, temp_file: Path) -> None:
         """Test CSV with 2000 document symbols."""
-        symbols = [
-            {
-                "name": f"symbol_{i}",
-                "kind": 12,
-                "range": {
-                    "start": {"line": i, "character": 0},
-                    "end": {"line": i + 1, "character": 0},
-                },
-            }
+        from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
+
+        mock_response = [
+            DocumentSymbol(
+                name=f"symbol_{i}",
+                kind=12,
+                range=Range(
+                    start=Position(line=i, character=0),
+                    end=Position(line=i + 1, character=0),
+                ),
+            )
             for i in range(2000)
         ]
-        mock_response = {"symbols": symbols}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -886,21 +895,22 @@ class TestCsvEdgeCasesLargeResultSets:
 
     def test_csv_large_workspace_symbol_set(self, temp_dir: Path) -> None:
         """Test CSV with 3000 workspace symbols."""
-        symbols = [
-            {
-                "name": f"Symbol_{i}",
-                "kind": 5,
-                "location": {
-                    "uri": f"file:///path/to/file{i}.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                },
-            }
+        from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
+
+        mock_response = [
+            SymbolInformation(
+                name=f"Symbol_{i}",
+                kind=5,
+                location=Location(
+                    uri=f"file:///path/to/file{i}.py",
+                    range=Range(
+                        start=Position(line=0, character=0),
+                        end=Position(line=1, character=0),
+                    ),
+                ),
+            )
             for i in range(3000)
         ]
-        mock_response = {"symbols": symbols}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -931,17 +941,18 @@ class TestCsvPerformance:
 
     def test_csv_format_performance_definition(self, temp_file: Path) -> None:
         """Test CSV formatting performance for definition with many results."""
-        locations = [
-            {
-                "uri": f"file:///path/to/file{i}.py",
-                "range": {
-                    "start": {"line": i, "character": 0},
-                    "end": {"line": i, "character": 20},
-                },
-            }
+        from llm_lsp_cli.lsp.types import Location, Range, Position
+
+        mock_response = [
+            Location(
+                uri=f"file:///path/to/file{i}.py",
+                range=Range(
+                    start=Position(line=i, character=0),
+                    end=Position(line=i, character=20),
+                ),
+            )
             for i in range(10000)
         ]
-        mock_response = {"locations": locations}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -969,16 +980,17 @@ class TestCsvPerformance:
 
     def test_csv_format_performance_completions(self, temp_file: Path) -> None:
         """Test CSV formatting performance for completions."""
-        items = [
-            {
-                "label": f"completion_{i}",
-                "kind": 12,
-                "detail": f"Detail {i}",
-                "documentation": f"Doc {i}",
-            }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label=f"completion_{i}",
+                kind=12,
+                detail=f"Detail {i}",
+                documentation=f"Doc {i}",
+            )
             for i in range(5000)
         ]
-        mock_response = {"items": items}
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1015,17 +1027,17 @@ class TestCsvCrossFormatConsistency:
 
     def test_csv_json_same_data_definition(self, temp_file: Path) -> None:
         """Test CSV and JSON contain same data for definition."""
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///path/to/file.py",
-                    "range": {
-                        "start": {"line": 10, "character": 4},
-                        "end": {"line": 10, "character": 20},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import Location, Range, Position
+
+        mock_response = [
+            Location(
+                uri="file:///path/to/file.py",
+                range=Range(
+                    start=Position(line=10, character=4),
+                    end=Position(line=10, character=20),
+                ),
+            )
+        ]
 
         csv_output: str | None = None
         json_output: str | None = None
@@ -1073,16 +1085,16 @@ class TestCsvCrossFormatConsistency:
 
     def test_csv_json_same_data_completions(self, temp_file: Path) -> None:
         """Test CSV and JSON contain same data for completions."""
-        mock_response = {
-            "items": [
-                {
-                    "label": "my_function",
-                    "kind": 12,
-                    "detail": "def my_function(x: int) -> str",
-                    "documentation": "A sample function",
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label="my_function",
+                kind=12,
+                detail="def my_function(x: int) -> str",
+                documentation="A sample function",
+            )
+        ]
 
         csv_output: str | None = None
         json_output: str | None = None
@@ -1137,17 +1149,17 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_definition_columns(self, temp_file: Path) -> None:
         """Test definition CSV has correct column schema."""
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///test.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import Location, Range, Position
+
+        mock_response = [
+            Location(
+                uri="file:///test.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=0, character=10),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1171,17 +1183,17 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_references_columns(self, temp_file: Path) -> None:
         """Test references CSV has correct column schema with grouped ranges."""
-        mock_response = {
-            "locations": [
-                {
-                    "uri": "file:///test.py",
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 0, "character": 10},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import Location, Range, Position
+
+        mock_response = [
+            Location(
+                uri="file:///test.py",
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=0, character=10),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1205,11 +1217,16 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_completion_columns(self, temp_file: Path) -> None:
         """Test completion CSV has correct column schema."""
-        mock_response = {
-            "items": [
-                {"label": "func", "kind": 12, "detail": "A function", "documentation": "Docs"}
-            ]
-        }
+        from llm_lsp_cli.lsp.types import CompletionItem
+
+        mock_response = [
+            CompletionItem(
+                label="func",
+                kind=12,
+                detail="A function",
+                documentation="Docs",
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1233,18 +1250,18 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_document_symbol_columns(self, temp_file: Path) -> None:
         """Test document-symbol CSV has correct column schema."""
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "range": {
-                        "start": {"line": 0, "character": 0},
-                        "end": {"line": 1, "character": 0},
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import DocumentSymbol, Range, Position
+
+        mock_response = [
+            DocumentSymbol(
+                name="MyClass",
+                kind=5,
+                range=Range(
+                    start=Position(line=0, character=0),
+                    end=Position(line=1, character=0),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1268,21 +1285,21 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_workspace_symbol_columns(self, temp_dir: Path) -> None:
         """Test workspace-symbol CSV has correct column schema."""
-        mock_response = {
-            "symbols": [
-                {
-                    "name": "MyClass",
-                    "kind": 5,
-                    "location": {
-                        "uri": "file:///test.py",
-                        "range": {
-                            "start": {"line": 0, "character": 0},
-                            "end": {"line": 1, "character": 0},
-                        },
-                    },
-                }
-            ]
-        }
+        from llm_lsp_cli.lsp.types import SymbolInformation, Location, Range, Position
+
+        mock_response = [
+            SymbolInformation(
+                name="MyClass",
+                kind=5,
+                location=Location(
+                    uri="file:///test.py",
+                    range=Range(
+                        start=Position(line=0, character=0),
+                        end=Position(line=1, character=0),
+                    ),
+                ),
+            )
+        ]
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,
@@ -1305,15 +1322,15 @@ class TestCsvSchemaValidation:
 
     def test_csv_schema_hover_columns(self, temp_file: Path) -> None:
         """Test hover CSV has correct column schema."""
-        mock_response = {
-            "hover": {
-                "contents": {"kind": "plaintext", "value": "Hover content"},
-                "range": {
-                    "start": {"line": 0, "character": 0},
-                    "end": {"line": 0, "character": 10},
-                },
-            }
-        }
+        from llm_lsp_cli.lsp.types import Hover, MarkupContent, Range, Position
+
+        mock_response = Hover(
+            contents=MarkupContent(kind="plaintext", value="Hover content"),
+            range=Range(
+                start=Position(line=0, character=0),
+                end=Position(line=0, character=10),
+            ),
+        )
 
         with (
             patch("llm_lsp_cli.daemon.DaemonManager") as mock_manager,

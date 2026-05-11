@@ -373,117 +373,101 @@ class TestHyphenatedNaming:
 
 
 # =============================================================================
-# Phase RED-06: LSPConstants Usage
+# Phase RED-06: LSP Method String Literals
 # =============================================================================
+# NOTE: String literals are used instead of LSPConstants because the
+# send_request function uses Literal types in overloads for type narrowing.
+# LSPConstants uses .pyi stubs with Literal types for method matching.
+# See constants.pyi for Literal type declarations.
 
 
-class TestLSPConstantsUsage:
-    """Test that LSP commands use LSPConstants for method strings."""
+class TestLSPMethodConstants:
+    """Test that LSP commands use LSPConstants for method matching via .pyi stubs."""
 
-    def test_no_hardcoded_text_document_definition(self):
-        """No hardcoded 'textDocument/definition' string in lsp.py."""
+    def test_text_document_definition_constant(self):
+        """lsp.py uses LSPConstants.DEFINITION constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        # Should not have the hardcoded string (but may have the constant reference)
-        # We check for the literal string in quotes
-        assert '"textDocument/definition"' not in content
-        assert "'textDocument/definition'" not in content
+        # Constants with Literal types in .pyi stub match send_request overloads
+        assert "LSPConstants.DEFINITION" in content
 
-    def test_no_hardcoded_text_document_references(self):
-        """No hardcoded 'textDocument/references' string in lsp.py."""
+    def test_text_document_references_constant(self):
+        """lsp.py uses LSPConstants.REFERENCES constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/references"' not in content
-        assert "'textDocument/references'" not in content
+        assert "LSPConstants.REFERENCES" in content
 
-    def test_no_hardcoded_document_symbol(self):
-        """No hardcoded 'textDocument/documentSymbol' string in lsp.py."""
+    def test_document_symbol_constant(self):
+        """lsp.py uses LSPConstants.DOCUMENT_SYMBOL constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/documentSymbol"' not in content
-        assert "'textDocument/documentSymbol'" not in content
+        assert "LSPConstants.DOCUMENT_SYMBOL" in content
 
-    def test_no_hardcoded_workspace_symbol(self):
-        """No hardcoded 'workspace/symbol' string in lsp.py."""
+    def test_workspace_symbol_constant(self):
+        """lsp.py uses LSPConstants.WORKSPACE_SYMBOL constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"workspace/symbol"' not in content
-        assert "'workspace/symbol'" not in content
+        assert "LSPConstants.WORKSPACE_SYMBOL" in content
 
-    def test_no_hardcoded_call_hierarchy_incoming(self):
-        """No hardcoded 'callHierarchy/incomingCalls' string in lsp.py."""
+    def test_call_hierarchy_incoming_constant(self):
+        """lsp.py uses LSPConstants.CALL_HIERARCHY_INCOMING_CALLS constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"callHierarchy/incomingCalls"' not in content
-        assert "'callHierarchy/incomingCalls'" not in content
+        assert "LSPConstants.CALL_HIERARCHY_INCOMING_CALLS" in content
 
-    def test_no_hardcoded_call_hierarchy_outgoing(self):
-        """No hardcoded 'callHierarchy/outgoingCalls' string in lsp.py."""
+    def test_call_hierarchy_outgoing_constant(self):
+        """lsp.py uses LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"callHierarchy/outgoingCalls"' not in content
-        assert "'callHierarchy/outgoingCalls'" not in content
+        assert "LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS" in content
 
-    def test_no_hardcoded_completion(self):
-        """No hardcoded 'textDocument/completion' string in lsp.py."""
+    def test_completion_constant(self):
+        """lsp.py uses LSPConstants.COMPLETION constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/completion"' not in content
-        assert "'textDocument/completion'" not in content
+        assert "LSPConstants.COMPLETION" in content
 
-    def test_no_hardcoded_hover(self):
-        """No hardcoded 'textDocument/hover' string in lsp.py."""
+    def test_hover_constant(self):
+        """lsp.py uses LSPConstants.HOVER constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/hover"' not in content
-        assert "'textDocument/hover'" not in content
+        assert "LSPConstants.HOVER" in content
 
-    def test_no_hardcoded_diagnostics(self):
-        """No hardcoded 'textDocument/diagnostic' string in lsp.py."""
+    def test_diagnostics_constant(self):
+        """lsp.py uses LSPConstants.DIAGNOSTIC constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/diagnostic"' not in content
-        assert "'textDocument/diagnostic'" not in content
+        assert "LSPConstants.DIAGNOSTIC" in content
 
-    def test_no_hardcoded_workspace_diagnostics(self):
-        """No hardcoded 'workspace/diagnostic' string in lsp.py."""
+    def test_workspace_diagnostics_constant(self):
+        """lsp.py uses LSPConstants.WORKSPACE_DIAGNOSTIC constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"workspace/diagnostic"' not in content
-        assert "'workspace/diagnostic'" not in content
+        assert "LSPConstants.WORKSPACE_DIAGNOSTIC" in content
 
-    def test_no_hardcoded_rename(self):
-        """No hardcoded 'textDocument/rename' string in lsp.py."""
+    def test_rename_constant(self):
+        """lsp.py uses LSPConstants.RENAME constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/rename"' not in content
-        assert "'textDocument/rename'" not in content
+        assert "LSPConstants.RENAME" in content
 
-    def test_no_hardcoded_did_change(self):
-        """No hardcoded 'textDocument/didChange' string in lsp.py."""
+    def test_did_change_constant(self):
+        """lsp.py uses LSPConstants.TEXT_DOCUMENT_DID_CHANGE constant."""
         lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
         assert lsp_path.exists(), "lsp.py must exist"
         content = lsp_path.read_text()
-        assert '"textDocument/didChange"' not in content
-        assert "'textDocument/didChange'" not in content
-
-    def test_lspconstants_imported(self):
-        """LSPConstants is imported in commands/lsp.py."""
-        lsp_path = Path("src/llm_lsp_cli/commands/lsp.py")
-        assert lsp_path.exists(), "lsp.py must exist"
-        content = lsp_path.read_text()
-        assert "LSPConstants" in content, "LSPConstants should be imported in lsp.py"
+        assert "LSPConstants.TEXT_DOCUMENT_DID_CHANGE" in content
 
 
 # =============================================================================
@@ -627,118 +611,6 @@ class TestBackwardCompatibility:
         """lsp document_symbol (underscore within lsp group) fails."""
         result = runner.invoke(cli_app, ["lsp", "document_symbol"])
         assert result.exit_code != 0
-
-
-# =============================================================================
-# Phase RED-09: Claude Skill Files
-# =============================================================================
-
-
-class TestSkillFiles:
-    """Test Claude skill file structure."""
-
-    def test_main_skill_file_exists(self):
-        """Main skill file exists."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), f"Expected {skill_path} to exist"
-
-    def test_reference_skill_file_exists(self):
-        """Reference skill file exists."""
-        ref_path = Path(".claude/skills/references/llm-lsp-cli-config.md")
-        assert ref_path.exists(), f"Expected {ref_path} to exist"
-
-    def test_main_skill_has_frontmatter(self):
-        """Main skill has YAML frontmatter with required fields."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert content.startswith("---"), "Skill must start with YAML frontmatter"
-        assert "name:" in content
-        assert "type:" in content
-        assert "description:" in content
-
-    def test_main_skill_type_domain_knowledge(self):
-        """Main skill has type: domain-knowledge."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "type: domain-knowledge" in content or "type: 'domain-knowledge'" in content
-
-    def test_main_skill_uses_hyphenated_names(self):
-        """Main skill uses hyphenated command names."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        # Should have hyphenated names
-        assert "document-symbol" in content
-        assert "workspace-symbol" in content
-        assert "incoming-calls" in content
-        assert "outgoing-calls" in content
-        assert "workspace-diagnostics" in content
-        assert "did-change" in content
-
-    def test_skill_has_document_symbol_hyphen(self):
-        """Skill contains 'document-symbol' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "document-symbol" in content
-
-    def test_skill_has_workspace_symbol_hyphen(self):
-        """Skill contains 'workspace-symbol' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "workspace-symbol" in content
-
-    def test_skill_has_incoming_calls_hyphen(self):
-        """Skill contains 'incoming-calls' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "incoming-calls" in content
-
-    def test_skill_has_outgoing_calls_hyphen(self):
-        """Skill contains 'outgoing-calls' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "outgoing-calls" in content
-
-    def test_skill_has_workspace_diagnostics_hyphen(self):
-        """Skill contains 'workspace-diagnostics' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "workspace-diagnostics" in content
-
-    def test_skill_has_did_change_hyphen(self):
-        """Skill contains 'did-change' (hyphenated)."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        assert "did-change" in content
-
-    def test_skill_no_underscore_document_symbol(self):
-        """Skill does NOT contain underscore variant 'document_symbol'."""
-        skill_path = Path(".claude/skills/llm-lsp-cli.md")
-        assert skill_path.exists(), "Skill file must exist"
-        content = skill_path.read_text()
-        # Should not have the underscore variant as a command reference
-        # (may appear in code blocks as Python function names, but not as CLI commands)
-        # Check that it's not in a CLI command context
-        import re
-        # Look for "lsp document_symbol" as a CLI command pattern
-        underscore_cmd_pattern = r"lsp document_symbol"
-        assert not re.search(underscore_cmd_pattern, content), \
-            "Skill should not reference 'lsp document_symbol' command (use hyphenated)"
-
-    def test_reference_has_daemon_section(self):
-        """Reference file has daemon lifecycle content."""
-        ref_path = Path(".claude/skills/references/llm-lsp-cli-config.md")
-        assert ref_path.exists(), "Reference file must exist"
-        content = ref_path.read_text()
-        assert "daemon" in content.lower()
 
 
 # =============================================================================

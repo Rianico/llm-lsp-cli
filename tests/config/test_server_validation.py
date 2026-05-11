@@ -148,7 +148,7 @@ class TestServerFound:
         from llm_lsp_cli.config.server_validation import validate_server_installed
 
         monkeypatch.setenv("MOCK_SERVER", "rust-analyzer")
-        result = validate_server_installed("rust-analyzer", language="rust")
+        result = validate_server_installed("rust-analyzer", _language="rust")
 
         assert result is not None
         assert len(captured_stderr) == 0
@@ -169,7 +169,7 @@ class TestServerNotFound:
         )
 
         with pytest.raises(ServerNotFoundError):
-            validate_server_installed("basedpyright-langserver", language="python")
+            validate_server_installed("basedpyright-langserver", _language="python")
 
         assert len(captured_stderr) > 0
         assert "basedpyright-langserver" in captured_stderr[0]
@@ -202,7 +202,7 @@ class TestServerNotFound:
         )
 
         with pytest.raises(ServerNotFoundError):
-            validate_server_installed(server, language=language)
+            validate_server_installed(server, _language=language)
 
         stderr_output = "\n".join(captured_stderr)
         assert expected_url in stderr_output
@@ -219,7 +219,7 @@ class TestServerNotFound:
         )
 
         with pytest.raises(ServerNotFoundError):
-            validate_server_installed("basedpyright-langserver", language="python")
+            validate_server_installed("basedpyright-langserver", _language="python")
 
         # Alert should have been printed (stderr captured)
         assert len(captured_stderr) > 0
@@ -325,7 +325,7 @@ class TestEdgeCases:
         )
 
         with pytest.raises(ServerNotFoundError):
-            validate_server_installed("some-unknown-server", language="unknown-lang")
+            validate_server_installed("some-unknown-server", _language="unknown-lang")
 
         stderr_output = "\n".join(captured_stderr)
         # No GitHub URL for unknown servers

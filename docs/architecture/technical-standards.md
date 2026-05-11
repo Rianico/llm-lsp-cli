@@ -61,13 +61,21 @@ src/llm_lsp_cli/
 
 ### LSP Constants
 
-All LSP method names MUST use `LSPConstants` class:
+All LSP method names MUST use `LSPConstants` class with `Final[str]` annotations (ADR-0028). `Final` enables the type checker to narrow class attributes to `Literal` types, which is required for `@overload` matching on `send_request`.
 
 ```python
 from llm_lsp_cli.lsp.constants import LSPConstants
 
-method = LSPConstants.DEFINITION  # "textDocument/definition"
+method = LSPConstants.DEFINITION  # Literal["textDocument/definition"]
+
+# LSPConstants definition:
+class LSPConstants:
+    DEFINITION: Final[str] = "textDocument/definition"
+    HOVER: Final[str] = "textDocument/hover"
+    # ... all method names
 ```
+
+**Rule:** `LSPConstants` attributes MUST be `Final[str]`, not `str`. Non-Final `str` prevents overload resolution and forces the type checker to treat the value as an opaque `str` rather than a `Literal`.
 
 ## Dependency Direction
 
@@ -228,7 +236,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 **Clean Architecture Compliance:**
 - `deep_merge()` is pure function (testable without filesystem)
 - `ConfigManager` stays in infrastructure layer
-- Domain defines structure via Pydantic models
+- Domain defines config structure via Pydantic models
 - Auto-initialization with first-run notice (zero-friction for uvx users)
 
 ## Diagnostic Cache
@@ -553,13 +561,14 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class Position(BaseModel):
     """Position in a text document."""
-    model_config = ConfigDict(populate_by_name=True)
+    model_config: ConfigDict = ConfigDict(populate_by_name=True)
 
     line: int
     character: int
 ```
 
 **Required Configuration:**
+- Always annotate `model_config` with type `ConfigDict` to satisfy basedpyright `reportUnannotatedClassAttribute` (ADR-0027)
 - Always use `ConfigDict(populate_by_name=True)` to support both snake_case Python fields and camelCase JSON
 - Use `Field(..., alias="camelCase")` for fields that differ between Python naming and LSP spec
 - Use `Field(default=None)` for optional fields instead of `total=False`
@@ -568,10 +577,46 @@ class Position(BaseModel):
 ```python
 class InitializeResult(BaseModel):
     """Result of initialize request."""
-    model_config = ConfigDict(populate_by_name=True)
+    model_config: ConfigDict = ConfigDict(populate_by_name=True)
 
     capabilities: ServerCapabilities
     server_info: dict[str, str] | None = Field(None, alias="serverInfo")
+```
+
+### Class Attribute Annotation (ADR-0027)
+
+basedpyright's `reportUnannotatedClassAttribute` fires on any class attribute without an explicit type annotation on non-final classes. This includes `model_config` in Pydantic model subclasses and instance attributes assigned in `__init__`.
+
+**Fix pattern for Pydantic `model_config`:**
+```python
+# WRONG - triggers reportUnannotatedClassAttribute
+class Position(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+# CORRECT - explicit annotation satisfies basedpyright
+class Position(BaseModel):
+    model_config: ConfigDict = ConfigDict(populate_by_name=True)
+```
+
+**Fix pattern for infrastructure class attributes:**
+```python
+# WRONG - unannotated class attributes
+class JsonServerDefinitionRepository:
+    def __init__(self, config_file: Path) -> None:
+        self._config_file = config_file
+        self._cache = None
+        self._lock = threading.Lock()
+
+# CORRECT - annotate all class attributes
+class JsonServerDefinitionRepository:
+    _config_file: Path
+    _cache: dict[str, ServerDefinition] | None
+    _lock: threading.Lock
+
+    def __init__(self, config_file: Path) -> None:
+        self._config_file = config_file
+        self._cache = None
+        self._lock = threading.Lock()
 ```
 
 ### Typed Transport Adapter Pattern
@@ -626,20 +671,415 @@ Enforce a strict type boundary between raw transport and typed adapters:
 - [ ] Remove `StdioTransport` from `lsp/__init__.py` exports
 - [ ] Verify no other code imports `StdioTransport` directly
 
+### Designated Any Layer (ADR-0025)
+
+Formalize the **Designated Any Layer** pattern to contain `Any` usage within infrastructure boundaries:
+
+**Rule:** ONLY `lsp/transport.py` and `ipc/*` may use `Any` internally. All data crossing into application/domain layers MUST be Pydantic-validated concrete types.
+
+**Permitted Locations:**
+| File | Justification |
+|------|---------------|
+| `lsp/transport.py` | Raw LSP JSON-RPC communication |
+| `ipc/protocol.py` | JSON-RPC message parsing/building |
+| `ipc/unix_client.py` | IPC request/response handling |
+| `ipc/unix_server.py` | IPC request handling |
+
+**Boundary Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     DESIGNATED ANY LAYER                     │
+│                     (Infrastructure Only)                    │
+├─────────────────────────────────────────────────────────────┤
+│  ipc/protocol.py:     parse_message() -> dict[str, Any]      │
+│  ipc/unix_client.py:  request() -> Any                       │
+│  lsp/transport.py:    send_request() -> object               │
+│           ↓                                                  │
+│  TypedLSPTransport (Pydantic validation)                     │
+│           ↓                                                  │
+│  Domain/Application Layers (concrete types ONLY)             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Suppression Pattern for Designated Layer:**
+```python
+# ipc/protocol.py
+# pyright: reportExplicitAny=false
+# pyright: reportAny=false
+"""JSON-RPC 2.0 protocol definitions.
+
+LSP responses are inherently dynamic; Any is contained to this layer.
+All data is validated via Pydantic before crossing to inner layers.
+"""
+```
+
+**Cleanup Rules for 725 Diagnostics:**
+1. **In designated layer** (`transport.py`, `ipc/*`): Fix with annotations or file-level suppression
+2. **Outside designated layer**: Add concrete types; defer to architecture review if requires Protocol creation
+3. **Never propagate Any** to application/domain layers
+
+### File-Level Suppression Zones
+
+File-level pyright suppressions (`# pyright: reportX=false` at file top) are permitted ONLY in designated zones. All other files MUST fix underlying type issues.
+
+**Permitted Zones:**
+
+| Zone | Files | Justification |
+|------|-------|---------------|
+| **Transport Layer** | `lsp/transport.py` | Raw LSP JSON-RPC; `Any` contained per ADR-0024 |
+| **IPC Layer** | `ipc/protocol.py`, `ipc/unix_client.py`, `ipc/unix_server.py`, `ipc/method_registry.py` | JSON-RPC dynamism contained per ADR-0025/0026 |
+| **Third-Party Stubs** | `typings/**/*.pyi` | External library stubs; types defined by upstream |
+| **Tests (limited)** | `tests/conftest.py` | `reportMissingTypeStubs` for pytest fixtures only |
+| **CLI Commands** | `commands/lsp.py`, `commands/daemon.py`, `commands/config.py` | `reportCallInDefaultInitializer` for Typer patterns only |
+
+**Prohibited Zones (MUST NOT have file-level suppressions):**
+
+| Zone | Examples | Reason |
+|------|----------|--------|
+| **Domain Layer** | `domain/entities/*.py`, `domain/services/*.py`, `domain/value_objects/*.py` | Core business logic must be fully typed |
+| **Application Layer** | `daemon_client.py`, `daemon.py` (core) | Orchestration must use concrete types |
+| **General Infrastructure** | `infrastructure/config/*.py`, `server/*.py` | Use Pydantic validation, not suppressions |
+| **Output Formatters** | `output/*.py` | Protocol-based; types known at compile time |
+| **Utils** | `utils/*.py` | Pure functions with known signatures |
+
+**Suppression Removal Priority:**
+
+1. **Domain layer first** - Zero tolerance for suppressions in business logic
+2. **Application layer second** - Fix with proper annotations or `_param` prefix
+3. **Infrastructure third** - Replace with Pydantic models at boundaries
+4. **CLI last** - Framework patterns justified; general code fixed
+
+**Example - Removing Suppressions:**
+
+```python
+# BEFORE (with suppression)
+# pyright: reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false
+
+def process_config(data: dict) -> list:  # Missing type params
+    result = []
+    for key, value in data.items():
+        result.append(f"{key}: {value}")
+    return result
+
+# AFTER (suppressions removed)
+def process_config(data: dict[str, object]) -> list[str]:  # Concrete types
+    result: list[str] = []
+    for key, value in data.items():
+        result.append(f"{key}: {value}")
+    return result
+```
+
+**Diagnostic Quick Fixes:**
+
+| Diagnostic | Fix Pattern | Example |
+|------------|-------------|---------|
+| `reportUnusedParameter` | Rename to `_param` | `def fn(_unused: str)` |
+| `reportUnknownVariableType` | Annotate variable | `result: list[str] = []` |
+| `reportUnknownArgumentType` | Use Pydantic model | `Model.model_validate(data)` |
+| `reportAny` | Annotate container | `data: dict[str, object]` |
+| `reportMissingTypeStubs` | Add typeshed stubs | `uv add --dev types-X` |
+| `reportUnannotatedClassAttribute` | Add type annotation | `model_config: ConfigDict = ConfigDict(...)` |
+| `reportImplicitStringConcatenation` | Use explicit `+` | `"a" + "b"` not `"a" "b"` |
+| `reportPrivateUsage` | Make public or use Protocol | Extract interface |
+| `reportUnusedCallResult` | Assign to `_` | `_ = some_list.append(item)` |
+
+### Handling Type Diagnostics and Suppressions
+
+**NO INLINE SUPPRESSIONS** - Never use `# pyright: ignore` or `# type: ignore` to hide diagnostics.
+
+When a type diagnostic appears, fix the underlying issue:
+
+| Diagnostic | Root Cause | Fix |
+|------------|------------|-----|
+| `reportUnusedParameter` | Parameter in interface not used | Use `_param` prefix convention |
+| `reportArgumentType` | Type mismatch at call site | Use Pydantic models for params |
+| `reportReturnType` | Return type doesn't match signature | Align signatures or fix types |
+| `reportAny` | Implicit Any from untyped container | Annotate container before iteration |
+| `reportExplicitAny` | Explicit Any usage | Replace with concrete type or Protocol |
+| `reportUnannotatedClassAttribute` | Class attribute without type annotation | Add annotation (e.g., `model_config: ConfigDict = ...`) |
+| `reportUnusedCallResult` | Call result discarded | Assign to `_` if intentional |
+
+**`_` Prefix Convention for Unused Parameters:**
+```python
+# Correct - indicates intentionally unused
+async def _handle_notification(
+    self, method: str, _params: dict[str, Any]
+) -> None:
+    pass  # params intentionally not processed
+
+# Wrong - suppression hides the issue
+async def _handle_notification(
+    self, method: str, params: dict[str, Any]  # pyright: ignore[reportUnusedParameter]
+) -> None:
+    pass
+```
+
+**Always Use Pydantic Models for LSP Params:**
+```python
+# Correct - typed, validated
+from llm_lsp_cli.lsp.types import TextDocumentIdentifier
+
+params = TextDocumentIdentifier(uri=uri).model_dump(mode="json")
+result = await self._transport.send_request("textDocument/definition", params)
+
+# Wrong - suppression hides type mismatch
+params = {"textDocument": {"uri": uri}}  # dict[str, str], not dict[str, object]
+result = await self._transport.send_request(
+    "textDocument/definition",
+    params,  # pyright: ignore[reportArgumentType]
+)
+```
+
+**Type Safety Principles:**
+1. **Fix, don't suppress** - Every diagnostic indicates a real issue
+2. **Use concrete types** - Replace `Any` with specific types or Protocols
+3. **Validate at boundaries** - Pydantic models validate external data
+4. **Type flows inward** - Inner layers receive validated models, never raw dicts
+
+### Output Layer Pydantic Model Consumption (ADR-0027)
+
+The output formatter layer MUST consume validated Pydantic models from `lsp/types.py`, not raw `object`-typed dicts. This completes the type boundary chain established by ADR-0023/0024/0025.
+
+**Current anti-pattern (pre-ADR-0027):**
+```python
+# output/formatter.py receives object-typed data and extracts with type_helpers
+def transform_symbols(self, symbols: list[dict[str, object]]) -> list[SymbolRecord]:
+    for sym in symbols:
+        name = _get_str(sym, "name", "")  # object -> str extraction
+        kind = _get_int(sym, "kind", 0)   # object -> int extraction
+        ...
+```
+
+This pattern causes 120+ `reportUnknownVariableType`, `reportUnknownArgumentType`, and `reportUnknownMemberType` warnings because `isinstance(data, dict)` narrows to `dict[Unknown, Unknown]`, and `.get()` calls return unknown types.
+
+**Target pattern (ADR-0027):**
+```python
+# output/formatter.py receives typed Pydantic models
+from llm_lsp_cli.lsp.types import DocumentSymbol, SymbolInformation
+
+def transform_symbols(
+    self, symbols: list[DocumentSymbol | SymbolInformation]
+) -> list[SymbolRecord]:
+    for sym in symbols:
+        name = sym.name           # str, no extraction needed
+        kind = sym.kind           # int, no extraction needed
+        ...
+```
+
+**type_helpers.py scope reduction:**
+
+The `type_helpers.py` helper functions (`get_str`, `get_int`, `get_dict`, etc.) remain available for genuine boundary cases where `object`-typed data is unavoidable:
+- Config parsing (infrastructure layer, before Pydantic validation)
+- IPC deserialization of untyped params
+- YAML/JSON file loading
+
+They MUST NOT be used in the output formatter layer, where the data originates from validated Pydantic models in `lsp/types.py`.
+
+**Dependency direction:**
+```
+lsp/types.py (defines Pydantic models)
+    ↑
+output/formatter.py (consumes Pydantic models)
+    ↑
+daemon.py / commands (passes validated models to formatter)
+```
+
+This direction is correct: `output/` imports from `lsp/types.py`, not the reverse.
+
+### IPC Generic Type Registry (ADR-0026)
+
+Use method registry with `@overload` decorators for compile-time type safety in IPC layer (ADR-0026).
+
+**Method Registry Pattern:**
+```python
+# ipc/method_registry.py
+from typing import Literal, TypeAlias
+from pydantic import BaseModel
+
+# Type alias for method type pairs
+MethodTypePair: TypeAlias = tuple[type[BaseModel], type[BaseModel]]
+
+# Registry mapping method names to (ParamsType, ResultType)
+METHOD_TYPES: dict[str, MethodTypePair] = {
+    "ping": (EmptyParams, PingResult),
+    "textDocument/definition": (TextDocumentPositionParams, list[Location]),
+    # ... additional methods
+}
+
+# Type literal for valid method names (enables IDE autocomplete)
+MethodName: TypeAlias = Literal[
+    "ping",
+    "textDocument/definition",
+    # ... all method names
+]
+```
+
+**@overload Pattern for Type-Safe Client:**
+```python
+# ipc/unix_client.py
+from typing import overload
+
+class UNIXClient:
+    @overload
+    async def request(
+        self, method: Literal["ping"], params: EmptyParams
+    ) -> PingResult: ...
+
+    @overload
+    async def request(
+        self, method: Literal["textDocument/definition"],
+        params: TextDocumentPositionParams
+    ) -> list[Location]: ...
+
+    # Generic implementation
+    async def request(
+        self, method: str, params: BaseModel
+    ) -> BaseModel | list[BaseModel] | None:
+        """Send request and validate response using method registry."""
+        # Implementation with runtime validation
+```
+
+**Benefits:**
+- Compile-time type checking for all IPC method calls
+- Method registry enables IDE autocomplete for method names
+- Runtime validation catches malformed data at boundary
+- Inner layers receive validated Pydantic models (no `cast()` needed)
+
+**Rules:**
+1. All IPC methods MUST have `@overload` declarations in `unix_client.py`
+2. Method registry MUST define all daemon and LSP proxy methods
+3. Pydantic models MUST cover all method params/results in `ipc/models.py`
+4. Adding new methods requires updating both registry and overloads
+
+### CLI Typed Request Gateway (ADR-0028)
+
+The `send_request` function in `commands/shared.py` is a typed gateway at the CLI-IPC boundary. It accepts daemon RPC param models (flat camelCase), sends the request via `DaemonClient`, unwraps the keyed response dict, validates the inner value, and returns a typed Pydantic result.
+
+**Two Param Schemas:**
+
+The CLI-to-daemon and daemon-to-LSP channels use different param formats:
+
+| Channel | Format | Models | Example |
+|---------|--------|--------|---------|
+| CLI -> Daemon | Flat camelCase | `ipc/cli_params.py` | `workspacePath`, `filePath`, `line`, `column` |
+| Daemon -> LSP | Nested LSP | `ipc/models.py` | `textDocument.uri`, `position.line` |
+
+**Daemon RPC Param Models:**
+
+Define flat camelCase models that match the daemon's expected wire format:
+
+```python
+# ipc/cli_params.py
+class DaemonPositionParams(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    workspace_path: str = Field(alias="workspacePath")
+    file_path: str = Field(alias="filePath")
+    line: int = 0
+    column: int = 0
+
+class DaemonFileParams(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    workspace_path: str = Field(alias="workspacePath")
+    file_path: str = Field(alias="filePath")
+
+class DaemonWorkspaceParams(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True)
+    workspace_path: str = Field(alias="workspacePath")
+
+class DaemonRenameParams(DaemonPositionParams):
+    new_name: str = Field(alias="newName")
+
+class DaemonSymbolQueryParams(DaemonWorkspaceParams):
+    query: str
+```
+
+**@overload Pattern for send_request:**
+
+```python
+# commands/shared.py
+@overload
+def send_request(
+    method: Literal["textDocument/definition"],
+    params: DaemonPositionParams,
+    language: str | None = None,
+) -> list[Location]: ...
+
+@overload
+def send_request(
+    method: Literal["textDocument/hover"],
+    params: DaemonPositionParams,
+    language: str | None = None,
+) -> Hover | None: ...
+
+# Fallback for unknown methods
+@overload
+def send_request(
+    method: str,
+    params: object,
+    language: str | None = None,
+) -> object: ...
+
+def send_request(
+    method: str,
+    params: object,
+    language: str | None = None,
+) -> object:
+    # Send request, unwrap response dict, validate inner value
+```
+
+**Call Site Migration:**
+
+```python
+# BEFORE: dict[str, object] params, dict[str, object] response
+response = send_request(
+    LSPConstants.DEFINITION,
+    {"workspacePath": context.workspace_path, "filePath": str(context.file_path),
+     "line": line_index, "column": column_index},
+    language=context.language,
+)
+locations_raw = get_list_of_dicts(response, "locations")
+locations = [Location.model_validate(loc) for loc in locations_raw]
+
+# AFTER: typed params, typed return
+locations = send_request(
+    LSPConstants.DEFINITION,
+    DaemonPositionParams(
+        workspace_path=context.workspace_path, file_path=str(context.file_path),
+        line=line_index, column=column_index,
+    ),
+    language=context.language,
+)
+# locations is list[Location] - no extraction or re-validation needed
+```
+
+**Rules:**
+1. `send_request` MUST have `@overload` declarations for every daemon method
+2. Daemon RPC params MUST use flat camelCase models from `ipc/cli_params.py`
+3. `send_request` MUST unwrap response dicts (using `RESPONSE_KEYS` mapping) and validate inner values
+4. CLI commands MUST NOT call `type_helpers` or `model_validate` on `send_request` results
+5. Adding new daemon methods requires updating `LSPConstants`, `DaemonClient` overloads, `send_request` overloads, and daemon RPC params
+
+**Anti-pattern: Extending LSP-nested models with workspacePath**
+
+Do NOT extend `TextDocumentPositionParams` with `workspacePath`. The daemon expects flat camelCase params (`workspacePath`, `filePath`, `line`, `column`), not nested LSP-style params (`textDocument.uri`, `position.line`). Subclassing LSP models for CLI params produces the wrong wire format and forces CLI callers to understand LSP-style nesting.
+
 ### Migration Strategy
 
-When migrating from TypedDict to Pydantic:
+When migrating from TypedDict/object to Pydantic:
 
-1. **Phase 1:** Convert type definitions in `lsp/types.py`
-2. **Phase 2:** Create typed transport adapter in `lsp/typed_transport.py`
-3. **Phase 3:** Update callers incrementally, removing `cast()` calls
-4. **Phase 4:** Verify with both mypy and basedpyright
+1. **Phase 1:** Convert type definitions in `lsp/types.py` (ADR-0023, complete)
+2. **Phase 2:** Create typed transport adapter in `lsp/typed_transport.py` (ADR-0024, complete)
+3. **Phase 3:** Migrate output formatter to consume Pydantic models (ADR-0027, in progress)
+4. **Phase 4:** Update callers incrementally, removing `type_helpers` usage in formatter
+5. **Phase 5:** Verify with both mypy and basedpyright
+6. **Phase 6:** Add typed `send_request` gateway with daemon RPC param models (ADR-0028, planned)
 
 **Forward Compatibility:**
 Use `ConfigDict(extra="ignore")` if LSP spec extensions might add unknown fields:
 ```python
 class ServerCapabilities(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    model_config: ConfigDict = ConfigDict(populate_by_name=True, extra="ignore")
     # ... fields
 ```
 

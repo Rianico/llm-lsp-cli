@@ -49,8 +49,8 @@ class ServerPathValidationError(ConfigError):
     def __init__(self, command: str, reason: str) -> None:
         super().__init__(
             f"Invalid server command: {command}\n"
-            f"Reason: {reason}\n"
-            f"Shell metacharacters (;|&$`() are not allowed."
+            + f"Reason: {reason}\n"
+            + "Shell metacharacters (;|&$`() are not allowed."
         )
 
 
@@ -65,23 +65,23 @@ class ServerNotFoundError(ConfigError):
             safe_path = os.path.basename(resolved_path)
             super().__init__(
                 f"LSP server executable not found: {command}\n\n"
-                f"Attempted path: {safe_path}\n"  # Only basename
-                f"Causes:\n"
-                f"  - File does not exist at specified path\n"
-                f"  - File exists but is not executable (chmod +x required)\n"
-                f"  - Environment variable not set\n\n"
-                f"Hint: Install the language server or specify a valid path in config.yaml"
+                + f"Attempted path: {safe_path}\n"  # Only basename
+                + "Causes:\n"
+                + "  - File does not exist at specified path\n"
+                + "  - File exists but is not executable (chmod +x required)\n"
+                + "  - Environment variable not set\n\n"
+                + "Hint: Install the language server or specify a valid path in config.yaml"
             )
         else:
             # Handle empty command case
             if not command or not command.strip():
                 super().__init__(
                     "LSP server command is empty.\n\n"
-                    "Hint: Specify a valid server command in config.yaml"
+                    + "Hint: Specify a valid server command in config.yaml"
                 )
             else:
                 super().__init__(
                     f"LSP server executable not found: {command}\n\n"
-                    f"Hint: Install the language server or ensure it's in PATH, "
-                    f"or specify a valid absolute path in config.yaml"
+                    + "Hint: Install the language server or ensure it's in PATH, "
+                    + "or specify a valid absolute path in config.yaml"
                 )

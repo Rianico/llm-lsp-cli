@@ -1,16 +1,13 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
 """Raw formatter for zero-transformation passthrough of LSP responses.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -28,6 +25,8 @@ class RawFormatter:
     response structure is needed.
     """
 
+    _workspace: Path
+
     def __init__(self, workspace: str | Path) -> None:
         """Initialize the formatter with a workspace root.
 
@@ -41,7 +40,7 @@ class RawFormatter:
         """Return the workspace root path."""
         return self._workspace
 
-    def format(self, response: dict[str, Any], fmt: OutputFormat) -> str:
+    def format(self, response: dict[str, object], fmt: OutputFormat) -> str:
         """Format LSP response with zero transformation.
 
         Args:

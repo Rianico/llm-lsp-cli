@@ -367,9 +367,35 @@ class TestDocumentSymbolDepth:
                         "start": {"line": 0, "character": 0},
                         "end": {"line": 50, "character": 0},
                     },
+                    "selectionRange": {
+                        "start": {"line": 0, "character": 6},
+                        "end": {"line": 0, "character": 13},
+                    },
                     "children": [
-                        {"name": "method", "kind": SYMBOL_KIND_METHOD},
-                        {"name": "field", "kind": SYMBOL_KIND_FIELD},
+                        {
+                            "name": "method",
+                            "kind": SYMBOL_KIND_METHOD,
+                            "range": {
+                                "start": {"line": 5, "character": 4},
+                                "end": {"line": 10, "character": 0},
+                            },
+                            "selectionRange": {
+                                "start": {"line": 5, "character": 8},
+                                "end": {"line": 5, "character": 14},
+                            },
+                        },
+                        {
+                            "name": "field",
+                            "kind": SYMBOL_KIND_FIELD,
+                            "range": {
+                                "start": {"line": 6, "character": 8},
+                                "end": {"line": 6, "character": 20},
+                            },
+                            "selectionRange": {
+                                "start": {"line": 6, "character": 8},
+                                "end": {"line": 6, "character": 13},
+                            },
+                        },
                     ],
                 },
             ]
@@ -417,15 +443,49 @@ class TestDocumentSymbolDepth:
                         "start": {"line": 0, "character": 0},
                         "end": {"line": 50, "character": 0},
                     },
+                    "selectionRange": {
+                        "start": {"line": 0, "character": 6},
+                        "end": {"line": 0, "character": 13},
+                    },
                     "children": [
                         {
                             "name": "method",
                             "kind": SYMBOL_KIND_METHOD,
+                            "range": {
+                                "start": {"line": 5, "character": 4},
+                                "end": {"line": 10, "character": 0},
+                            },
+                            "selectionRange": {
+                                "start": {"line": 5, "character": 8},
+                                "end": {"line": 5, "character": 14},
+                            },
                             "children": [
-                                {"name": "local_var", "kind": SYMBOL_KIND_VARIABLE},
+                                {
+                                    "name": "local_var",
+                                    "kind": SYMBOL_KIND_VARIABLE,
+                                    "range": {
+                                        "start": {"line": 6, "character": 8},
+                                        "end": {"line": 6, "character": 20},
+                                    },
+                                    "selectionRange": {
+                                        "start": {"line": 6, "character": 8},
+                                        "end": {"line": 6, "character": 17},
+                                    },
+                                },
                             ],
                         },
-                        {"name": "field", "kind": SYMBOL_KIND_FIELD},
+                        {
+                            "name": "field",
+                            "kind": SYMBOL_KIND_FIELD,
+                            "range": {
+                                "start": {"line": 7, "character": 8},
+                                "end": {"line": 7, "character": 20},
+                            },
+                            "selectionRange": {
+                                "start": {"line": 7, "character": 8},
+                                "end": {"line": 7, "character": 13},
+                            },
+                        },
                     ],
                 },
             ]

@@ -11,6 +11,11 @@ Python 3.10+ CLI with Typer, Pydantic 2.5+, python-daemon. Uses uv for package m
 - **Models**: Use Pydantic for data validation and configuration
 - **Async**: Use async/await for I/O operations (daemon, LSP communication)
 - **Immutability**: Prefer returning new objects over mutation
+- **Type Safety**:
+  - `Any` is ONLY allowed in low-level infrastructure (e.g., `lsp/transport.py` for raw JSON-RPC)
+  - All values must have concrete, deterministic types outside the infrastructure layer
+  - Use `object` at type boundaries to force validation, then validate with Pydantic models
+  - See ADR-0024 for the type boundary pattern
 
 ## Testing
 
@@ -83,6 +88,7 @@ Key ADRs in `docs/adr/`:
 - **ADR-0016**: Server-specific LSP client capabilities
 - **ADR-0019**: LSP rename feature with layered service architecture
 - **ADR-0021**: Layered configuration system (Project > Global > Defaults)
+- **ADR-0024**: Type boundary pattern (transport.py as designated Any layer)
 
 ## Adding New LSP Server Support
 

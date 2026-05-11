@@ -1,24 +1,21 @@
-# pyright: reportCallInDefaultInitializer=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
 """LSP commands for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]) for CLI output.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]) for CLI output.
+LSP responses are inherently dynamic, so object is used for dict value types.
+At the CLI boundary, dicts are re-validated to Pydantic models before
+passing to the formatter (ADR-0027).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import typer
 
 from llm_lsp_cli.commands.shared import (
-    GlobalOptions,
     build_request_context,
+    get_global_options,
     require_language_or_detect,
     resolve_effective_options,
     resolve_workspace_path,
@@ -27,9 +24,22 @@ from llm_lsp_cli.commands.shared import (
 )
 from llm_lsp_cli.exceptions import CLIError
 from llm_lsp_cli.lsp.constants import LSPConstants
+from llm_lsp_cli.ipc import (
+    DaemonFileParams,
+    DaemonPositionParams,
+    DaemonRenameParams,
+    DaemonSymbolQueryParams,
+    DaemonWorkspaceParams,
+)
+from llm_lsp_cli.lsp.types import (
+    Diagnostic,
+    Location,
+    SymbolInformation,
+)
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
 from llm_lsp_cli.output.formatter import (
     CompactFormatter,
+    DiagnosticRecord,
     group_diagnostics_by_file,
     group_locations_by_file,
     group_symbols_by_file,
@@ -85,22 +95,28 @@ def definition(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        locations = send_request(
             LSPConstants.DEFINITION,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        locations = response.get("locations", [])
-        filtered = filter_test_locations(locations, include_tests=include_tests)
+        # Filter test files if needed - convert to dicts for filter function
+        if not include_tests and locations:
+            locations_raw = [loc.model_dump() for loc in locations]
+            filtered_raw = filter_test_locations(
+                locations_raw, include_tests=False, language=context.language
+            )
+            # Re-validate filtered dicts back to Location models
+            locations = [Location.model_validate(loc) for loc in filtered_raw]
 
         formatter = CompactFormatter(context.workspace_path)
-        records = formatter.transform_locations(filtered)
+        records = formatter.transform_locations(locations)
         dispatcher = OutputDispatcher()
 
         # Build header for all formats
@@ -164,26 +180,38 @@ def references(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        locations = send_request(
             LSPConstants.REFERENCES,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        locations = response.get("locations", [])
-        filtered = filter_test_locations(locations, include_tests=include_tests)
-
         if raw:
+            # Reconstruct daemon response format for raw output
+            response = cast(
+                dict[str, object],
+                {"locations": [loc.model_dump() for loc in locations]}
+                if locations
+                else {"locations": []},
+            )
             raw_formatter = RawFormatter(context.workspace_path)
             typer.echo(raw_formatter.format(response, context.output_format))
         else:
+            # Filter test files if needed - convert to dicts for filter function
+            if not include_tests and locations:
+                locations_raw = [loc.model_dump() for loc in locations]
+                filtered_raw = filter_test_locations(
+                    locations_raw, include_tests=False, language=context.language
+                )
+                locations = [Location.model_validate(loc) for loc in filtered_raw]
+
             formatter = CompactFormatter(context.workspace_path)
-            records = formatter.transform_locations(filtered)
+            records = formatter.transform_locations(locations)
             dispatcher = OutputDispatcher()
 
             # Use grouped output for references
@@ -191,12 +219,12 @@ def references(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
 
             if context.output_format == OutputFormat.TEXT:
-                header = build_alert_header(
-                    CommandInfo(server_name, "references", file_path)
-                )
+                header = build_alert_header(CommandInfo(server_name, "references", file_path))
                 typer.echo(
                     dispatcher.format_grouped_text(grouped, items_key="references", header=header)
                 )
@@ -208,7 +236,7 @@ def references(
                     dispatcher.format_grouped(
                         grouped,
                         context.output_format,
-                        items_key="references",
+                        _items_key="references",
                         _source=server_name,
                         command="references",
                     )
@@ -242,31 +270,38 @@ def document_symbol(
     context = build_request_context(ctx, workspace, language, output_format, file)
 
     try:
-        response = send_request(
+        symbols = send_request(
             LSPConstants.DOCUMENT_SYMBOL,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-            },
+            DaemonFileParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+            ),
             language=context.language,
         )
 
-        symbols = response.get("symbols", [])
-
         if raw:
+            # Reconstruct daemon response format for raw output
+            response = cast(
+                dict[str, object],
+                {"symbols": [sym.model_dump() for sym in symbols]} if symbols else {"symbols": []},
+            )
             raw_formatter = RawFormatter(context.workspace_path)
             typer.echo(raw_formatter.format(response, context.output_format))
         elif context.output_format == OutputFormat.TEXT:
             from llm_lsp_cli.output.symbol_transformer import transform_symbols
             from llm_lsp_cli.output.text_renderer import render_text
 
+            # Convert to dicts for transform_symbols
+            symbols_raw = [sym.model_dump() for sym in symbols] if symbols else []
             nodes = transform_symbols(
-                symbols, depth_limit=depth, workspace=Path(context.workspace_path)
+                symbols_raw, depth_limit=depth, _workspace=Path(context.workspace_path)
             )
             file_header = f"{context.file_path}:" if context.file_path else None
             # Add header for TEXT format
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
             header = build_alert_header(CommandInfo(server_name, "document-symbol", file_path))
             typer.echo(f"{header}\n{render_text(nodes, file_header=file_header)}")
         else:
@@ -275,7 +310,9 @@ def document_symbol(
             dispatcher = OutputDispatcher()
             # Build source for JSON/YAML
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
             typer.echo(
                 dispatcher.format_list(
                     records,
@@ -316,7 +353,7 @@ def workspace_symbol(
     raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
 ) -> None:
     """Search workspace symbols."""
-    global_opts: GlobalOptions = ctx.obj
+    global_opts = get_global_options(ctx)
     effective_workspace, effective_language, effective_format = resolve_effective_options(
         global_opts, workspace, language, output_format
     )
@@ -325,21 +362,34 @@ def workspace_symbol(
         workspace_path, language_value = require_language_or_detect(
             effective_workspace, effective_language
         )
-        response = send_request(
+        symbols = send_request(
             LSPConstants.WORKSPACE_SYMBOL,
-            {"workspacePath": workspace_path, "query": query},
+            DaemonSymbolQueryParams(
+                workspace_path=workspace_path,
+                query=query,
+            ),
             language=language_value,
         )
 
-        symbols = response.get("symbols", [])
-        filtered = filter_test_symbols(symbols, include_tests=include_tests)
-
         if raw:
+            # Reconstruct daemon response format for raw output
+            response = cast(
+                dict[str, object],
+                {"symbols": [sym.model_dump() for sym in symbols]} if symbols else {"symbols": []},
+            )
             raw_formatter = RawFormatter(workspace_path)
             typer.echo(raw_formatter.format(response, effective_format))
         else:
+            # Filter test files if needed - convert to dicts for filter function
+            if not include_tests and symbols:
+                symbols_raw = [sym.model_dump() for sym in symbols]
+                filtered_raw = filter_test_symbols(
+                    symbols_raw, include_tests=False, language=language_value
+                )
+                symbols = [SymbolInformation.model_validate(sym) for sym in filtered_raw]
+
             formatter = CompactFormatter(workspace_path)
-            records = formatter.transform_symbols(filtered, depth=depth)
+            records = formatter.transform_symbols(symbols, depth=depth)
             dispatcher = OutputDispatcher()
 
             # Use grouped output for workspace-symbol
@@ -348,9 +398,7 @@ def workspace_symbol(
             if effective_format == OutputFormat.TEXT:
                 # Build header for TEXT format
                 server_name = get_server_display_name(None, "", language=language_value)
-                header = build_alert_header(
-                    CommandInfo(server_name, "workspace-symbol", None)
-                )
+                header = build_alert_header(CommandInfo(server_name, "workspace-symbol", None))
                 typer.echo(
                     dispatcher.format_grouped_text(grouped, items_key="symbols", header=header)
                 )
@@ -365,7 +413,7 @@ def workspace_symbol(
                     dispatcher.format_grouped(
                         grouped,
                         effective_format,
-                        items_key="symbols",
+                        _items_key="symbols",
                         _source=server_name,
                         command="workspace-symbol",
                     )
@@ -410,20 +458,23 @@ def incoming_calls(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        calls = send_request(
             LSPConstants.CALL_HIERARCHY_INCOMING_CALLS,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        calls = response.get("calls", [])
-
         if raw:
+            # Reconstruct daemon response format for raw output
+            response = cast(
+                dict[str, object],
+                {"calls": [call.model_dump() for call in calls]} if calls else {"calls": []},
+            )
             raw_formatter = RawFormatter(context.workspace_path)
             typer.echo(raw_formatter.format(response, context.output_format))
         else:
@@ -433,12 +484,12 @@ def incoming_calls(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
 
             if context.output_format == OutputFormat.TEXT:
-                header = build_alert_header(
-                    CommandInfo(server_name, "incoming-calls", file_path)
-                )
+                header = build_alert_header(CommandInfo(server_name, "incoming-calls", file_path))
                 output = dispatcher.format_list(records, context.output_format)
                 if output:
                     typer.echo(f"{header}\n{output}")
@@ -494,20 +545,23 @@ def outgoing_calls(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        calls = send_request(
             LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        calls = response.get("calls", [])
-
         if raw:
+            # Reconstruct daemon response format for raw output
+            response = cast(
+                dict[str, object],
+                {"calls": [call.model_dump() for call in calls]} if calls else {"calls": []},
+            )
             raw_formatter = RawFormatter(context.workspace_path)
             typer.echo(raw_formatter.format(response, context.output_format))
         else:
@@ -517,12 +571,12 @@ def outgoing_calls(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
 
             if context.output_format == OutputFormat.TEXT:
-                header = build_alert_header(
-                    CommandInfo(server_name, "outgoing-calls", file_path)
-                )
+                header = build_alert_header(CommandInfo(server_name, "outgoing-calls", file_path))
                 output = dispatcher.format_list(records, context.output_format)
                 if output:
                     typer.echo(f"{header}\n{output}")
@@ -570,18 +624,21 @@ def completion(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        items = send_request(
             LSPConstants.COMPLETION,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        items = response.get("items", [])
+        # items can be None or list[CompletionItem]
+        if items is None:
+            items = []
+
         formatter = CompactFormatter(context.workspace_path)
         records = formatter.transform_completions(items, file_path=str(context.file_path))
         dispatcher = OutputDispatcher()
@@ -639,18 +696,17 @@ def hover(
     column_index = context.column - 1 if context.column else 0
 
     try:
-        response = send_request(
+        hover_data = send_request(
             LSPConstants.HOVER,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": line_index,
-                "column": column_index,
-            },
+            DaemonPositionParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=line_index,
+                column=column_index,
+            ),
             language=context.language,
         )
 
-        hover_data = response.get("hover")
         formatter = CompactFormatter(context.workspace_path)
         record = formatter.transform_hover(hover_data, file_path=str(context.file_path))
         if record:
@@ -658,7 +714,9 @@ def hover(
 
             # Build source header
             server_name = get_server_display_name(None, "", language=context.language)
-            file_path = resolve_path_for_header_absolute(str(context.file_path), context.workspace_path)
+            file_path = resolve_path_for_header_absolute(
+                str(context.file_path), context.workspace_path
+            )
 
             if context.output_format == OutputFormat.TEXT:
                 header = build_alert_header(CommandInfo(server_name, "hover", file_path))
@@ -700,7 +758,7 @@ def diagnostics(
     ),
 ) -> None:
     """Get diagnostics for a single file."""
-    global_opts: GlobalOptions = ctx.obj
+    global_opts = get_global_options(ctx)
     effective_workspace, effective_language, effective_format = resolve_effective_options(
         global_opts, workspace, language, output_format
     )
@@ -714,22 +772,38 @@ def diagnostics(
     try:
         response = send_request(
             LSPConstants.DIAGNOSTIC,
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-            },
+            DaemonFileParams(
+                workspace_path=workspace_path,
+                file_path=str(file_path),
+            ),
             language=effective_language or "python",
         )
 
-        diagnostics_list = response.get("diagnostics", [])
+        # Diagnostics returns dict[str, object] per ADR-0028
+        diagnostics_raw = response.get("diagnostics", [])
+        if not isinstance(diagnostics_raw, list):
+            diagnostics_raw = []
+
+        # Cast to list[object] after isinstance check
+        diagnostics_list_raw = cast(list[object], diagnostics_raw)
+
+        # Validate dicts to Pydantic models
+        diagnostics_list: list[Diagnostic] = []
+        for diag in diagnostics_list_raw:
+            if isinstance(diag, dict):
+                try:
+                    diagnostics_list.append(Diagnostic.model_validate(diag))
+                except Exception:
+                    pass  # Skip invalid diagnostics
+
         formatter = CompactFormatter(workspace_path)
         records = formatter.transform_diagnostics(diagnostics_list, file_path=str(file_path))
         dispatcher = OutputDispatcher()
 
         # Build header for all formats
         server_name = get_server_display_name(None, "", language=effective_language)
-        file_path = resolve_path_for_header_absolute(str(file_path), workspace_path)
-        header = build_alert_header(CommandInfo(server_name, "diagnostics", file_path))
+        header_file_path = resolve_path_for_header_absolute(str(file_path), workspace_path)
+        header = build_alert_header(CommandInfo(server_name, "diagnostics", header_file_path))
 
         if effective_format == OutputFormat.TEXT:
             output = dispatcher.format_list(records, effective_format)
@@ -743,7 +817,7 @@ def diagnostics(
                     records,
                     effective_format,
                     _source=server_name,
-                    file_path=file_path,
+                    file_path=header_file_path,
                     command="diagnostics",
                 )
             )
@@ -775,7 +849,7 @@ def workspace_diagnostics(
     ),
 ) -> None:
     """Get diagnostics for entire workspace."""
-    global_opts: GlobalOptions = ctx.obj
+    global_opts = get_global_options(ctx)
     effective_workspace, effective_language, effective_format = resolve_effective_options(
         global_opts, workspace, language, output_format
     )
@@ -786,23 +860,46 @@ def workspace_diagnostics(
         )
         response = send_request(
             LSPConstants.WORKSPACE_DIAGNOSTIC,
-            {"workspacePath": workspace_path},
+            DaemonWorkspaceParams(workspace_path=workspace_path),
             language=language_value,
         )
 
-        diagnostics_items = response.get("diagnostics", [])
+        # workspace-diagnostics returns dict[str, object] per ADR-0028
+        diagnostics_items_raw = response.get("diagnostics", [])
+        if not isinstance(diagnostics_items_raw, list):
+            diagnostics_items_raw = []
+
+        # Cast to proper type after isinstance check
+        diagnostics_items: list[dict[str, object]] = [
+            cast(dict[str, object], item)
+            for item in cast(list[object], diagnostics_items_raw)
+            if isinstance(item, dict)
+        ]
 
         if not include_tests:
+            # Filter function expects list[dict[str, object]]
             diagnostics_items = filter_test_diagnostic_items(
                 diagnostics_items, include_tests=False, language=language_value
             )
 
-        all_records = []
+        all_records: list[DiagnosticRecord] = []
         formatter = CompactFormatter(workspace_path)
 
         for item in diagnostics_items:
-            uri = item.get("uri", "")
-            file_diagnostics = item.get("diagnostics", [])
+            uri_val = item.get("uri", "")
+            uri = uri_val if isinstance(uri_val, str) else ""
+            file_diagnostics_raw = item.get("diagnostics", [])
+            if not isinstance(file_diagnostics_raw, list):
+                file_diagnostics_raw = []
+
+            # Validate dicts to Pydantic models
+            file_diagnostics: list[Diagnostic] = []
+            for diag in cast(list[object], file_diagnostics_raw):
+                if isinstance(diag, dict):
+                    try:
+                        file_diagnostics.append(Diagnostic.model_validate(diag))
+                    except Exception:
+                        pass  # Skip invalid diagnostics
 
             # Use normalize_uri_to_absolute for proper absolute paths
             file_path = normalize_uri_to_absolute(uri, Path(workspace_path))
@@ -817,9 +914,7 @@ def workspace_diagnostics(
         if effective_format == OutputFormat.TEXT:
             # Build header for TEXT format
             server_name = get_server_display_name(None, "", language=language_value)
-            header = build_alert_header(
-                CommandInfo(server_name, "workspace-diagnostics", None)
-            )
+            header = build_alert_header(CommandInfo(server_name, "workspace-diagnostics", None))
             typer.echo(
                 dispatcher.format_grouped_text(grouped, items_key="diagnostics", header=header)
             )
@@ -834,7 +929,7 @@ def workspace_diagnostics(
                 dispatcher.format_grouped(
                     grouped,
                     effective_format,
-                    items_key="diagnostics",
+                    _items_key="diagnostics",
                     _source=server_name,
                     command="workspace-diagnostics",
                 )
@@ -848,10 +943,10 @@ def workspace_diagnostics(
 @app.command()
 def rename(
     ctx: typer.Context,
-    file: str = typer.Argument(None, help="File path"),
-    line: int = typer.Argument(None, help="Line number (1-based)"),
-    column: int = typer.Argument(None, help="Column number (1-based)"),
-    new_name: str = typer.Argument(None, help="New symbol name"),
+    file: str | None = typer.Argument(None, help="File path"),
+    line: int | None = typer.Argument(None, help="Line number (1-based)"),
+    column: int | None = typer.Argument(None, help="Column number (1-based)"),
+    new_name: str | None = typer.Argument(None, help="New symbol name"),
     workspace: str | None = typer.Option(
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
@@ -865,7 +960,7 @@ def rename(
         help="Output format (overrides global)",
     ),
     apply: bool = typer.Option(False, "--apply", help="Apply changes to files"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Explicit dry-run"),
+    _dry_run: bool = typer.Option(False, "--dry-run", help="Explicit dry-run"),
     rollback: str | None = typer.Option(None, "--rollback", help="Session ID to rollback"),
 ) -> None:
     """Rename symbol at position across workspace."""
@@ -873,25 +968,11 @@ def rename(
     from llm_lsp_cli.domain.services.rename_service import RenameService
     from llm_lsp_cli.output.formatter import Position
 
-    if not rollback:
-        if file is None:
-            typer.echo("Error: Missing argument 'FILE'.", err=True)
-            raise typer.Exit(1)
-        if line is None:
-            typer.echo("Error: Missing argument 'LINE'.", err=True)
-            raise typer.Exit(1)
-        if column is None:
-            typer.echo("Error: Missing argument 'COLUMN'.", err=True)
-            raise typer.Exit(1)
-        if new_name is None:
-            typer.echo("Error: Missing argument 'NEW_NAME'.", err=True)
-            raise typer.Exit(1)
-
-    context = build_request_context(ctx, workspace, language, output_format, file, line, column)
-
+    # Handle rollback first (doesn't require file/line/column/new_name)
     if rollback:
+        workspace_path = resolve_workspace_path(workspace)
         try:
-            backup_manager = BackupManager(Path(context.workspace_path))
+            backup_manager = BackupManager(Path(workspace_path))
             backup_manager.restore_by_id(rollback)
             typer.echo(f"Rollback completed for session: {rollback}")
             return
@@ -899,20 +980,35 @@ def rename(
             typer.echo(f"Error during rollback: {e}", err=True)
             raise typer.Exit(1) from e
 
+    # Validate required arguments for rename operation
+    if file is None:
+        typer.echo("Error: Missing argument 'FILE'.", err=True)
+        raise typer.Exit(1)
+    if line is None:
+        typer.echo("Error: Missing argument 'LINE'.", err=True)
+        raise typer.Exit(1)
+    if column is None:
+        typer.echo("Error: Missing argument 'COLUMN'.", err=True)
+        raise typer.Exit(1)
+    if new_name is None:
+        typer.echo("Error: Missing argument 'NEW_NAME'.", err=True)
+        raise typer.Exit(1)
+
+    context = build_request_context(ctx, workspace, language, output_format, file, line, column)
+
     try:
-        response = send_request(
+        workspace_edit = send_request(
             LSPConstants.RENAME,
-            {
-                "workspacePath": context.workspace_path,
-                "filePath": str(context.file_path),
-                "line": context.line - 1 if context.line else 0,
-                "column": context.column - 1 if context.column else 0,
-                "newName": new_name,
-            },
+            DaemonRenameParams(
+                workspace_path=context.workspace_path,
+                file_path=str(context.file_path),
+                line=context.line - 1 if context.line else 0,
+                column=context.column - 1 if context.column else 0,
+                new_name=new_name,
+            ),
             language=context.language,
         )
 
-        workspace_edit = response.get("workspace_edit")
         backup_manager = BackupManager(Path(context.workspace_path))
         rename_service = RenameService(backup_manager)
         position = Position(
@@ -984,21 +1080,18 @@ def did_change(
     file_path = validate_file_in_workspace(file, workspace)
 
     try:
-        # Use send_request to get acknowledgment (not fire-and-forget notification)
+        # Use send_request to notify daemon of file change
         # Per ADR-0010: "Return acknowledgment (not diagnostics)"
-        response = send_request(
+        # send_request returns None for didChange - success is implied by no exception
+        _ = send_request(
             LSPConstants.TEXT_DOCUMENT_DID_CHANGE,
-            {
-                "workspacePath": workspace_path,
-                "filePath": str(file_path),
-            },
+            DaemonFileParams(
+                workspace_path=workspace_path,
+                file_path=str(file_path),
+            ),
             language=language or "python",
         )
-        # Response should be {"status": "acknowledged"}
-        if response and response.get("status") == "acknowledged":
-            typer.echo("Change acknowledged.")
-        else:
-            typer.echo(f"Warning: Unexpected response: {response}")
+        typer.echo("Change acknowledged.")
     except CLIError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e

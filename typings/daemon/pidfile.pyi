@@ -4,7 +4,7 @@ Type stub file for daemon.pidfile module.
 This module provides PIDLockFile and TimeoutPIDLockFile for daemon process locking.
 """
 
-from typing import TracebackType
+from typing import TracebackType, override
 
 
 class PIDLockFile:
@@ -94,6 +94,7 @@ class TimeoutPIDLockFile(PIDLockFile):
         """
         ...
 
+    @override
     def acquire(self, timeout: float | None = None) -> None:
         """Acquire the lock with optional timeout override.
 

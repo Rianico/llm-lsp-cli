@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Workspace name sanitization service."""
 
 from __future__ import annotations
@@ -17,8 +16,8 @@ class WorkspaceNameSanitizer:
     Design: Pure functions with no side effects (immutability).
     """
 
-    DEFAULT_MAX_LENGTH = 255
-    _MULTI_UNDERSCORE_PATTERN = re.compile(r"_+")
+    DEFAULT_MAX_LENGTH: int = 255
+    _MULTI_UNDERSCORE_PATTERN: re.Pattern[str] = re.compile(r"_+")
 
     def __init__(self, max_length: int = DEFAULT_MAX_LENGTH) -> None:
         """Initialize the sanitizer with a maximum length constraint.
@@ -26,7 +25,7 @@ class WorkspaceNameSanitizer:
         Args:
             max_length: Maximum allowed length for sanitized names.
         """
-        self._max_length = max_length
+        self._max_length: int = max_length
 
     def sanitize(self, name: str) -> str:
         """Sanitize a workspace name for safe use in file paths.

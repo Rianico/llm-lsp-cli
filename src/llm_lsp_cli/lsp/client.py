@@ -1,16 +1,10 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportAny=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
-# pyright: reportArgumentType=false
-# pyright: reportAssignmentType=false
-# pyright: reportMissingTypeStubs=false
 """LSP client implementation.
 
 This module handles LSP response data via TypedLSPTransport.
 All LSP responses are validated through the typed transport layer.
 """
+
+from __future__ import annotations
 
 import asyncio
 import contextlib
@@ -40,6 +34,24 @@ _DOCUMENT_READY_WAIT = 2.0
 class LSPClient:
     """LSP client for a single workspace."""
 
+    workspace_path: Path
+    server_command: str
+    server_args: list[str]
+    language_id: str
+    trace: bool
+    timeout: float
+    lsp_conf: str | None
+    _transport: TypedLSPTransport | None
+    _initialized: bool
+    _open_files: dict[str, tuple[str, int, asyncio.Event]]
+    _capabilities: dict[str, object] | None
+    _workspace_indexed: asyncio.Event
+    _diagnostic_cache: DiagnosticCache
+    _workspace_diagnostic_token: str | None
+    _work_done_token: str | None
+    _progress_handler: ProgressHandler
+    _server_info: dict[str, object]
+
     def __init__(
         self,
         workspace_path: str,
@@ -58,21 +70,21 @@ class LSPClient:
         self.timeout = timeout
         self.lsp_conf = lsp_conf
 
-        self._transport: TypedLSPTransport | None = None
+        self._transport = None
         self._initialized = False
         # uri -> (content, version, ready_event)
-        self._open_files: dict[str, tuple[str, int, asyncio.Event]] = {}
-        self._capabilities: dict[str, object] | None = None
+        self._open_files = {}
+        self._capabilities = None
         self._workspace_indexed = asyncio.Event()
         # Unified diagnostic cache with relative path keys and version tracking
         self._diagnostic_cache = DiagnosticCache(self.workspace_path)
         # GUID tokens for workspace diagnostics (generated once per session)
-        self._workspace_diagnostic_token: str | None = None
-        self._work_done_token: str | None = None
+        self._workspace_diagnostic_token = None
+        self._work_done_token = None
         # Progress handler for work done progress
         self._progress_handler = ProgressHandler()
         # Server info from initialize response
-        self._server_info: dict[str, object] = {}
+        self._server_info = {}
 
     async def initialize(self) -> lsp.InitializeResult:
         """Initialize the LSP connection."""
@@ -147,7 +159,7 @@ class LSPClient:
 
         # Start background task to mark workspace as indexed after a delay
         # Pyright needs time to scan and index the workspace before workspace/symbol works
-        asyncio.create_task(self._wait_for_workspace_index())
+        _ = asyncio.create_task(self._wait_for_workspace_index())
 
         self._initialized = True
         logger.info("LSP server initialized")
@@ -254,11 +266,18 @@ class LSPClient:
         if not isinstance(value, dict):
             return
 
-        kind = value.get("kind", "")
-        items = value.get("items", [])
+        # Cast to typed dict after isinstance check
+        value_dict = cast(dict[str, object], value)
+
+        # Use type helpers for safe extraction from untyped dict
+        from llm_lsp_cli.utils.type_helpers import get_str, get_list
+
+        kind = get_str(value_dict, "kind", "")
+        raw_items = get_list(value_dict, "items")
 
         if kind == "begin":
-            logger.debug(f"Workspace diagnostic collection started: {value.get('title', '')}")
+            title = get_str(value_dict, "title", "")
+            logger.debug(f"Workspace diagnostic collection started: {title}")
             return
 
         if kind == "end":
@@ -266,20 +285,26 @@ class LSPClient:
             return
 
         # Process items if present (report notification or items without kind)
-        if items:
+        if raw_items:
             with contextlib.suppress(RuntimeError):
                 # No running event loop - skip async processing
                 # This can happen in unit tests without event loop
-                asyncio.create_task(self._process_workspace_diagnostic_items(items))
+                typed_items: list[dict[str, object]] = []
+                for item in raw_items:
+                    if isinstance(item, dict):
+                        typed_items.append(cast(dict[str, object], item))
+                _ = asyncio.create_task(self._process_workspace_diagnostic_items(typed_items))
 
     async def _process_workspace_diagnostic_items(self, items: list[dict[str, object]]) -> None:
         """Process workspace diagnostic items and update cache."""
+        from llm_lsp_cli.utils.type_helpers import get_list_of_dicts
+
         for item in items:
             uri = str(item.get("uri", ""))
-            diagnostics = item.get("diagnostics", [])
+            diagnostics = get_list_of_dicts(item, "diagnostics")
             if uri:
                 # Update cache with diagnostics (including empty list for files with no issues)
-                await self._diagnostic_cache.update_diagnostics(uri, diagnostics)  # type: ignore[arg-type]
+                await self._diagnostic_cache.update_diagnostics(uri, diagnostics)
 
     async def shutdown(self) -> None:
         """Shutdown the LSP connection."""
@@ -299,7 +324,7 @@ class LSPClient:
         # Shutdown sequence
         with contextlib.suppress(Exception):
             assert self._transport is not None
-            await self._transport.send_request(
+            _ = await self._transport.send_request(
                 LSPConstants.SHUTDOWN,
                 timeout=self.timeout,
             )
@@ -323,10 +348,11 @@ class LSPClient:
         """Request definition at position."""
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        }
+        params_model = lsp.DefinitionParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         result = await self._transport.send_request(
@@ -346,11 +372,12 @@ class LSPClient:
         """Request references at position."""
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-            "context": {"includeDeclaration": True},
-        }
+        params_model = lsp.ReferenceParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+            context=lsp.ReferenceContext(includeDeclaration=True),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         result = await self._transport.send_request(
@@ -370,11 +397,14 @@ class LSPClient:
         """Request completions at position."""
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-            "context": {"triggerKind": LSPConstants.COMPLETION_TRIGGER_INVOKED},
-        }
+        params_model = lsp.CompletionParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+            context=lsp.CompletionContext(
+                triggerKind=LSPConstants.COMPLETION_TRIGGER_INVOKED,
+            ),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         result = await self._transport.send_request(
@@ -394,10 +424,11 @@ class LSPClient:
         """Request hover at position."""
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        }
+        params_model = lsp.HoverParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         result = await self._transport.send_request(
@@ -424,7 +455,10 @@ class LSPClient:
         if uri is None:
             uri = await self._ensure_open(file_path)
 
-        params = {"textDocument": {"uri": uri}}
+        params_model = lsp.DocumentSymbolParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         result = await self._transport.send_request(
@@ -438,10 +472,13 @@ class LSPClient:
 
         # Handle case where result is a dict with 'items' key (some clients return this)
         if isinstance(result, dict) and "items" in result:
-            items = result.get("items", [])
-            if items is None:
+            result_dict = cast(dict[str, object], result)
+            items_val = result_dict.get("items", [])
+            if items_val is None:
                 return []
-            result = items
+            if not isinstance(items_val, list):
+                return []
+            result = cast(list[object], items_val)
 
         if not isinstance(result, list):
             return []
@@ -449,7 +486,7 @@ class LSPClient:
         # Response can be list[DocumentSymbol] or list[SymbolInformation]
         # DocumentSymbol has range/selectionRange, SymbolInformation has location
         symbols: list[lsp.DocumentSymbol] = []
-        for item in result:
+        for item in cast(list[object], result):
             if not isinstance(item, dict):
                 continue
             try:
@@ -481,7 +518,7 @@ class LSPClient:
         # Wait for workspace to be indexed before requesting symbols
         # This gives pyright time to scan and index all files in the workspace
         try:
-            await asyncio.wait_for(
+            _ = await asyncio.wait_for(
                 self._workspace_indexed.wait(),
                 timeout=_WORKSPACE_INDEX_TIMEOUT,
             )
@@ -581,20 +618,34 @@ class LSPClient:
             return ([], None)
 
         if isinstance(result, dict):
-            if result.get("kind") == "unchanged":
-                uri = result.get("uri", "")
-                result_id = result.get("resultId")  # Preserve server's resultId
+            result_dict = cast(dict[str, object], result)
+            if result_dict.get("kind") == "unchanged":
+                uri_val = result_dict.get("uri", "")
+                uri = uri_val if isinstance(uri_val, str) else ""
+                result_id_val = result_dict.get("resultId")  # Preserve server's resultId
+                result_id = result_id_val if isinstance(result_id_val, str) else None
                 file_state = self._diagnostic_cache.get_file_state_sync(uri)
                 self._log_cache_hit_server(uri, file_state, result_id)
                 return (self._diagnostic_cache.get_cached(uri), result_id)
-            items = result.get("items", [])
-            result_id = result.get("resultId")
+            items_val = result_dict.get("items", [])
+            items = cast(list[object], items_val) if isinstance(items_val, list) else []
+            result_id_val = result_dict.get("resultId")
+            result_id = result_id_val if isinstance(result_id_val, str) else None
             logger.debug(f"[← res textDocument/diagnostic] fresh: {len(items)} diagnostics")
-            return (list(items), result_id)
+            typed_items: list[dict[str, object]] = []
+            for item in items:
+                if isinstance(item, dict):
+                    typed_items.append(cast(dict[str, object], item))
+            return (typed_items, result_id)
 
         if isinstance(result, list):
-            logger.debug(f"[← res textDocument/diagnostic] fresh: {len(result)} diagnostics")
-            return (list(result), None)
+            result_list = cast(list[object], result)
+            logger.debug(f"[← res textDocument/diagnostic] fresh: {len(result_list)} diagnostics")
+            typed_list: list[dict[str, object]] = []
+            for item in result_list:
+                if isinstance(item, dict):
+                    typed_list.append(cast(dict[str, object], item))
+            return (typed_list, None)
 
         return ([], None)
 
@@ -616,10 +667,10 @@ class LSPClient:
         diag_count = len(file_state.diagnostics)
 
         logger.info(
-            f"[cache HIT] {rel_path} | "
-            f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}... "
-            f"| mtime={current_mtime:.2f} | v={file_state.document_version} | "
-            f"open={file_state.is_open} | diags={diag_count}"
+            (f"[cache HIT] {rel_path} | "
+             f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}... "
+             f"| mtime={current_mtime:.2f} | v={file_state.document_version} | "
+             f"open={file_state.is_open} | diags={diag_count}")
         )
 
     def _log_cache_hit_server(
@@ -639,9 +690,9 @@ class LSPClient:
         diag_count = len(file_state.diagnostics)
 
         logger.info(
-            f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
-            f"resultId={result_id[:8] if result_id else 'None'}... | "
-            f"diags={diag_count}"
+            (f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
+             f"resultId={result_id[:8] if result_id else 'None'}... | "
+             f"diags={diag_count}")
         )
 
     def _uri_to_absolute_path(self, uri: str) -> str:
@@ -658,7 +709,7 @@ class LSPClient:
         from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
         # Handle case where workspace_path is not set (mock clients in tests)
-        if not hasattr(self, "workspace_path") or self.workspace_path is None:
+        if not hasattr(self, "workspace_path"):
             from urllib.parse import urlparse
 
             parsed = urlparse(uri)
@@ -681,7 +732,7 @@ class LSPClient:
         """
         # Wait for workspace to be indexed
         try:
-            await asyncio.wait_for(
+            _ = await asyncio.wait_for(
                 self._workspace_indexed.wait(),
                 timeout=_WORKSPACE_DIAGNOSTIC_TIMEOUT,
             )
@@ -696,7 +747,9 @@ class LSPClient:
 
         Returns configuration values for requested sections.
         """
-        items: list[dict[str, object]] = params.get("items", [])  # type: ignore[assignment]
+        from llm_lsp_cli.utils.type_helpers import get_list_of_dicts
+
+        items = get_list_of_dicts(params, "items")
         results: list[dict[str, object]] = []
 
         for item in items:
@@ -836,13 +889,57 @@ class LSPClient:
         )
         return uri
 
+    # =========================================================================
+    # Public Cache Accessors
+    # =========================================================================
+
+    async def get_diagnostic_cache_state(self, uri: str) -> FileState:
+        """Get the cache state for a file URI.
+
+        This is a public accessor for the diagnostic cache state.
+        Use this instead of accessing _diagnostic_cache directly.
+
+        Args:
+            uri: File URI to get state for
+
+        Returns:
+            FileState object containing cache metadata
+        """
+        return await self._diagnostic_cache.get_file_state(uri)
+
+    async def mark_diagnostic_cache_open(self, uri: str) -> None:
+        """Mark a file as open in the diagnostic cache.
+
+        This is a public accessor for the cache's on_did_open method.
+        Use this instead of accessing _diagnostic_cache directly.
+
+        Args:
+            uri: File URI to mark as open
+        """
+        await self._diagnostic_cache.on_did_open(uri)
+
+    async def is_diagnostic_cache_stale(self, uri: str, mtime: float) -> bool:
+        """Check if the cache is stale for a file.
+
+        This is a public accessor for the cache's is_stale method.
+        Use this instead of accessing _diagnostic_cache directly.
+
+        Args:
+            uri: File URI to check
+            mtime: Current file modification time
+
+        Returns:
+            True if cache is stale, False otherwise
+        """
+        return await self._diagnostic_cache.is_stale(uri, mtime)
+
     def _normalize_locations(self, result: object) -> list[lsp.Location]:
         """Normalize definition/references response to Location[]."""
         if result is None:
             return []
         if isinstance(result, list):
             locations: list[lsp.Location] = []
-            for item in result:
+            for item in cast(list[object], result):
                 # Handle LocationLink (has targetUri) vs Location (has uri)
                 if isinstance(item, dict) and "targetUri" in item:
                     link = lsp.LocationLink.model_validate(item)
@@ -864,9 +961,11 @@ class LSPClient:
         if result is None:
             return []
         if isinstance(result, list):
-            return [lsp.CompletionItem.model_validate(item) for item in result]
+            return [lsp.CompletionItem.model_validate(item) for item in cast(list[object], result)]
         if isinstance(result, dict):
-            items = result.get("items", [])
+            result_dict = cast(dict[str, object], result)
+            items_val = result_dict.get("items", [])
+            items = cast(list[object], items_val) if isinstance(items_val, list) else []
             return [lsp.CompletionItem.model_validate(item) for item in items]
         return []
 
@@ -879,13 +978,14 @@ class LSPClient:
 
         Caches diagnostics for fallback and signals document readiness.
         """
+        from llm_lsp_cli.utils.type_helpers import get_list_of_dicts
+
         uri = str(params.get("uri", ""))
-        raw_diags = params.get("diagnostics", [])
-        diagnostics: list[dict[str, object]] = raw_diags if isinstance(raw_diags, list) else []
+        diagnostics = get_list_of_dicts(params, "diagnostics")
 
         # Cache diagnostics using unified DiagnosticCache
         # Create task but don't await - this is a notification handler
-        asyncio.create_task(self._diagnostic_cache.update_diagnostics(uri, diagnostics))
+        _ = asyncio.create_task(self._diagnostic_cache.update_diagnostics(uri, diagnostics))
 
         if uri in self._open_files:
             _, _, ready_event = self._open_files[uri]
@@ -895,6 +995,8 @@ class LSPClient:
 
     def _handle_progress(self, params: dict[str, object]) -> None:
         """Handle $/progress notification."""
+        from llm_lsp_cli.utils.type_helpers import get_str, get_dict
+
         token = params.get("token", "")
 
         # Check if this is workspace diagnostic progress (token-based routing)
@@ -907,9 +1009,9 @@ class LSPClient:
         self._progress_handler.handle_progress(params)
 
         # Also log progress updates for visibility
-        value = params.get("value", {})
-        if isinstance(value, dict):
-            message = value.get("message", "")
+        value = get_dict(params, "value")
+        if value:
+            message = get_str(value, "message", "")
             if message:
                 logger.debug(f"Progress [{token}]: {message}")
 
@@ -936,10 +1038,11 @@ class LSPClient:
         uri = await self._ensure_open(file_path)
 
         # Step 1: Prepare call hierarchy
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        }
+        params_model = lsp.CallHierarchyPrepareParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         prepare_result = await self._transport.send_request(
@@ -995,10 +1098,11 @@ class LSPClient:
         uri = await self._ensure_open(file_path)
 
         # Step 1: Prepare call hierarchy
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        }
+        params_model = lsp.CallHierarchyPrepareParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
         prepare_result = await self._transport.send_request(
@@ -1043,12 +1147,12 @@ class LSPClient:
         if result is None:
             return []
         if isinstance(result, list):
-            return result
+            return cast(list[dict[str, object]], result)
         if isinstance(result, dict) and "items" in result:
-            items = result.get("items")
+            items = cast(dict[str, object], result).get("items")
             if items is None:
                 return []
-            return items if isinstance(items, list) else []
+            return cast(list[dict[str, object]], items) if isinstance(items, list) else []
         return []
 
     def _normalize_call_hierarchy_calls(
@@ -1070,34 +1174,41 @@ class LSPClient:
         if result is None:
             return []
         if isinstance(result, list):
-            calls = result
+            calls = cast(list[object], result)
         elif isinstance(result, dict) and "calls" in result:
-            calls_result = result.get("calls")
+            calls_result = cast(dict[str, object], result).get("calls")
             if calls_result is None:
                 return []
-            calls = calls_result if isinstance(calls_result, list) else []
+            calls = cast(list[object], calls_result) if isinstance(calls_result, list) else []
         else:
             return []
 
         # Normalize 'from' -> 'from_' for incoming calls
         if is_incoming:
-            normalized_calls = []
+            normalized_calls: list[dict[str, object]] = []
             for call in calls:
-                normalized_call = dict(call)
-                if "from" in call:
-                    normalized_call["from_"] = call["from"]
-                    del normalized_call["from"]
-                normalized_calls.append(normalized_call)
+                if isinstance(call, dict):
+                    call_dict = cast(dict[str, object], call)
+                    normalized_call = dict(call_dict)
+                    if "from" in call_dict:
+                        normalized_call["from_"] = call_dict["from"]
+                        del normalized_call["from"]
+                    normalized_calls.append(normalized_call)
             return normalized_calls
 
-        return calls
+        # For outgoing calls, cast and return
+        typed_calls: list[dict[str, object]] = []
+        for call in calls:
+            if isinstance(call, dict):
+                typed_calls.append(cast(dict[str, object], call))
+        return typed_calls
 
     async def request_prepare_rename(
         self,
         file_path: str,
         line: int,
         column: int,
-    ) -> dict[str, object] | None:
+    ) -> lsp.PrepareRenameResult | lsp.Range | None:
         """Request prepareRename at position.
 
         Args:
@@ -1106,23 +1217,21 @@ class LSPClient:
             column: Column number (0-based)
 
         Returns:
-            Range or placeholder dict if rename is valid, None otherwise
+            PrepareRenameResult or Range if rename is valid, None otherwise
         """
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-        }
+        params_model = lsp.PrepareRenameParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
-        result = await self._transport.send_request(
-            LSPConstants.PREPARE_RENAME,
+        return await self._transport.send_prepare_rename(
             params,
             timeout=self.timeout,
         )
-
-        return cast(dict[str, object] | None, result)
 
     async def request_rename(
         self,
@@ -1130,7 +1239,7 @@ class LSPClient:
         line: int,
         column: int,
         new_name: str,
-    ) -> dict[str, object] | None:
+    ) -> lsp.WorkspaceEdit | None:
         """Request rename at position.
 
         Args:
@@ -1140,24 +1249,22 @@ class LSPClient:
             new_name: New name for the symbol
 
         Returns:
-            WorkspaceEdit dict with changes, or None if no changes
+            WorkspaceEdit with changes, or None if no changes
         """
         uri = await self._ensure_open(file_path)
 
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": column},
-            "newName": new_name,
-        }
+        params_model = lsp.RenameParams(
+            textDocument=lsp.TextDocumentIdentifier(uri=uri),
+            position=lsp.Position(line=line, character=column),
+            newName=new_name,
+        )
+        params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
-        result = await self._transport.send_request(
-            LSPConstants.RENAME,
+        return await self._transport.send_rename(
             params,
             timeout=self.timeout,
         )
-
-        return cast(dict[str, object] | None, result)
 
     def _is_method_not_found_error(self, error: object) -> bool:
         """Check if error is a MethodNotFound (-32601) error.
@@ -1174,13 +1281,24 @@ class LSPClient:
 
         # Check for error response dict
         if isinstance(error, dict):
-            error_info = error.get("error", {})
-            return bool(error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND)
+            error_dict = cast(dict[str, object], error)
+            error_info_val = error_dict.get("error", {})
+            if isinstance(error_info_val, dict):
+                error_info = cast(dict[str, object], error_info_val)
+                code = error_info.get("code")
+                return bool(code == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         # Check for exception with error response
-        if hasattr(error, "response"):
-            response = getattr(error, "response", {})
-            error_info = response.get("error", {})
-            return bool(error_info.get("code") == LSPConstants.ERROR_METHOD_NOT_FOUND)
+        # Cast to object for hasattr/getattr - error could be any exception type
+        error_obj = cast(object, error)
+        if hasattr(error_obj, "response"):
+            response: object = getattr(error_obj, "response", {})
+            if isinstance(response, dict):
+                response_dict = cast(dict[str, object], response)
+                error_info_val = response_dict.get("error", {})
+                if isinstance(error_info_val, dict):
+                    error_info = cast(dict[str, object], error_info_val)
+                    code = error_info.get("code")
+                    return bool(code == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         return False

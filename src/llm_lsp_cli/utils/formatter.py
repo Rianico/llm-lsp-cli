@@ -1,12 +1,7 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
 """Output formatters for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]) for output formatting.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data for output formatting.
+Uses object for unknown data fields; specific types for known structures.
 """
 
 from __future__ import annotations
@@ -15,9 +10,17 @@ import csv
 import io
 import json
 from enum import Enum
-from typing import Any
+from typing import cast
 
 import yaml
+
+from llm_lsp_cli.utils.type_helpers import (
+    get_dict,
+    get_int,
+    get_optional_dict,
+    get_optional_str,
+    get_str,
+)
 
 # LSP SymbolKind mapping (3.17 spec)
 # Maps numeric kind values to human-readable names
@@ -92,7 +95,7 @@ class OutputFormat(str, Enum):
     CSV = "csv"
 
 
-def format_output(data: Any, output_format: OutputFormat) -> str:
+def format_output(data: object, output_format: OutputFormat) -> str:
     """Format data according to the specified output format.
 
     Args:
@@ -129,7 +132,7 @@ def format_output(data: Any, output_format: OutputFormat) -> str:
 
 
 def _write_csv_rows(
-    rows: list[dict[str, Any]], fieldnames: list[str], lineterminator: str = "\n"
+    rows: list[dict[str, str]], fieldnames: list[str], lineterminator: str = "\n"
 ) -> str:
     """Write rows to CSV string.
 
@@ -151,7 +154,7 @@ def _write_csv_rows(
     return output.getvalue()
 
 
-def _extract_location_fields(location: dict[str, Any]) -> dict[str, str]:
+def _extract_location_fields(location: object) -> dict[str, str]:
     """Extract flat fields from LSP location for CSV output.
 
     Args:
@@ -160,21 +163,21 @@ def _extract_location_fields(location: dict[str, Any]) -> dict[str, str]:
     Returns:
         Dictionary with flat CSV fields
     """
-    uri = location.get("uri", "")
-    range_obj = location.get("range", {})
-    start = range_obj.get("start", {})
-    end = range_obj.get("end", {})
+    uri = get_str(location, "uri", "")
+    range_obj = get_dict(location, "range")
+    start = get_dict(range_obj, "start")
+    end = get_dict(range_obj, "end")
 
     return {
-        "uri": str(uri) if uri is not None else "",
-        "start_line": str(start.get("line", 0)),
-        "start_char": str(start.get("character", 0)),
-        "end_line": str(end.get("line", 0)),
-        "end_char": str(end.get("character", 0)),
+        "uri": uri,
+        "start_line": str(get_int(start, "line", 0)),
+        "start_char": str(get_int(start, "character", 0)),
+        "end_line": str(get_int(end, "line", 0)),
+        "end_char": str(get_int(end, "character", 0)),
     }
 
 
-def format_locations_csv(locations: list[dict[str, Any]]) -> str:
+def format_locations_csv(locations: object) -> str:
     """Format location list as CSV.
 
     Used by definition and references commands.
@@ -185,15 +188,16 @@ def format_locations_csv(locations: list[dict[str, Any]]) -> str:
     Returns:
         CSV string with header row, or empty string for empty input
     """
-    if not locations:
+    if not isinstance(locations, list) or not locations:
         return ""
 
+    locations_list = cast(list[object], locations)
     fieldnames = ["uri", "start_line", "start_char", "end_line", "end_char"]
-    rows = [_extract_location_fields(loc) for loc in locations]
+    rows = [_extract_location_fields(loc) for loc in locations_list]
     return _write_csv_rows(rows, fieldnames)
 
 
-def _extract_completion_fields(item: dict[str, Any]) -> dict[str, str]:
+def _extract_completion_fields(item: object) -> dict[str, str]:
     """Extract flat fields from LSP completion item for CSV output.
 
     Args:
@@ -202,30 +206,30 @@ def _extract_completion_fields(item: dict[str, Any]) -> dict[str, str]:
     Returns:
         Dictionary with flat CSV fields
     """
-    kind = item.get("kind", 0)
-    detail = item.get("detail")
-    documentation = item.get("documentation")
+    kind = get_int(item, "kind", 0)
+    detail = get_optional_str(item, "detail") or ""
+    label = get_str(item, "label", "")
+    documentation: str = ""
 
-    # Handle None values - convert to empty string
-    if detail is None:
-        detail = ""
-    if documentation is None:
-        documentation = ""
-
-    # Handle dict documentation (MarkdownContent)
-    if isinstance(documentation, dict):
-        documentation = documentation.get("value", "")
+    doc_raw = get_optional_dict(item, "documentation")
+    if doc_raw:
+        documentation = get_str(doc_raw, "value", "")
+    elif isinstance(item, dict):
+        item_dict = cast(dict[str, object], item)
+        doc_val = item_dict.get("documentation")
+        if isinstance(doc_val, str):
+            documentation = doc_val
 
     return {
-        "label": str(item.get("label", "")),
+        "label": label,
         "kind": str(kind),
         "kind_name": get_symbol_kind_name(kind),
-        "detail": str(detail) if detail is not None else "",
-        "documentation": str(documentation) if documentation else "",
+        "detail": detail,
+        "documentation": documentation,
     }
 
 
-def format_completions_csv(items: list[dict[str, Any]]) -> str:
+def format_completions_csv(items: object) -> str:
     """Format completion items as CSV.
 
     Args:
@@ -234,15 +238,16 @@ def format_completions_csv(items: list[dict[str, Any]]) -> str:
     Returns:
         CSV string with header row, or empty string for empty input
     """
-    if not items:
+    if not isinstance(items, list) or not items:
         return ""
 
+    items_list = cast(list[object], items)
     fieldnames = ["label", "kind", "kind_name", "detail", "documentation"]
-    rows = [_extract_completion_fields(item) for item in items]
+    rows = [_extract_completion_fields(item) for item in items_list]
     return _write_csv_rows(rows, fieldnames)
 
 
-def _extract_symbol_fields(symbol: dict[str, Any], include_uri: bool = False) -> dict[str, str]:
+def _extract_symbol_fields(symbol: object, include_uri: bool = False) -> dict[str, str]:
     """Extract flat fields from LSP symbol for CSV output.
 
     Args:
@@ -252,36 +257,40 @@ def _extract_symbol_fields(symbol: dict[str, Any], include_uri: bool = False) ->
     Returns:
         Dictionary with flat CSV fields
     """
-    kind = symbol.get("kind", 0)
-    range_obj = symbol.get("range", {})
+    kind = get_int(symbol, "kind", 0)
+    name = get_str(symbol, "name", "")
+    range_obj = get_dict(symbol, "range")
+    location = get_dict(symbol, "location")
 
     # For workspace symbols, get range from location
-    if not range_obj and "location" in symbol:
-        location = symbol.get("location", {})
-        range_obj = location.get("range", {})
+    if not range_obj and isinstance(symbol, dict):
+        symbol_dict = cast(dict[str, object], symbol)
+        if "location" in symbol_dict:
+            # symbol is narrowed to dict[Unknown, Unknown], but get_dict accepts object
+            location = get_dict(cast(object, symbol), "location")
+            range_obj = get_dict(location, "range")
 
-    start = range_obj.get("start", {})
-    end = range_obj.get("end", {})
+    start = get_dict(range_obj, "start")
+    end = get_dict(range_obj, "end")
 
     result: dict[str, str] = {
-        "name": str(symbol.get("name", "")),
+        "name": name,
         "kind": str(kind),
         "kind_name": get_symbol_kind_name(kind),
-        "start_line": str(start.get("line", 0)),
-        "start_char": str(start.get("character", 0)),
-        "end_line": str(end.get("line", 0)),
-        "end_char": str(end.get("character", 0)),
+        "start_line": str(get_int(start, "line", 0)),
+        "start_char": str(get_int(start, "character", 0)),
+        "end_line": str(get_int(end, "line", 0)),
+        "end_char": str(get_int(end, "character", 0)),
     }
 
     if include_uri:
         # Get URI from location for workspace symbols
-        location = symbol.get("location", {})
-        result["uri"] = str(location.get("uri", ""))
+        result["uri"] = get_str(location, "uri", "")
 
     return result
 
 
-def format_document_symbols_csv(symbols: list[dict[str, Any]]) -> str:
+def format_document_symbols_csv(symbols: object) -> str:
     """Format document symbols as CSV.
 
     Args:
@@ -290,15 +299,16 @@ def format_document_symbols_csv(symbols: list[dict[str, Any]]) -> str:
     Returns:
         CSV string with header row, or empty string for empty input
     """
-    if not symbols:
+    if not isinstance(symbols, list) or not symbols:
         return ""
 
+    symbols_list = cast(list[object], symbols)
     fieldnames = ["name", "kind", "kind_name", "start_line", "start_char", "end_line", "end_char"]
-    rows = [_extract_symbol_fields(symbol, include_uri=False) for symbol in symbols]
+    rows = [_extract_symbol_fields(symbol, include_uri=False) for symbol in symbols_list]
     return _write_csv_rows(rows, fieldnames)
 
 
-def format_workspace_symbols_csv(symbols: list[dict[str, Any]]) -> str:
+def format_workspace_symbols_csv(symbols: object) -> str:
     """Format workspace symbols as CSV.
 
     Args:
@@ -307,9 +317,10 @@ def format_workspace_symbols_csv(symbols: list[dict[str, Any]]) -> str:
     Returns:
         CSV string with header row, or empty string for empty input
     """
-    if not symbols:
+    if not isinstance(symbols, list) or not symbols:
         return ""
 
+    symbols_list = cast(list[object], symbols)
     fieldnames = [
         "name",
         "kind",
@@ -320,11 +331,11 @@ def format_workspace_symbols_csv(symbols: list[dict[str, Any]]) -> str:
         "end_line",
         "end_char",
     ]
-    rows = [_extract_symbol_fields(symbol, include_uri=True) for symbol in symbols]
+    rows = [_extract_symbol_fields(symbol, include_uri=True) for symbol in symbols_list]
     return _write_csv_rows(rows, fieldnames)
 
 
-def format_hover_csv(hover: dict[str, Any] | None) -> str:
+def format_hover_csv(hover: object) -> str:
     """Format hover response as CSV.
 
     Args:
@@ -336,32 +347,33 @@ def format_hover_csv(hover: dict[str, Any] | None) -> str:
     if hover is None:
         return ""
 
+    # Extract values BEFORE isinstance checks to avoid type narrowing issues
+    contents = get_dict(hover, "contents")
+    range_obj = get_optional_dict(hover, "range")
+
     # Extract content from hover
-    contents = hover.get("contents", {})
-    if isinstance(contents, dict):
-        content = contents.get("value", "")
-    else:
-        content = str(contents) if contents else ""
+    content = get_str(contents, "value", "") if contents else ""
+    if not content:
+        if isinstance(hover, dict):
+            hover_dict = cast(dict[str, object], hover)
+            cont = hover_dict.get("contents")
+            if isinstance(cont, str):
+                content = cont
 
     # Escape embedded newlines for CSV single-line output
     if content:
         content = str(content).replace("\n", "\\n")
 
     # Extract range if present
-    range_obj = hover.get("range", {})
-    start = range_obj.get("start", {}) if range_obj else {}
-    end = range_obj.get("end", {}) if range_obj else {}
+    start = get_dict(range_obj, "start") if range_obj else {}
+    end = get_dict(range_obj, "end") if range_obj else {}
 
     row: dict[str, str] = {
-        "content": str(content) if content else "",
-        "range_start_line": (str(start.get("line", "")) if start.get("line") is not None else ""),
-        "range_start_char": (
-            str(start.get("character", "")) if start.get("character") is not None else ""
-        ),
-        "range_end_line": str(end.get("line", "")) if end.get("line") is not None else "",
-        "range_end_char": (
-            str(end.get("character", "")) if end.get("character") is not None else ""
-        ),
+        "content": content if content else "",
+        "range_start_line": str(get_int(start, "line", 0)) if start else "",
+        "range_start_char": str(get_int(start, "character", 0)) if start else "",
+        "range_end_line": str(get_int(end, "line", 0)) if end else "",
+        "range_end_char": str(get_int(end, "character", 0)) if end else "",
     }
 
     output = io.StringIO()

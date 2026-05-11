@@ -1,9 +1,8 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
 """Exception hierarchy for llm-lsp-cli."""
 
 from __future__ import annotations
+
+from typing import override
 
 
 class CLIError(Exception):
@@ -18,6 +17,11 @@ class DaemonError(Exception):
     All daemon exceptions include workspace and language context for actionable error messages.
     Exceptions also include log_file path for debugging daemon failures.
     """
+
+    message: str
+    workspace: str | None
+    language: str | None
+    log_file: str | None
 
     def __init__(
         self,
@@ -34,7 +38,7 @@ class DaemonError(Exception):
 
     def _format_message(self) -> str:
         """Format the error message with context."""
-        context_parts = []
+        context_parts: list[str] = []
         if self.workspace:
             context_parts.append(f"workspace='{self.workspace}'")
         if self.language:
@@ -57,6 +61,9 @@ class DaemonStartupTimeoutError(DaemonError):
     Includes the socket path and timeout duration for debugging.
     """
 
+    socket_path: str
+    timeout: float
+
     def __init__(
         self,
         socket_path: str,
@@ -70,6 +77,7 @@ class DaemonStartupTimeoutError(DaemonError):
         message = f"Daemon startup timed out after {timeout}s waiting for socket"
         super().__init__(message, workspace, language, log_file)
 
+    @override
     def _format_message(self) -> str:
         """Format the timeout error message with socket path."""
         base_message = super()._format_message()
@@ -82,6 +90,8 @@ class DaemonCrashedError(DaemonError):
     Indicates the daemon process crashed after creating the socket.
     """
 
+    socket_path: str
+
     def __init__(
         self,
         socket_path: str,
@@ -93,6 +103,7 @@ class DaemonCrashedError(DaemonError):
         message = "Daemon crashed - socket exists but connection failed"
         super().__init__(message, workspace, language, log_file)
 
+    @override
     def _format_message(self) -> str:
         """Format the crash error message with socket path."""
         base_message = super()._format_message()

@@ -1,16 +1,13 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownMemberType=false
 """Config commands for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 
@@ -98,18 +95,17 @@ def config_list(
         # Auto-detect language and resolve to server name
         from llm_lsp_cli.config import ConfigManager
 
+        # Get language configs with root_markers from typed config
+        language_configs: dict[str, dict[str, object]] = {}
         try:
             config_obj = ConfigManager.load()
-            config = config_obj.model_dump(mode="json") if config_obj else {}
+            if config_obj:
+                for lang_name, lang_conf in config_obj.languages.items():
+                    language_configs[lang_name] = {
+                        "root_markers": lang_conf.root_markers
+                    }
         except Exception:
-            config = {}
-
-        language_configs: dict[str, dict[str, Any]] = {}
-        for lang_name, lang_conf in config.get("languages", {}).items():
-            if isinstance(lang_conf, dict):
-                language_configs[lang_name] = {
-                    "root_markers": lang_conf.get("root_markers", [])
-                }
+            pass
 
         _workspace_path, raw_detected = detect_workspace_and_language(
             file_path=None,

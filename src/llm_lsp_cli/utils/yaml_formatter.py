@@ -1,11 +1,8 @@
-# pyright: reportExplicitAny=false
 """YAML formatting utilities for llm-lsp-cli.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
-
-from typing import Any
 
 import yaml
 
@@ -21,7 +18,7 @@ class FlowStyleDumper(yaml.SafeDumper):
 
 
 def _represent_sequence(
-    dumper: yaml.SafeDumper, data: list[Any]
+    dumper: yaml.SafeDumper, data: list[object]
 ) -> yaml.SequenceNode:
     """Represent sequences in flow style (inline with brackets)."""
     return dumper.represent_sequence(
@@ -32,7 +29,7 @@ def _represent_sequence(
 FlowStyleDumper.add_representer(list, _represent_sequence)
 
 
-def dump_config(data: dict[str, Any]) -> str:
+def dump_config(data: dict[str, object]) -> str:
     """Dump configuration data with flow-style lists.
 
     Args:

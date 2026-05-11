@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Path validation service for preventing path traversal attacks."""
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ class PathValidator:
         Raises:
             PathValidationError: If the workspace root does not exist.
         """
-        self._workspace_root = workspace_root.resolve()
+        self._workspace_root: Path = workspace_root.resolve()
 
         if not self._workspace_root.exists():
             raise PathValidationError(
@@ -65,7 +64,7 @@ class PathValidator:
 
         # Verify the resolved path is within the workspace boundary
         try:
-            resolved.relative_to(self._workspace_root)
+            _ = resolved.relative_to(self._workspace_root)
         except ValueError as err:
             raise PathValidationError(
                 f"Path is outside workspace boundary: {path_str}"

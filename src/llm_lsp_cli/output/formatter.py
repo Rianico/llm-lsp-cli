@@ -1,23 +1,38 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
 """Compact formatter for LLM-optimized LSP output.
 
-This module transforms LSP response data (dict[str, Any]) into compact output formats.
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module transforms LSP response data into compact output formats.
+Consumes validated Pydantic models from lsp/types.py (ADR-0027).
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
+from llm_lsp_cli.utils.type_helpers import (
+    get_dict,
+    get_int,
+    get_list,
+    get_optional_dict,
+    get_optional_int,
+    get_optional_str,
+    get_str,
+)
+
+if TYPE_CHECKING:
+    from llm_lsp_cli.lsp.types import (
+        CallHierarchyIncomingCall,
+        CallHierarchyOutgoingCall,
+        DocumentSymbol,
+        SymbolInformation,
+    )
+    from llm_lsp_cli.lsp.types import (
+        Range as LspRange,
+    )
 
 
 @dataclass(frozen=True)
@@ -40,18 +55,42 @@ class Range:
     end: Position
 
     @classmethod
-    def from_dict(cls, range_obj: dict[str, Any]) -> Range:
+    def from_dict(cls, range_obj: object) -> Range:
         """Create Range from LSP range dict."""
-        start = range_obj.get("start", {})
-        end = range_obj.get("end", {})
+        start = get_dict(range_obj, "start")
+        end = get_dict(range_obj, "end")
         return cls(
             start=Position(
-                line=start.get("line", 0) or 0,
-                character=start.get("character", 0) or 0,
+                line=get_int(start, "line", 0),
+                character=get_int(start, "character", 0),
             ),
             end=Position(
-                line=end.get("line", 0) or 0,
-                character=end.get("character", 0) or 0,
+                line=get_int(end, "line", 0),
+                character=get_int(end, "character", 0),
+            ),
+        )
+
+    @classmethod
+    def from_pydantic(cls, range_obj: LspRange) -> Range:
+        """Create Range from LSP Range Pydantic model.
+
+        This is the designated bridge from lsp.types.Range (Pydantic) to
+        output.formatter.Range (dataclass) per ADR-0027.
+
+        Args:
+            range_obj: Validated LSP Range Pydantic model
+
+        Returns:
+            Range dataclass instance
+        """
+        return cls(
+            start=Position(
+                line=range_obj.start.line,
+                character=range_obj.start.character,
+            ),
+            end=Position(
+                line=range_obj.end.line,
+                character=range_obj.end.character,
             ),
         )
 
@@ -85,11 +124,11 @@ class SymbolRecord:
     container: str | None = None
     tags: list[int] = field(default_factory=list)
     selection_range: Range | None = None
-    data: dict[str, Any] | None = None
+    data: object = None
     parent: str | None = None
     children: list[SymbolRecord] = field(default_factory=list)
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format, omitting null/empty fields."""
         return CompactFormatter.symbol_to_dict(self)
 
@@ -122,9 +161,7 @@ class SymbolRecord:
             name=self.name,
             kind_name=self.kind_name,
             range_str=self.range.to_compact(),
-            selection_range=(
-                self.selection_range.to_compact() if self.selection_range else None
-            ),
+            selection_range=(self.selection_range.to_compact() if self.selection_range else None),
         )
 
 
@@ -135,7 +172,7 @@ class LocationRecord:
     file: str
     range: Range
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format."""
         return {"file": self.file, "range": self.range.to_compact()}
 
@@ -167,9 +204,9 @@ class DiagnosticRecord:
     source: str
     message: str
     tags: list[int] = field(default_factory=list)
-    data: dict[str, Any] | None = None
+    data: object = None
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format, omitting null/empty fields."""
         return CompactFormatter.diagnostic_to_dict(self)
 
@@ -216,13 +253,13 @@ class CallHierarchyRecord:
     selection_range: Range | None = None
     from_ranges: list[Range] = field(default_factory=list)
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format.
 
         Omits 'kind' int field for token efficiency (kind_name provides human-readable value).
         Range fields use compact format "start_line:start_char-end_line:end_char".
         """
-        obj: dict[str, Any] = {
+        obj: dict[str, object] = {
             "file": self.file,
             "name": self.name,
             "kind_name": self.kind_name,
@@ -269,7 +306,7 @@ class RenameEditRecord:
     old_text: str
     new_text: str
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format."""
         return {
             "file": self.file,
@@ -312,9 +349,9 @@ class CompletionRecord:
     range: Range | None = None  # from textEdit.range
     position: Range | None = None  # from data.position (as single point)
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format, omitting null fields."""
-        obj: dict[str, Any] = {
+        obj: dict[str, object] = {
             "file": self.file,
             "label": self.label,
             "kind_name": self.kind_name,
@@ -363,9 +400,9 @@ class HoverRecord:
     content: str
     range: Range | None = None
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format, omitting null fields."""
-        obj: dict[str, Any] = {
+        obj: dict[str, object] = {
             "file": self.file,
             "content": self.content,
         }
@@ -406,6 +443,8 @@ class CompactFormatter:
     into token-efficient formats (text, json, yaml, csv).
     """
 
+    _workspace: Path
+
     def __init__(self, workspace: str | Path) -> None:
         """Initialize the formatter with a workspace root.
 
@@ -420,15 +459,20 @@ class CompactFormatter:
         return self._workspace
 
     def transform_symbols(
-        self, symbols: list[dict[str, Any]], depth: int = -1
+        self,
+        symbols: Sequence[object],
+        depth: int = -1,
     ) -> list[SymbolRecord]:
         """Transform LSP symbols to SymbolRecord list with depth-controlled traversal.
 
         Handles both workspace symbols (with location wrapper) and
         document symbols (hierarchical structure with children).
 
+        Accepts both Pydantic models (DocumentSymbol, SymbolInformation) and
+        dict-based inputs for backward compatibility (ADR-0027).
+
         Args:
-            symbols: LSP symbol list
+            symbols: LSP symbol list (Pydantic models or dicts)
             depth: Maximum traversal depth. -1 = unlimited, 0 = top-level only
 
         Returns:
@@ -443,9 +487,158 @@ class CompactFormatter:
         return records
 
     def _transform_symbol(
-        self, sym: dict[str, Any], depth: int, parent_name: str | None
+        self,
+        sym: object,
+        depth: int,
+        parent_name: str | None,
     ) -> SymbolRecord:
         """Transform a single symbol with optional children traversal.
+
+        Args:
+            sym: LSP symbol (Pydantic model or dict)
+            depth: Remaining traversal depth (-1 = unlimited)
+            parent_name: Name of parent symbol (None for top-level)
+
+        Returns:
+            Normalized SymbolRecord with nested children
+        """
+        # Check if input is a Pydantic model
+        from llm_lsp_cli.lsp.types import DocumentSymbol as LspDocumentSymbol
+        from llm_lsp_cli.lsp.types import SymbolInformation as LspSymbolInformation
+
+        if isinstance(sym, LspDocumentSymbol):
+            return self._transform_document_symbol(sym, depth, parent_name)
+        elif isinstance(sym, LspSymbolInformation):
+            return self._transform_symbol_information(sym, parent_name)
+        elif isinstance(sym, dict):
+            # Dict-based input (legacy path)
+            return self._transform_symbol_dict(cast(dict[str, object], sym), depth, parent_name)
+        else:
+            # Unknown type - return empty record
+            return SymbolRecord(
+                file="",
+                name="",
+                kind=0,
+                kind_name="Unknown",
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=0)),
+            )
+
+    def _transform_document_symbol(
+        self,
+        sym: DocumentSymbol,
+        depth: int,
+        parent_name: str | None,
+    ) -> SymbolRecord:
+        """Transform a DocumentSymbol Pydantic model.
+
+        Args:
+            sym: DocumentSymbol Pydantic model
+            depth: Remaining traversal depth (-1 = unlimited)
+            parent_name: Name of parent symbol (None for top-level)
+
+        Returns:
+            Normalized SymbolRecord with nested children
+        """
+        # Extract URI from range if available (DocumentSymbol doesn't have uri)
+        # Use workspace as fallback
+        file_path = str(self._workspace)
+
+        # Extract fields from Pydantic model
+        name = sym.name
+        kind = sym.kind
+        kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+        range_val = Range.from_pydantic(sym.range)
+
+        # Optional fields
+        detail = sym.detail
+        tags = sym.tags or []
+
+        # Preserve selectionRange if present
+        selection_range: Range | None = None
+        if sym.selection_range:
+            selection_range = Range.from_pydantic(sym.selection_range)
+
+        # Process children if depth allows
+        children: list[SymbolRecord] = []
+        if depth != 0 and sym.children:
+            child_depth = depth - 1 if depth > 0 else -1
+            for child_sym in sym.children:
+                child_record = self._transform_symbol(child_sym, child_depth, name)
+                children.append(child_record)
+
+        return SymbolRecord(
+            file=file_path,
+            name=name,
+            kind=kind,
+            kind_name=kind_name,
+            range=range_val,
+            detail=detail,
+            container=None,
+            tags=tags,
+            selection_range=selection_range,
+            data=None,
+            parent=parent_name,
+            children=children,
+        )
+
+    def _transform_symbol_information(
+        self,
+        sym: SymbolInformation,
+        parent_name: str | None,
+    ) -> SymbolRecord:
+        """Transform a SymbolInformation Pydantic model (workspace symbol format).
+
+        Args:
+            sym: SymbolInformation Pydantic model
+            parent_name: Name of parent symbol (from containerName)
+
+        Returns:
+            Normalized SymbolRecord
+        """
+        # Extract URI from location
+        if sym.location is None:
+            # Fallback to workspace if no location
+            file_path = str(self._workspace)
+            range_val = Range(
+                start=Position(line=0, character=0),
+                end=Position(line=0, character=0),
+            )
+        else:
+            uri = sym.location.uri
+            file_path = normalize_uri_to_absolute(uri, self._workspace)
+            range_val = Range.from_pydantic(sym.location.range)
+
+        # Extract fields from Pydantic model
+        name = sym.name
+        kind = sym.kind
+        kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+
+        # Optional fields
+        container = sym.container_name
+        tags = sym.tags or []
+
+        return SymbolRecord(
+            file=file_path,
+            name=name,
+            kind=kind,
+            kind_name=kind_name,
+            range=range_val,
+            detail=None,
+            container=container,
+            tags=tags,
+            selection_range=None,
+            data=None,
+            parent=parent_name,
+            children=[],
+        )
+
+    def _transform_symbol_dict(
+        self,
+        sym: dict[str, object],
+        depth: int,
+        parent_name: str | None,
+    ) -> SymbolRecord:
+        """Transform a dict-based symbol (legacy path).
 
         Args:
             sym: LSP symbol dict
@@ -456,41 +649,48 @@ class CompactFormatter:
             Normalized SymbolRecord with nested children
         """
         # Get location - handle both workspace and document symbol formats
-        location = sym.get("location", sym)
-        uri = location.get("uri", "")
-        range_obj = location.get("range", sym.get("range", {}))
+        location = get_dict(sym, "location") if "location" in sym else sym
+        uri = get_str(location, "uri", "")
+        range_obj = get_dict(location, "range")
+        if not range_obj:
+            range_obj = get_dict(sym, "range")
 
         # Normalize URI to relative path
         file_path = normalize_uri_to_absolute(uri, self._workspace)
 
         # Extract fields
-        name = sym.get("name", "")
-        kind = sym.get("kind", 0)
+        name = get_str(sym, "name", "")
+        kind = get_int(sym, "kind", 0)
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
         range_val = Range.from_dict(range_obj)
 
         # Optional fields
-        detail = sym.get("detail")
-        container = sym.get("containerName")
-        tags = sym.get("tags", []) or []
+        detail = get_optional_str(sym, "detail")
+        container = get_optional_str(sym, "containerName")
+        tags_raw = get_list(sym, "tags")
+        tags = [t for t in tags_raw if isinstance(t, int)]
 
         # Preserve selectionRange if present
         selection_range: Range | None = None
-        if "selectionRange" in sym:
-            selection_range = Range.from_dict(sym["selectionRange"])
+        sel_range_obj = get_optional_dict(sym, "selectionRange")
+        if sel_range_obj:
+            selection_range = Range.from_dict(sel_range_obj)
 
         # Preserve data field if present
-        data = sym.get("data")
+        data: object = sym.get("data")
 
         # Process children if depth allows
         children: list[SymbolRecord] = []
         if depth != 0:
-            raw_children = sym.get("children")
+            raw_children = get_list(sym, "children")
             if raw_children:
                 child_depth = depth - 1 if depth > 0 else -1
                 for child_sym in raw_children:
-                    child_record = self._transform_symbol(child_sym, child_depth, name)
-                    children.append(child_record)
+                    if isinstance(child_sym, dict):
+                        child_record = self._transform_symbol_dict(
+                            cast(dict[str, object], child_sym), child_depth, name
+                        )
+                        children.append(child_record)
 
         return SymbolRecord(
             file=file_path,
@@ -507,11 +707,13 @@ class CompactFormatter:
             children=children,
         )
 
-    def transform_locations(self, locations: list[dict[str, Any]]) -> list[LocationRecord]:
+    def transform_locations(self, locations: Sequence[object]) -> list[LocationRecord]:
         """Transform LSP locations to LocationRecord list.
 
+        Accepts both Pydantic Location models and dict-based inputs (ADR-0027).
+
         Args:
-            locations: LSP location list
+            locations: LSP location list (Pydantic models or dicts)
 
         Returns:
             List of normalized LocationRecord objects
@@ -519,12 +721,20 @@ class CompactFormatter:
         records: list[LocationRecord] = []
 
         for loc in locations:
-            uri = loc.get("uri", "")
-            range_obj = loc.get("range", {})
+            # Check if input is a Pydantic model
+            from llm_lsp_cli.lsp.types import Location as LspLocation
 
-            # Normalize URI to relative path
-            file_path = normalize_uri_to_absolute(uri, self._workspace)
-            range_val = Range.from_dict(range_obj)
+            if isinstance(loc, LspLocation):
+                # Pydantic model path
+                uri = loc.uri
+                file_path = normalize_uri_to_absolute(uri, self._workspace)
+                range_val = Range.from_pydantic(loc.range)
+            else:
+                # Dict-based input (legacy path)
+                uri = get_str(loc, "uri", "")
+                range_obj = get_dict(loc, "range")
+                file_path = normalize_uri_to_absolute(uri, self._workspace)
+                range_val = Range.from_dict(range_obj)
 
             records.append(
                 LocationRecord(
@@ -536,8 +746,7 @@ class CompactFormatter:
         return records
 
     @staticmethod
-    @staticmethod
-    def symbol_to_dict(rec: SymbolRecord) -> dict[str, Any]:
+    def symbol_to_dict(rec: SymbolRecord) -> dict[str, object]:
         """Convert SymbolRecord to dict, omitting null/empty fields.
 
         Handles nested children recursively.
@@ -548,7 +757,7 @@ class CompactFormatter:
         Returns:
             Dictionary with only present fields (excludes file - it's at top level)
         """
-        obj: dict[str, Any] = {
+        obj: dict[str, object] = {
             "name": rec.name,
             "kind_name": rec.kind_name,
             "range": rec.range.to_compact(),
@@ -571,13 +780,15 @@ class CompactFormatter:
 
     def transform_diagnostics(
         self,
-        diagnostics: list[dict[str, Any]],
+        diagnostics: Sequence[object],
         file_path: str | None = None,
     ) -> list[DiagnosticRecord]:
         """Transform LSP diagnostics to DiagnosticRecord list.
 
+        Accepts both Pydantic Diagnostic models and dict-based inputs (ADR-0027).
+
         Args:
-            diagnostics: List of LSP Diagnostic objects
+            diagnostics: List of LSP Diagnostic objects (Pydantic models or dicts)
             file_path: Optional known file path (for single-file diagnostics)
 
         Returns:
@@ -586,27 +797,48 @@ class CompactFormatter:
         records: list[DiagnosticRecord] = []
 
         for diag in diagnostics:
-            range_obj = diag.get("range", {})
-            range_val = Range.from_dict(range_obj)
+            # Check if input is a Pydantic model
+            from llm_lsp_cli.lsp.types import Diagnostic as LspDiagnostic
+
+            if isinstance(diag, LspDiagnostic):
+                # Pydantic model path
+                range_val = Range.from_pydantic(diag.range)
+                severity = diag.severity if diag.severity is not None else 1
+                code = diag.code
+                source = diag.source or ""
+                message = diag.message
+                tags = diag.tags or []
+            else:
+                # Dict-based input (legacy path)
+                range_obj = get_dict(diag, "range")
+                range_val = Range.from_dict(range_obj)
+
+                severity = get_int(diag, "severity", 1)
+                code = get_optional_int(diag, "code")
+                if code is None:
+                    code_str = get_optional_str(diag, "code")
+                    code = code_str
+                source = get_str(diag, "source", "")
+                message = get_str(diag, "message", "")
+                tags = [t for t in get_list(diag, "tags") if isinstance(t, int)]
 
             records.append(
                 DiagnosticRecord(
                     file=file_path or "",
                     range=range_val,
-                    severity=diag.get("severity", 1),
-                    severity_name=SEVERITY_MAP.get(diag.get("severity", 1), "Unknown"),
-                    code=diag.get("code"),
-                    source=diag.get("source", ""),
-                    message=diag.get("message", ""),
-                    tags=diag.get("tags", []) or [],
+                    severity=severity,
+                    severity_name=SEVERITY_MAP.get(severity, "Unknown"),
+                    code=code,
+                    source=source,
+                    message=message,
+                    tags=tags,
                 )
             )
 
         return records
 
     @staticmethod
-    @staticmethod
-    def diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, Any]:
+    def diagnostic_to_dict(rec: DiagnosticRecord) -> dict[str, object]:
         """Convert DiagnosticRecord to dict, omitting null/empty fields.
 
         Translates tags to names and uses compact range format.
@@ -620,7 +852,7 @@ class CompactFormatter:
         Returns:
             Dictionary with only present fields (excludes file and source)
         """
-        obj: dict[str, Any] = {
+        obj: dict[str, object] = {
             "range": rec.range.to_compact(),
             "severity_name": rec.severity_name,
             "message": rec.message,
@@ -632,9 +864,7 @@ class CompactFormatter:
             obj["tags"] = [get_diagnostic_tag_name(t) for t in rec.tags]
         return obj
 
-    def _transform_call_hierarchy_item(
-        self, call: dict[str, Any], item: dict[str, Any]
-    ) -> CallHierarchyRecord:
+    def _transform_call_hierarchy_item(self, call: object, item: object) -> CallHierarchyRecord:
         """Transform a single call hierarchy item to CallHierarchyRecord.
 
         Args:
@@ -644,26 +874,31 @@ class CompactFormatter:
         Returns:
             Normalized CallHierarchyRecord
         """
-        uri = item.get("uri", "")
-        range_obj = item.get("range", {})
+        uri = get_str(item, "uri", "")
+        range_obj = get_dict(item, "range")
 
         # Normalize URI to relative path
         file_path = normalize_uri_to_absolute(uri, self._workspace)
 
         # Extract fields
-        name = item.get("name", "")
-        kind = item.get("kind", 0)
+        name = get_str(item, "name", "")
+        kind = get_int(item, "kind", 0)
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
         range_val = Range.from_dict(range_obj)
 
         # Extract selectionRange if present
         selection_range: Range | None = None
-        if "selectionRange" in item:
-            selection_range = Range.from_dict(item["selectionRange"])
+        sel_range_obj = get_optional_dict(item, "selectionRange")
+        if sel_range_obj:
+            selection_range = Range.from_dict(sel_range_obj)
 
         # Extract fromRanges
-        from_ranges_raw = call.get("fromRanges", [])
-        from_ranges = [Range.from_dict(r) for r in from_ranges_raw]
+        from_ranges_raw = get_list(call, "fromRanges")
+        from_ranges = [
+            Range.from_dict(cast(dict[str, object], r))
+            for r in from_ranges_raw
+            if isinstance(r, dict)
+        ]
 
         return CallHierarchyRecord(
             file=file_path,
@@ -676,12 +911,14 @@ class CompactFormatter:
         )
 
     def transform_call_hierarchy_incoming(
-        self, calls: list[dict[str, Any]]
+        self, calls: Sequence[object]
     ) -> list[CallHierarchyRecord]:
         """Transform LSP incoming calls to CallHierarchyRecord list.
 
+        Accepts both Pydantic CallHierarchyIncomingCall models and dict-based inputs (ADR-0027).
+
         Args:
-            calls: List of LSP CallHierarchyIncomingCall objects
+            calls: List of LSP CallHierarchyIncomingCall objects (Pydantic models or dicts)
 
         Returns:
             List of normalized CallHierarchyRecord objects sorted by file/name
@@ -689,22 +926,77 @@ class CompactFormatter:
         records: list[CallHierarchyRecord] = []
 
         for call in calls:
-            # Get the 'from' item (may be 'from_' in Python-normalized form)
-            from_item = call.get("from_") or call.get("from", {})
-            record = self._transform_call_hierarchy_item(call, from_item)
+            # Check if input is a Pydantic model
+            from llm_lsp_cli.lsp.types import (
+                CallHierarchyIncomingCall as LspCallHierarchyIncomingCall,
+            )
+
+            if isinstance(call, LspCallHierarchyIncomingCall):
+                # Pydantic model path - access from_ field
+                record = self._transform_call_hierarchy_incoming_pydantic(call)
+            else:
+                # Dict-based input (legacy path)
+                # Get the 'from' item (may be 'from_' in Python-normalized form)
+                from_item: object = None
+                if isinstance(call, dict):
+                    call_dict = cast(dict[str, object], call)
+                    from_item = call_dict.get("from_") or call_dict.get("from", {})
+                # Cast call to object to avoid type narrowing issues
+                record = self._transform_call_hierarchy_item(cast(object, call), from_item)
             records.append(record)
 
         # Sort by file then name
         records.sort(key=lambda r: (r.file, r.name))
         return records
 
+    def _transform_call_hierarchy_incoming_pydantic(
+        self, call: CallHierarchyIncomingCall
+    ) -> CallHierarchyRecord:
+        """Transform a CallHierarchyIncomingCall Pydantic model.
+
+        Args:
+            call: CallHierarchyIncomingCall Pydantic model
+
+        Returns:
+            Normalized CallHierarchyRecord
+        """
+        # Access the from_ field (aliased from 'from')
+        item = call.from_
+        uri = item.uri
+        file_path = normalize_uri_to_absolute(uri, self._workspace)
+
+        name = item.name
+        kind = item.kind
+        kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+        range_val = Range.from_pydantic(item.range)
+
+        # Extract selectionRange if present
+        selection_range: Range | None = None
+        if item.selection_range:
+            selection_range = Range.from_pydantic(item.selection_range)
+
+        # Extract fromRanges
+        from_ranges = [Range.from_pydantic(r) for r in call.from_ranges]
+
+        return CallHierarchyRecord(
+            file=file_path,
+            name=name,
+            kind=kind,
+            kind_name=kind_name,
+            range=range_val,
+            selection_range=selection_range,
+            from_ranges=from_ranges,
+        )
+
     def transform_call_hierarchy_outgoing(
-        self, calls: list[dict[str, Any]]
+        self, calls: Sequence[object]
     ) -> list[CallHierarchyRecord]:
         """Transform LSP outgoing calls to CallHierarchyRecord list.
 
+        Accepts both Pydantic CallHierarchyOutgoingCall models and dict-based inputs (ADR-0027).
+
         Args:
-            calls: List of LSP CallHierarchyOutgoingCall objects
+            calls: List of LSP CallHierarchyOutgoingCall objects (Pydantic models or dicts)
 
         Returns:
             List of normalized CallHierarchyRecord objects sorted by file/name
@@ -712,21 +1004,71 @@ class CompactFormatter:
         records: list[CallHierarchyRecord] = []
 
         for call in calls:
-            to_item = call.get("to", {})
-            record = self._transform_call_hierarchy_item(call, to_item)
+            # Check if input is a Pydantic model
+            from llm_lsp_cli.lsp.types import (
+                CallHierarchyOutgoingCall as LspCallHierarchyOutgoingCall,
+            )
+
+            if isinstance(call, LspCallHierarchyOutgoingCall):
+                # Pydantic model path
+                record = self._transform_call_hierarchy_outgoing_pydantic(call)
+            else:
+                # Dict-based input (legacy path)
+                to_item = get_dict(call, "to")
+                record = self._transform_call_hierarchy_item(call, to_item)
             records.append(record)
 
         # Sort by file then name
         records.sort(key=lambda r: (r.file, r.name))
         return records
 
+    def _transform_call_hierarchy_outgoing_pydantic(
+        self, call: CallHierarchyOutgoingCall
+    ) -> CallHierarchyRecord:
+        """Transform a CallHierarchyOutgoingCall Pydantic model.
+
+        Args:
+            call: CallHierarchyOutgoingCall Pydantic model
+
+        Returns:
+            Normalized CallHierarchyRecord
+        """
+        item = call.to
+        uri = item.uri
+        file_path = normalize_uri_to_absolute(uri, self._workspace)
+
+        name = item.name
+        kind = item.kind
+        kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+        range_val = Range.from_pydantic(item.range)
+
+        # Extract selectionRange if present
+        selection_range: Range | None = None
+        if item.selection_range:
+            selection_range = Range.from_pydantic(item.selection_range)
+
+        # Extract fromRanges
+        from_ranges = [Range.from_pydantic(r) for r in call.from_ranges]
+
+        return CallHierarchyRecord(
+            file=file_path,
+            name=name,
+            kind=kind,
+            kind_name=kind_name,
+            range=range_val,
+            selection_range=selection_range,
+            from_ranges=from_ranges,
+        )
+
     def transform_completions(
-        self, items: list[dict[str, Any]], file_path: str
+        self, items: Sequence[object], file_path: str
     ) -> list[CompletionRecord]:
         """Transform LSP completion items to CompletionRecord list.
 
+        Accepts both Pydantic CompletionItem models and dict-based inputs (ADR-0027).
+
         Args:
-            items: List of LSP completion items
+            items: List of LSP completion items (Pydantic models or dicts)
             file_path: File path for the completion request
 
         Returns:
@@ -735,41 +1077,73 @@ class CompactFormatter:
         records: list[CompletionRecord] = []
 
         for item in items:
-            label = item.get("label", "")
-            kind = item.get("kind", 0)
-            kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-            detail = item.get("detail")
-            documentation = item.get("documentation")
+            # Check if input is a Pydantic model
+            from llm_lsp_cli.lsp.types import CompletionItem as LspCompletionItem
+            from llm_lsp_cli.lsp.types import MarkupContent as LspMarkupContent
 
-            # Handle dict documentation (MarkupContent)
-            if isinstance(documentation, dict):
-                documentation = documentation.get("value")
+            if isinstance(item, LspCompletionItem):
+                # Pydantic model path
+                label = item.label
+                kind = item.kind if item.kind is not None else 0
+                kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+                detail = item.detail
 
-            # Extract range from textEdit.range
-            range_val: Range | None = None
-            text_edit = item.get("textEdit")
-            if text_edit and isinstance(text_edit, dict):
-                range_obj = text_edit.get("range")
-                if range_obj:
-                    range_val = Range.from_dict(range_obj)
+                # Handle documentation (str | MarkupContent | None)
+                documentation: str | None = None
+                if item.documentation is not None:
+                    if isinstance(item.documentation, LspMarkupContent):
+                        documentation = item.documentation.value
+                    else:
+                        documentation = item.documentation
 
-            # Extract position from data.position
-            position_val: Range | None = None
-            data = item.get("data")
-            if data and isinstance(data, dict):
-                pos = data.get("position")
-                if pos:
-                    # Position is a single point, create a Range with same start/end
-                    position_val = Range(
-                        start=Position(
-                            line=pos.get("line", 0) or 0,
-                            character=pos.get("character", 0) or 0,
-                        ),
-                        end=Position(
-                            line=pos.get("line", 0) or 0,
-                            character=pos.get("character", 0) or 0,
-                        ),
-                    )
+                # Extract range from textEdit.range
+                range_val: Range | None = None
+                if item.text_edit is not None:
+                    range_val = Range.from_pydantic(item.text_edit.range)
+
+                # Position extraction not supported in Pydantic model path
+                # (data field is not defined in CompletionItem)
+                position_val: Range | None = None
+            else:
+                # Dict-based input (legacy path)
+                # Extract all values BEFORE isinstance checks to avoid type narrowing issues
+                label = get_str(item, "label", "")
+                kind = get_int(item, "kind", 0)
+                kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
+                detail = get_optional_str(item, "detail")
+                documentation = None
+                doc_raw = get_optional_dict(item, "documentation")
+                text_edit = get_optional_dict(item, "textEdit")
+                data_obj = get_optional_dict(item, "data")
+
+                # Process documentation
+                if doc_raw:
+                    documentation = get_str(doc_raw, "value", "")
+                elif isinstance(item, dict):
+                    item_dict = cast(dict[str, object], item)
+                    doc_val = item_dict.get("documentation")
+                    if isinstance(doc_val, str):
+                        documentation = doc_val
+
+                # Extract range from textEdit.range
+                range_val = None
+                if text_edit:
+                    range_obj = get_optional_dict(text_edit, "range")
+                    if range_obj:
+                        range_val = Range.from_dict(range_obj)
+
+                # Extract position from data.position
+                position_val = None
+                if data_obj:
+                    pos = get_optional_dict(data_obj, "position")
+                    if pos:
+                        # Position is a single point, create a Range with same start/end
+                        line = get_int(pos, "line", 0)
+                        char = get_int(pos, "character", 0)
+                        position_val = Range(
+                            start=Position(line=line, character=char),
+                            end=Position(line=line, character=char),
+                        )
 
             records.append(
                 CompletionRecord(
@@ -786,13 +1160,13 @@ class CompactFormatter:
 
         return records
 
-    def transform_hover(
-        self, hover: dict[str, Any] | None, file_path: str
-    ) -> HoverRecord | None:
+    def transform_hover(self, hover: object, file_path: str) -> HoverRecord | None:
         """Transform LSP hover response to HoverRecord.
 
+        Accepts both Pydantic Hover models and dict-based inputs (ADR-0027).
+
         Args:
-            hover: LSP hover response object or None
+            hover: LSP hover response (Pydantic model, dict, or None)
             file_path: File path for the hover request
 
         Returns:
@@ -801,22 +1175,66 @@ class CompactFormatter:
         if hover is None:
             return None
 
-        # Extract content from contents
-        contents = hover.get("contents", {})
-        if isinstance(contents, dict):
-            content = contents.get("value", "")
-        elif isinstance(contents, list) and contents:
-            # Handle array of MarkedString
-            first = contents[0]
-            content = first.get("value", "") if isinstance(first, dict) else str(first)
-        else:
-            content = str(contents) if contents else ""
+        # Check if input is a Pydantic model
+        from llm_lsp_cli.lsp.types import Hover as LspHover
+        from llm_lsp_cli.lsp.types import MarkupContent as LspMarkupContent
 
-        # Extract range if present
-        range_val: Range | None = None
-        range_obj = hover.get("range")
-        if range_obj:
-            range_val = Range.from_dict(range_obj)
+        if isinstance(hover, LspHover):
+            # Pydantic model path
+            content: str
+            if isinstance(hover.contents, LspMarkupContent):
+                content = hover.contents.value
+            elif isinstance(hover.contents, str):
+                content = hover.contents
+            elif isinstance(hover.contents, list):
+                # Handle array of MarkedString
+                first = hover.contents[0] if hover.contents else None
+                if first is not None and hasattr(first, "value"):
+                    content = first.value or ""
+                else:
+                    content = ""
+            else:
+                content = ""
+
+            # Extract range if present
+            range_val: Range | None = None
+            if hover.range is not None:
+                range_val = Range.from_pydantic(hover.range)
+        else:
+            # Dict-based input (legacy path)
+            # Extract all values BEFORE isinstance checks to avoid type narrowing issues
+            contents = get_dict(hover, "contents")
+            range_obj = get_optional_dict(hover, "range")
+
+            # Extract content from contents
+            if contents:
+                content = get_str(contents, "value", "")
+            elif isinstance(hover, dict):
+                hover_dict = cast(dict[str, object], hover)
+                contents_val = hover_dict.get("contents")
+                if isinstance(contents_val, dict):
+                    content = get_str(cast(dict[str, object], contents_val), "value", "")
+                elif isinstance(contents_val, list) and contents_val:
+                    # Handle array of MarkedString
+                    contents_list = cast(list[object], contents_val)
+                    first_raw = contents_list[0]
+                    if isinstance(first_raw, dict):
+                        content = get_str(cast(dict[str, object], first_raw), "value", "")
+                    elif isinstance(first_raw, str):
+                        content = first_raw
+                    else:
+                        content = ""
+                elif isinstance(contents_val, str):
+                    content = contents_val
+                else:
+                    content = ""
+            else:
+                content = ""
+
+            # Extract range if present
+            range_val = None
+            if range_obj:
+                range_val = Range.from_dict(range_obj)
 
         return HoverRecord(
             file=file_path,
@@ -835,7 +1253,7 @@ class _HasFile(Protocol):
 
     file: str
 
-    def to_compact_dict(self) -> dict[str, Any]:
+    def to_compact_dict(self) -> dict[str, object]:
         """Convert to compact dict representation."""
         ...
 
@@ -846,7 +1264,7 @@ _T = TypeVar("_T", bound=_HasFile)
 def _group_records_by_file(
     records: list[_T],
     items_key: str,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Group records by file path.
 
     This is the shared implementation for grouping SymbolRecords and
@@ -872,17 +1290,19 @@ def _group_records_by_file(
         groups[file_path].append(record)
 
     # Sort by file path and build result
-    result: list[dict[str, Any]] = []
+    result: list[dict[str, object]] = []
     for file_path in sorted(groups.keys()):
-        result.append({
-            "file": file_path,
-            items_key: [r.to_compact_dict() for r in groups[file_path]],
-        })
+        result.append(
+            {
+                "file": file_path,
+                items_key: [r.to_compact_dict() for r in groups[file_path]],
+            }
+        )
 
     return result
 
 
-def group_symbols_by_file(symbols: list[SymbolRecord]) -> list[dict[str, Any]]:
+def group_symbols_by_file(symbols: list[SymbolRecord]) -> list[dict[str, object]]:
     """Group SymbolRecords by file path for workspace-symbol output.
 
     Groups are sorted alphabetically by file path.
@@ -899,7 +1319,7 @@ def group_symbols_by_file(symbols: list[SymbolRecord]) -> list[dict[str, Any]]:
 
 def group_diagnostics_by_file(
     diagnostics: list[DiagnosticRecord],
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Group DiagnosticRecords by file path for workspace-diagnostics output.
 
     Groups are sorted alphabetically by file path.
@@ -916,7 +1336,7 @@ def group_diagnostics_by_file(
 
 def group_locations_by_file(
     records: list[LocationRecord],
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Group LocationRecords by file path for references output.
 
     Groups are sorted alphabetically by file path. References within each
@@ -941,17 +1361,19 @@ def group_locations_by_file(
         groups[file_path].append(record)
 
     # Sort by file path and build result with sorted references
-    result: list[dict[str, Any]] = []
+    result: list[dict[str, object]] = []
     for file_path in sorted(groups.keys()):
         # Sort references by range start position
         sorted_records = sorted(
             groups[file_path],
             key=lambda r: (r.range.start.line, r.range.start.character),
         )
-        result.append({
-            "file": file_path,
-            "references": [{"range": r.range.to_compact()} for r in sorted_records],
-        })
+        result.append(
+            {
+                "file": file_path,
+                "references": [{"range": r.range.to_compact()} for r in sorted_records],
+            }
+        )
 
     return result
 

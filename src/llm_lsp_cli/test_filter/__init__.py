@@ -1,20 +1,16 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportPrivateUsage=false
 """Test path filtering for LSP responses.
 
 Provides utilities to detect and filter test files across multiple languages
 using glob-based pattern matching with language-segmented patterns.
-LSP responses are inherently dynamic, so Any is used for dict value types.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 from llm_lsp_cli.config.manager import ConfigManager
 from llm_lsp_cli.config.schema import FilterTestConfig
+from llm_lsp_cli.utils.type_helpers import get_optional_dict, get_str
 
 from .language_registry import get_registry
 from .pattern_engine import PatternSet, PatternSource
@@ -81,11 +77,7 @@ def _get_pattern_set_for_language(language: str | None) -> PatternSet:
     pattern_set = registry.get_filter(language)
 
     # If no patterns configured for this language, use defaults
-    if (
-        not pattern_set._directory_patterns
-        and not pattern_set._suffix_patterns
-        and not pattern_set._prefix_patterns
-    ):
+    if pattern_set.is_empty():
         return _create_default_pattern_set()
 
     return pattern_set
@@ -132,11 +124,11 @@ def _is_test_uri(uri: str, language: str | None = None) -> bool:
 
 
 def _filter_by_uri(
-    items: list[dict[str, Any]],
+    items: list[dict[str, object]],
     include_tests: bool = False,
     language: str | None = None,
     uri_key: str = "uri",
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Filter out items with test URIs unless include_tests is True.
 
     Args:
@@ -153,15 +145,15 @@ def _filter_by_uri(
 
     return [
         item for item in items
-        if not _is_test_uri(item.get(uri_key, ""), language=language)
+        if not _is_test_uri(get_str(item, uri_key), language=language)
     ]
 
 
 def filter_test_locations(
-    locations: list[dict[str, Any]],
+    locations: list[dict[str, object]],
     include_tests: bool = False,
     language: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Filter out test locations unless include_tests is True.
 
     Args:
@@ -176,10 +168,10 @@ def filter_test_locations(
 
 
 def filter_test_symbols(
-    symbols: list[dict[str, Any]],
+    symbols: list[dict[str, object]],
     include_tests: bool = False,
     language: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Filter out symbols in test files unless include_tests is True.
 
     Args:
@@ -197,17 +189,17 @@ def filter_test_symbols(
         sym
         for sym in symbols
         if not _is_test_uri(
-            sym.get("location", {}).get("uri", ""),
+            get_str(get_optional_dict(sym, "location") or {}, "uri"),
             language=language
         )
     ]
 
 
 def filter_test_diagnostic_items(
-    items: list[dict[str, Any]],
+    items: list[dict[str, object]],
     include_tests: bool = False,
     language: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Filter out test file diagnostics from workspace results.
 
     Args:

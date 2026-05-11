@@ -5,12 +5,24 @@ all responses using Pydantic models before returning them to callers.
 """
 
 import logging
-from typing import Any
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, cast
 
 from pydantic import ValidationError
 
 from . import types as lsp
 from .transport import StdioTransport
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    # Handler types for notification/request callbacks
+    NotificationHandler = Callable[[dict[str, object]], None] | Callable[
+        [dict[str, object]], Coroutine[object, object, None]
+    ]
+    RequestHandler = Callable[[dict[str, object]], object] | Callable[
+        [dict[str, object]], Coroutine[object, object, object]
+    ]
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +101,7 @@ class TypedLSPTransport:
         Raises:
             ValidationError: If response doesn't match InitializeResult schema
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "initialize", params, timeout=self._get_timeout(timeout)
         )
         return lsp.InitializeResult.model_validate(result)
@@ -108,7 +120,7 @@ class TypedLSPTransport:
         Returns:
             Validated Hover or None if server returns null
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/hover", params, timeout=self._get_timeout(timeout)
         )
         if result is None:
@@ -129,7 +141,7 @@ class TypedLSPTransport:
         Returns:
             List of validated Locations
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/definition", params, timeout=self._get_timeout(timeout)
         )
         return self._validate_location_list(result)
@@ -148,7 +160,7 @@ class TypedLSPTransport:
         Returns:
             List of validated Locations
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/references", params, timeout=self._get_timeout(timeout)
         )
         return self._validate_location_list(result)
@@ -167,7 +179,7 @@ class TypedLSPTransport:
         Returns:
             CompletionList or list of CompletionItems
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/completion", params, timeout=self._get_timeout(timeout)
         )
         if result is None:
@@ -176,7 +188,7 @@ class TypedLSPTransport:
         # Response can be CompletionList or list[CompletionItem]
         if isinstance(result, list):
             items: list[lsp.CompletionItem] = []
-            for item in result:
+            for item in cast(list[object], result):
                 items.append(lsp.CompletionItem.model_validate(item))
             return items
 
@@ -196,16 +208,16 @@ class TypedLSPTransport:
         Returns:
             List of DocumentSymbols or SymbolInformation
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/documentSymbol", params, timeout=self._get_timeout(timeout)
         )
-        if result is None:
+        if result is None or not isinstance(result, list):
             return []
 
         # Response can be list[DocumentSymbol] or list[SymbolInformation]
         # We validate as DocumentSymbol first (more common for Python)
         validated: list[lsp.DocumentSymbol | lsp.SymbolInformation] = []
-        for item in result:
+        for item in cast(list[object], result):
             try:
                 validated.append(lsp.DocumentSymbol.model_validate(item))
             except ValidationError:
@@ -215,7 +227,7 @@ class TypedLSPTransport:
 
     async def send_workspace_symbol(
         self,
-        params: dict[str, object],
+        params: Mapping[str, object],
         timeout: float | None = None,
     ) -> list[lsp.SymbolInformation]:
         """Send workspace/symbol request and validate response.
@@ -227,13 +239,13 @@ class TypedLSPTransport:
         Returns:
             List of SymbolInformation
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "workspace/symbol", params, timeout=self._get_timeout(timeout)
         )
-        if result is None:
+        if result is None or not isinstance(result, list):
             return []
         symbols: list[lsp.SymbolInformation] = []
-        for item in result:
+        for item in cast(list[object], result):
             symbols.append(lsp.SymbolInformation.model_validate(item))
         return symbols
 
@@ -251,15 +263,15 @@ class TypedLSPTransport:
         Returns:
             List of CallHierarchyItems
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/prepareCallHierarchy",
             params,
             timeout=self._get_timeout(timeout),
         )
-        if result is None:
+        if result is None or not isinstance(result, list):
             return []
         items: list[lsp.CallHierarchyItem] = []
-        for item in result:
+        for item in cast(list[object], result):
             items.append(lsp.CallHierarchyItem.model_validate(item))
         return items
 
@@ -277,15 +289,15 @@ class TypedLSPTransport:
         Returns:
             List of CallHierarchyIncomingCall
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "callHierarchy/incomingCalls",
             params,
             timeout=self._get_timeout(timeout),
         )
-        if result is None:
+        if result is None or not isinstance(result, list):
             return []
         calls: list[lsp.CallHierarchyIncomingCall] = []
-        for item in result:
+        for item in cast(list[object], result):
             calls.append(lsp.CallHierarchyIncomingCall.model_validate(item))
         return calls
 
@@ -303,15 +315,15 @@ class TypedLSPTransport:
         Returns:
             List of CallHierarchyOutgoingCall
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "callHierarchy/outgoingCalls",
             params,
             timeout=self._get_timeout(timeout),
         )
-        if result is None:
+        if result is None or not isinstance(result, list):
             return []
         calls: list[lsp.CallHierarchyOutgoingCall] = []
-        for item in result:
+        for item in cast(list[object], result):
             calls.append(lsp.CallHierarchyOutgoingCall.model_validate(item))
         return calls
 
@@ -329,7 +341,7 @@ class TypedLSPTransport:
         Returns:
             Validated DocumentDiagnosticReport
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/diagnostic",
             params,
             timeout=self._get_timeout(timeout),
@@ -350,7 +362,7 @@ class TypedLSPTransport:
         Returns:
             Validated WorkspaceDiagnosticReport
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "workspace/diagnostic",
             params,
             timeout=self._get_timeout(timeout),
@@ -361,7 +373,7 @@ class TypedLSPTransport:
         self,
         params: dict[str, object],
         timeout: float | None = None,
-    ) -> lsp.Range | dict[str, Any] | None:
+    ) -> lsp.PrepareRenameResult | lsp.Range | None:
         """Send textDocument/prepareRename request and validate response.
 
         Args:
@@ -369,10 +381,9 @@ class TypedLSPTransport:
             timeout: Optional timeout in seconds
 
         Returns:
-            Range if response is a simple range, dict if PrepareRenameResult,
-            or None if rename is not allowed at position
+            PrepareRenameResult, Range, or None if rename is not allowed at position
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/prepareRename",
             params,
             timeout=self._get_timeout(timeout),
@@ -381,16 +392,18 @@ class TypedLSPTransport:
             return None
         # Response can be Range or PrepareRenameResult (with placeholder)
         # Range has 'start' and 'end' fields at top level
-        if isinstance(result, dict) and "start" in result and "end" in result:
-            return lsp.Range.model_validate(result)
-        # PrepareRenameResult has 'range' and optional 'placeholder'
-        return dict(result) if isinstance(result, dict) else result
+        if isinstance(result, dict):
+            if "start" in result and "end" in result and "range" not in result:
+                return lsp.Range.model_validate(result)
+            # PrepareRenameResult has 'range' and optional 'placeholder'
+            return lsp.PrepareRenameResult.model_validate(result)
+        return None
 
     async def send_rename(
         self,
         params: dict[str, object],
         timeout: float | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> lsp.WorkspaceEdit | None:
         """Send textDocument/rename request.
 
         Args:
@@ -398,14 +411,18 @@ class TypedLSPTransport:
             timeout: Optional timeout in seconds
 
         Returns:
-            WorkspaceEdit dict with changes, or None if no changes
+            WorkspaceEdit with changes, or None if no changes
         """
-        result: Any = await self._transport.send_request(
+        result: object = await self._transport.send_request(
             "textDocument/rename",
             params,
             timeout=self._get_timeout(timeout),
         )
-        return dict(result) if isinstance(result, dict) else result
+        if result is None:
+            return None
+        if isinstance(result, dict):
+            return lsp.WorkspaceEdit.model_validate(result)
+        return None
 
     async def send_shutdown(
         self,
@@ -416,14 +433,14 @@ class TypedLSPTransport:
         Args:
             timeout: Optional timeout in seconds
         """
-        await self._transport.send_request(
+        _ = await self._transport.send_request(
             "shutdown",
             None,
             timeout=self._get_timeout(timeout),
         )
 
     @staticmethod
-    def _validate_location_list(result: Any) -> list[lsp.Location]:
+    def _validate_location_list(result: object) -> list[lsp.Location]:
         """Validate a Location list response.
 
         Handles both Location[] and LocationLink responses.
@@ -439,7 +456,7 @@ class TypedLSPTransport:
 
         if isinstance(result, list):
             locations: list[lsp.Location] = []
-            for item in result:
+            for item in cast(list[object], result):
                 # Handle LocationLink (has targetUri) vs Location (has uri)
                 if isinstance(item, dict) and "targetUri" in item:
                     # Convert LocationLink to Location
@@ -465,7 +482,7 @@ class TypedLSPTransport:
     # =========================================================================
 
     async def send_notification(
-        self, method: str, params: dict[str, object] | None = None
+        self, method: str, params: Mapping[str, object] | None = None
     ) -> None:
         """Send a notification (no response expected).
 
@@ -478,9 +495,9 @@ class TypedLSPTransport:
         await self._transport.send_notification(method, params)
 
     async def send_request_fire_and_forget(
-        self, method: str, params: dict[str, object] | None = None
+        self, method: str, params: Mapping[str, object] | None = None
     ) -> None:
-        """Send a request without waiting for response.
+        """Send a request without waiting for response (fire-and-forget).
 
         Delegates to underlying transport.
 
@@ -491,7 +508,7 @@ class TypedLSPTransport:
         await self._transport.send_request_fire_and_forget(method, params)
 
     async def send_request(
-        self, method: str, params: dict[str, object] | None = None, timeout: float = 30.0
+        self, method: str, params: Mapping[str, object] | None = None, timeout: float = 30.0
     ) -> object:
         """Send a request and wait for response.
 
@@ -525,7 +542,7 @@ class TypedLSPTransport:
         """
         await self._transport.stop()
 
-    def on_notification(self, method: str, handler: Any) -> None:
+    def on_notification(self, method: str, handler: "NotificationHandler") -> None:
         """Register a notification handler.
 
         Delegates to underlying transport.
@@ -536,7 +553,7 @@ class TypedLSPTransport:
         """
         self._transport.on_notification(method, handler)
 
-    def on_request(self, method: str, handler: Any) -> None:
+    def on_request(self, method: str, handler: "RequestHandler") -> None:
         """Register a server->client request handler.
 
         Delegates to underlying transport.

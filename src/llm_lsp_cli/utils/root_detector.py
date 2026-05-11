@@ -1,17 +1,20 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
 """Root detection for workspace based on config-driven markers.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+
+from llm_lsp_cli.utils.type_helpers import get_list_of_str
+
+
+def _get_optional_list(data: dict[str, object], key: str) -> list[str] | None:
+    """Extract an optional list of strings from a dict with object values."""
+    result = get_list_of_str(data, key)
+    return result if result else None
 
 
 def find_root_by_markers(start_path: Path, markers: list[str]) -> Path | None:
@@ -72,7 +75,7 @@ def detect_workspace_and_language(
     file_path: str | None,
     explicit_workspace: str | None,
     explicit_language: str | None,
-    language_configs: dict[str, dict[str, Any]],
+    language_configs: dict[str, dict[str, object]],
     extension_map: dict[str, str],
     cwd: str | None = None,
 ) -> tuple[Path, str | None]:
@@ -152,7 +155,7 @@ def detect_workspace_and_language(
                     return workspace_path, language
         # Second pass: check all markers including .git
         for language, config in language_configs.items():
-            markers = config.get("root_markers", [])
+            markers = _get_optional_list(config, "root_markers")
             if markers:
                 root = find_root_by_markers(workspace_path, markers)
                 if root:
@@ -171,7 +174,7 @@ def detect_workspace_and_language(
                 return root, lang_name
     # Second pass: check all markers including .git
     for lang_name, lang_config in language_configs.items():
-        markers = lang_config.get("root_markers", [])
+        markers = _get_optional_list(lang_config, "root_markers")
         if markers:
             root = find_root_by_markers(effective_cwd, markers)
             if root:
@@ -182,8 +185,8 @@ def detect_workspace_and_language(
 
 
 def _get_markers_for_language(
-    language: str, configs: dict[str, dict[str, Any]]
-) -> list[str]:
+    language: str, configs: dict[str, dict[str, object]]
+) -> list[str] | None:
     """Get root markers for a language from config.
 
     Args:
@@ -191,14 +194,12 @@ def _get_markers_for_language(
         configs: Dict of language configs
 
     Returns:
-        List of markers or empty list
+        List of markers or None
     """
-    config = configs.get(language, {})
-    markers = config.get("root_markers", [])
-    # Type guard: ensure we return a list of strings
-    if isinstance(markers, list):
-        return [str(m) for m in markers]
-    return []
+    config = configs.get(language)
+    if config is None:
+        return None
+    return _get_optional_list(config, "root_markers")
 
 
 def format_unsupported_message(language: str | None, available: list[str]) -> str:

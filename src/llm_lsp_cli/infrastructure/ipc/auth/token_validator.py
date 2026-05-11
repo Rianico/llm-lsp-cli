@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Token-based authentication for IPC communication."""
 
 from __future__ import annotations
@@ -32,8 +31,9 @@ class TokenAuthenticator:
     Design: Immutability for AuthToken, secure defaults for file permissions.
     """
 
-    TOKEN_FILE = "auth_token"
-    TOKEN_LENGTH = 32  # Minimum token length in bytes
+    TOKEN_FILE: str = "auth_token"
+    TOKEN_LENGTH: int = 32  # Minimum token length in bytes
+    _token_dir: Path
 
     def __init__(self, token_dir: Path) -> None:
         """Initialize the authenticator with a token directory.
@@ -65,10 +65,10 @@ class TokenAuthenticator:
         token_path = self._token_dir / self.TOKEN_FILE
 
         # Write token value to file
-        token_path.write_text(token.value)
+        _ = token_path.write_text(token.value)
 
         # Set secure permissions (owner read/write only)
-        token_path.chmod(0o600)
+        _ = token_path.chmod(0o600)
 
         return token_path
 

@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """LSP server path resolution utility."""
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ class ServerPathResolver:
     """
 
     # Shell metacharacters that indicate injection attempts (always dangerous)
-    DANGEROUS_METACHARACTERS = frozenset([';', '|', '&', '`', '>', '<'])
+    DANGEROUS_METACHARACTERS: frozenset[str] = frozenset([';', '|', '&', '`', '>', '<'])
 
     @staticmethod
     def resolve(command: str) -> str:

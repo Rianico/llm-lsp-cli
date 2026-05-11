@@ -1,17 +1,12 @@
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
 """Progress handler for LSP work done progress.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data (dict[str, object]).
+LSP responses are inherently dynamic, so object is used for dict value types.
 """
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import cast
 
 from llm_lsp_cli.domain.progress import WorkDoneProgressState
 
@@ -32,13 +27,16 @@ class ProgressHandler:
         self._progress_states: dict[str, WorkDoneProgressState] = {}
         self._callbacks: list[Callable[[WorkDoneProgressState], None]] = []
 
-    def handle_progress(self, params: dict[str, Any]) -> None:
+    def handle_progress(self, params: dict[str, object]) -> None:
         """Handle $/progress notification."""
-        token = params.get("token", "")
-        value = params.get("value", {})
+        token_val = params.get("token", "")
+        token = str(token_val) if token_val is not None else ""
+        value_raw = params.get("value", {})
 
-        if not isinstance(value, dict):
+        if not isinstance(value_raw, dict):
             return
+
+        value = cast(dict[str, object], value_raw)
 
         # Check if this is work done progress (has 'kind' field)
         if "kind" not in value:
@@ -46,7 +44,8 @@ class ProgressHandler:
             # Delegate to diagnostic manager or other handlers
             return
 
-        kind = value.get("kind", "")
+        kind_val = value.get("kind", "")
+        kind = str(kind_val) if kind_val is not None else ""
 
         if kind == "begin":
             self._handle_begin(token, value)
@@ -55,21 +54,26 @@ class ProgressHandler:
         elif kind == "end":
             self._handle_end(token)
 
-    def _handle_begin(self, token: str, value: dict[str, Any]) -> None:
+    def _handle_begin(self, token: str, value: dict[str, object]) -> None:
         """Handle progress begin notification."""
+        title_raw = value.get("title", "")
+        message_raw = value.get("message", "")
+        percentage_raw = value.get("percentage", 0)
+        cancellable_raw = value.get("cancellable", False)
+
         state = WorkDoneProgressState(
             token=token,
-            title=value.get("title", ""),
-            message=value.get("message", ""),
-            percentage=value.get("percentage", 0),
-            cancellable=value.get("cancellable", False),
+            title=str(title_raw) if title_raw is not None else "",
+            message=str(message_raw) if message_raw is not None else "",
+            percentage=int(percentage_raw) if isinstance(percentage_raw, (int, float)) else 0,
+            cancellable=bool(cancellable_raw),
             started=True,
         )
         self._progress_states[token] = state
         logger.info(f"Work started: {state.title} - {state.message} ({state.percentage}%)")
         self._notify_callbacks(state)
 
-    def _handle_report(self, token: str, value: dict[str, Any]) -> None:
+    def _handle_report(self, token: str, value: dict[str, object]) -> None:
         """Handle progress report notification."""
         if token not in self._progress_states:
             logger.warning(f"Progress report for unknown token: {token}")
@@ -77,11 +81,14 @@ class ProgressHandler:
 
         state = self._progress_states[token]
         # Create new state instance (immutability)
+        message_raw = value.get("message", state.message)
+        percentage_raw = value.get("percentage", state.percentage)
+
         updated_state = WorkDoneProgressState(
             token=state.token,
             title=state.title,
-            message=value.get("message", state.message),
-            percentage=value.get("percentage", state.percentage),
+            message=str(message_raw) if message_raw is not None else state.message,
+            percentage=int(percentage_raw) if isinstance(percentage_raw, (int, float)) else state.percentage,
             cancellable=state.cancellable,
             started=state.started,
             completed=state.completed,

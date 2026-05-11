@@ -181,7 +181,7 @@ class TestWorkspaceCommandsKeepFileInGroups:
         result = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.JSON,
-            items_key="symbols",
+            _items_key="symbols",
             _source="Basedpyright",
         )
         data = json.loads(result)
@@ -206,7 +206,7 @@ class TestWorkspaceCommandsKeepFileInGroups:
         result = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.JSON,
-            items_key="diagnostics",
+            _items_key="diagnostics",
             _source="Basedpyright",
         )
         data = json.loads(result)

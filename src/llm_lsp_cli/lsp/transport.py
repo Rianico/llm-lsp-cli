@@ -9,9 +9,9 @@ import contextlib
 import inspect
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum, auto
-from typing import Any
+from typing import Any, override
 
 from .constants import LSPConstants
 
@@ -26,6 +26,7 @@ from .constants import LSPConstants
 # pyright: reportAny=false
 # pyright: reportUnknownVariableType=false
 # pyright: reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false
 # pyright: reportUnnecessaryIsInstance=false
 
 # Custom logging level for transport-layer messages (more verbose than DEBUG)
@@ -178,7 +179,7 @@ def _mask_result_items(result_data: dict[str, Any]) -> None:
     _mask_array(result_data, "items", "array")
 
 
-def _mask_text_content(params: dict[str, Any]) -> None:
+def _mask_text_content(params: object) -> None:
     """Mask text content fields in document synchronization params.
 
     Mutates the params dict in place (called on shallow-copied data only).
@@ -579,7 +580,7 @@ class StdioTransport:
     async def send_request(
         self,
         method: str,
-        params: dict[str, object] | None = None,
+        params: Mapping[str, object] | None = None,
         timeout: float = 30.0,
     ) -> object:
         """Send a request and wait for response."""
@@ -598,17 +599,17 @@ class StdioTransport:
                 "jsonrpc": LSPConstants.JSONRPC_VERSION,
                 "id": request_id,
                 "method": method,
-                "params": params or {},
+                "params": dict(params) if params else {},
             }
         )
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
         except asyncio.TimeoutError:
-            self._pending.pop(request_id, None)
+            _ = self._pending.pop(request_id, None)
             raise TimeoutError(f"Request timed out: {method}") from None
 
-    async def send_notification(self, method: str, params: dict[str, object] | None = None) -> None:
+    async def send_notification(self, method: str, params: Mapping[str, object] | None = None) -> None:
         """Send a notification (no response expected)."""
         assert self._process is not None, "Transport not started"
 
@@ -616,12 +617,12 @@ class StdioTransport:
             {
                 "jsonrpc": LSPConstants.JSONRPC_VERSION,
                 "method": method,
-                "params": params or {},
+                "params": dict(params) if params else {},
             }
         )
 
     async def send_request_fire_and_forget(
-        self, method: str, params: dict[str, object] | None = None
+        self, method: str, params: Mapping[str, object] | None = None
     ) -> None:
         """Send a request without waiting for response (fire-and-forget).
 
@@ -686,13 +687,13 @@ class StdioTransport:
 
         # Cancel read task
         if self._read_task:
-            self._read_task.cancel()
+            _ = self._read_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
 
         # Cancel stderr task
         if self._stderr_task:
-            self._stderr_task.cancel()
+            _ = self._stderr_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._stderr_task
 
@@ -703,27 +704,30 @@ class StdioTransport:
         # Wait for process to exit
         if self._process:
             try:
-                await asyncio.wait_for(self._process.wait(), timeout=5.0)
+                _ = await asyncio.wait_for(self._process.wait(), timeout=5.0)
             except asyncio.TimeoutError:
                 # Kill if not exiting
                 self._process.kill()
-                await self._process.wait()
+                _ = await self._process.wait()
 
         # Clear pending
         for future in self._pending.values():
             if not future.done():
-                future.cancel()
+                _ = future.cancel()
         self._pending.clear()
 
 
 class LSPError(Exception):
     """LSP protocol error."""
 
-    def __init__(self, error_data: dict[str, Any]):
-        self.code = error_data.get("code", -1)
-        self.message = error_data.get("message", "Unknown error")
-        self.data = error_data.get("data")
+    def __init__(self, error_data: dict[str, object]):
+        code_val = error_data.get("code", -1)
+        self.code: int = code_val if isinstance(code_val, int) else -1
+        msg_val = error_data.get("message", "Unknown error")
+        self.message: str = msg_val if isinstance(msg_val, str) else "Unknown error"
+        self.data: object = error_data.get("data")
         super().__init__(self.message)
 
+    @override
     def __str__(self) -> str:
         return f"LSP Error {self.code}: {self.message}"

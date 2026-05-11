@@ -35,6 +35,40 @@ src/llm_lsp_cli/
     └── config.py             # Configuration commands
 ```
 
+**CLI Typed Request Gateway (ADR-0028):**
+
+The `send_request` function in `commands/shared.py` serves as a typed gateway between the CLI command layer and the IPC layer. It accepts daemon RPC param models (flat camelCase), sends the request, unwraps the keyed response dict, validates the inner value, and returns a typed Pydantic result.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     CLI LAYER                               │
+│  lsp.py commands: use send_request with typed overloads     │
+├─────────────────────────────────────────────────────────────┤
+│  commands/shared.py: send_request()                         │
+│    - @overload declarations per method (ADR-0028)           │
+│    - Accepts DaemonPositionParams, DaemonFileParams, etc.   │
+│    - Returns list[Location], Hover | None, etc.             │
+│    - Unwraps response dict, validates inner value           │
+├─────────────────────────────────────────────────────────────┤
+│                     TYPE BOUNDARY                            │
+│  IPC params validated; responses unwrapped and typed        │
+├─────────────────────────────────────────────────────────────┤
+│  DaemonClient.request() → UNIXClient.request()              │
+│  ipc/protocol.py: raw JSON-RPC (designated Any zone)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Two param schemas:**
+
+The CLI-to-daemon channel and the daemon-to-LSP-server channel use different param formats:
+
+| Channel | Format | Models | Example |
+|---------|--------|--------|---------|
+| CLI → Daemon | Flat camelCase | `ipc/cli_params.py` | `workspacePath`, `filePath`, `line`, `column` |
+| Daemon → LSP | Nested LSP | `ipc/models.py` | `textDocument.uri`, `position.line` |
+
+The daemon translates between these two formats in `_handle_lsp_method`.
+
 ### Layer 2: Application Layer
 
 **Responsibilities:**
@@ -45,7 +79,7 @@ src/llm_lsp_cli/
 **Components:**
 - `daemon_client.py`: DaemonClient for transparent auto-start
 - `daemon.py`: RequestHandler, DocumentSyncContext
-- `ipc/`: JSON-RPC protocol, transport
+- `ipc/`: JSON-RPC protocol, transport with generic type registry
 
 ### Layer 3: Domain Layer (Inner/Core)
 
@@ -84,28 +118,60 @@ infrastructure/
 └── logging/
 ```
 
-**LSP Transport Type Boundary:**
+**IPC Layer Generic Type Architecture:**
 
-The LSP transport layer enforces a strict type boundary (ADR-0024):
+The IPC layer implements a method registry with generic types for compile-time type safety (ADR-0026):
 
 ```
-┌─────────────────────────────────────────┐
-│           TYPE BOUNDARY                 │
-├─────────────────────────────────────────┤
-│  StdioTransport.send_request() → object │
-│              ↓                          │
-│  TypedLSPTransport (validation)         │
-│              ↓                          │
-│  Pydantic Models → Inner Layers         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         DESIGNATED ANY LAYER                             │
+│                        (Infrastructure Only)                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ipc/protocol.py:     parse_message() -> dict[str, Any]                  │
+│                       Raw JSON-RPC parsing (contained)                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ipc/method_registry.py: METHOD_TYPES: dict[str, tuple[type, type]]     │
+│  ipc/models.py:          Pydantic models for daemon→LSP params          │
+│  ipc/cli_params.py:      Pydantic models for CLI→daemon params (ADR-0028)│
+│  ipc/unix_client.py:     @overload request() -> TypedResult             │
+│                          Generic request() with runtime validation      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                       TYPE BOUNDARY                                      │
+│              Pydantic validation happens here                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Domain/Application Layers (concrete types ONLY)                         │
+│  daemon_client.py:       request() returns validated models             │
+│  CLI commands:           No cast() needed                                │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**LSP Transport Type Boundary:**
+
+The LSP transport layer enforces a strict type boundary (ADR-0024, ADR-0025):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     DESIGNATED ANY LAYER                     │
+│                     (Infrastructure Only)                    │
+├─────────────────────────────────────────────────────────────┤
+│  lsp/transport.py:    send_request() -> object               │
+│           ↓                                                  │
+│  TypedLSPTransport (Pydantic validation)                     │
+│           ↓                                                  │
+│  Domain/Application Layers (concrete types ONLY)             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **Boundary Rules:**
-1. ONLY `TypedLSPTransport` may import or use `StdioTransport`
-2. `StdioTransport.send_request()` returns `object` not `Any`
-3. Pydantic validation happens at the boundary, not scattered
-4. Inner layers receive validated Pydantic models only
-5. `StdioTransport` is not exported from `lsp/__init__.py`
+1. ONLY `transport.py` and `ipc/*` may use `Any` internally for raw JSON-RPC (ADR-0025)
+2. IPC method registry provides compile-time type safety via `@overload` (ADR-0026)
+3. ONLY `TypedLSPTransport` may import or use `StdioTransport` (ADR-0024)
+4. `StdioTransport.send_request()` returns `object` not `Any` (ADR-0024)
+5. Pydantic validation happens at the boundary, not scattered
+6. Inner layers receive validated Pydantic models only
+7. `StdioTransport` is not exported from `lsp/__init__.py`
+8. `send_request` is a typed gateway: accepts daemon RPC params, returns typed results (ADR-0028)
+9. CLI-to-daemon params use flat camelCase models; daemon-to-LSP params use nested LSP models (ADR-0028)
 
 ## Configuration System
 
@@ -307,6 +373,63 @@ class FormattableRecord(Protocol):
 2. **Human-Readable Names**: Use `kind_name` not numeric `kind` (ADR-0015)
 3. **No Format Logic in CLI**: Commands delegate to `OutputDispatcher`
 4. **Raw Pipeline Separate**: `--raw` flag bypasses normalization entirely (ADR-0012)
+5. **Formatter consumes Pydantic models**: Output layer receives typed models from `lsp/types.py`, not `object`-typed dicts (ADR-0027)
+
+### Output Layer Type Boundary (ADR-0027)
+
+The output formatter completes the type boundary chain by consuming validated Pydantic models instead of raw `object`-typed dicts:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     LSP RESPONSE PIPELINE                     │
+├─────────────────────────────────────────────────────────────┤
+│  StdioTransport → object                                     │
+│           ↓                                                  │
+│  TypedLSPTransport → Pydantic models (validated)             │
+│           ↓                                                  │
+│  daemon.py RequestHandler → passes Pydantic models           │
+│           ↓                                                  │
+│  CompactFormatter.transform_*() → consumes Pydantic models   │
+│           ↓                                                  │
+│  FormattableRecord (fully typed, no object extraction)       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Before (pre-ADR-0027):** Formatter received `list[dict[str, object]]` and extracted fields via `type_helpers.py`, producing 120+ unknown-type warnings.
+
+**After (ADR-0027):** Formatter receives `list[DocumentSymbol]`, `list[Location]`, etc. and accesses typed attributes directly. `type_helpers.py` usage scoped to config/IPC boundaries only.
+
+### CLI Typed Request Gateway (ADR-0028)
+
+The `send_request` function in `commands/shared.py` extends the type boundary chain to the CLI layer. It accepts daemon RPC param models (flat camelCase, defined in `ipc/cli_params.py`), sends the request via `DaemonClient`, unwraps the keyed response dict, validates the inner value, and returns a typed Pydantic result.
+
+**Param format distinction:**
+
+The daemon translates between two param schemas:
+- **CLI → Daemon**: Flat camelCase (`workspacePath`, `filePath`, `line`, `column`). Modeled by `DaemonPositionParams`, `DaemonFileParams`, etc.
+- **Daemon → LSP Server**: Nested LSP standard (`textDocument.uri`, `position.line`). Modeled by `TextDocumentPositionParams`, etc.
+
+**Response unwrapping:**
+
+The daemon wraps LSP results in keyed dicts (`{"locations": [...]}`, `{"hover": ...}`). The `send_request` gateway extracts the inner value using the `RESPONSE_KEYS` mapping and validates it to the appropriate Pydantic type before returning.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     CLI REQUEST PIPELINE                      │
+├─────────────────────────────────────────────────────────────┤
+│  lsp.py commands: build DaemonPositionParams, etc.           │
+│           ↓                                                  │
+│  send_request() @overload: accepts typed params              │
+│           ↓                                                  │
+│  DaemonClient.request(): sends via UNIXClient                │
+│           ↓                                                  │
+│  Daemon: receives flat camelCase, dispatches to LSP          │
+│           ↓                                                  │
+│  send_request(): unwraps {"locations": [...]}, validates     │
+│           ↓                                                  │
+│  Returns list[Location], Hover | None, etc.                  │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Dispatcher Pattern
 
@@ -446,14 +569,13 @@ llm-lsp-cli <group> <command>
 
 ```
 1. CLI: llm-lsp-cli lsp definition file.py 10 5
-2. commands/lsp.py: Delegate to _execute_lsp_command()
-3. daemon_client.py: DaemonClient.request() -> auto-start if needed
-4. ipc/unix_client.py: Send JSON-RPC over socket
-5. daemon.py: RequestHandler._handle_lsp_method()
-6. daemon.py: DocumentSyncContext.__aenter__() -> didOpen if needed
-7. lsp/client.py: LSPClient.request_diagnostics(uri, mtime)
-8. lsp/cache.py: DiagnosticCache.is_stale(uri, incoming_mtime)
-9. Response flows back through layers
+2. commands/lsp.py: Build DaemonPositionParams, call send_request()
+3. commands/shared.py: send_request() → DaemonClient.request() → UNIXClient
+4. daemon.py: _handle_lsp_method() extracts flat params, dispatches to LSP
+5. daemon.py: DocumentSyncContext.__aenter__() → didOpen if needed
+6. lsp/client.py: LSPClient.request_diagnostics(uri, mtime)
+7. lsp/cache.py: DiagnosticCache.is_stale(uri, incoming_mtime)
+8. Response flows back: daemon wraps → send_request unwraps → typed result
 ```
 
 ## Data Flow: Configuration Loading
@@ -471,8 +593,8 @@ llm-lsp-cli <group> <command>
 ## Extension Points
 
 1. **New LSP server:** Add JSON to `config/capabilities/`
-2. **New LSP method:** Add to `LSPConstants`, `RequestHandler.RESPONSE_KEYS`
-3. **New CLI command:** Add to appropriate `commands/*.py`, follow two-level hierarchy
+2. **New LSP method:** Add to `LSPConstants` (as `Final`), `RequestHandler.RESPONSE_KEYS`, `ipc/method_registry.py`, and `ipc/cli_params.py`
+3. **New CLI command:** Add to appropriate `commands/*.py`, add `@overload` to `send_request`
 4. **New output format:** Extend `OutputDispatcher`, update `FormattableRecord` protocol
 5. **New record type:** Implement `FormattableRecord`, use `CompactFormatter.transform_*`
 6. **Workspace-level command with grouping:** Use `format_grouped()` for JSON/YAML, hierarchical renderer for TEXT
@@ -500,3 +622,13 @@ llm-lsp-cli <group> <command>
 | Pydantic models for LSP types | lsp/types.py | ADR-0023 |
 | Typed transport adapter | lsp/typed_transport.py | ADR-0023 |
 | ONLY TypedLSPTransport may access StdioTransport | lsp/ transport boundary | ADR-0024 |
+| Designated Any Layer: transport.py + ipc/* | Infrastructure boundary | ADR-0025 |
+| IPC method registry with @overload | ipc/method_registry.py | ADR-0026 |
+| Formatter consumes Pydantic models, not object dicts | output/formatter.py | ADR-0027 |
+| model_config annotated as ConfigDict in Pydantic models | lsp/types.py, ipc/models.py | ADR-0027 |
+| type_helpers.py scoped to config/IPC boundaries only | utils/type_helpers.py | ADR-0027 |
+| CLI typed request gateway: send_request overloads | commands/shared.py | ADR-0028 |
+| CLI→daemon params: flat camelCase (DaemonPositionParams) | ipc/cli_params.py | ADR-0028 |
+| Daemon→LSP params: nested LSP (TextDocumentPositionParams) | ipc/models.py | ADR-0028 |
+| LSPConstants as Final for overload matching | lsp/constants.py | ADR-0028 |
+| send_request unwraps response dicts, returns typed inner values | commands/shared.py | ADR-0028 |

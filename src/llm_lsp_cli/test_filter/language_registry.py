@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Language filter registry for managing per-language test filters."""
 
 from __future__ import annotations
@@ -20,13 +19,13 @@ class LanguageFilterRegistry:
     """
 
     _instance: LanguageFilterRegistry | None = None
-    _lock = threading.RLock()
+    _lock: threading.RLock = threading.RLock()
 
     def __init__(self) -> None:
         """Initialize the registry."""
         self._filters: dict[str, PatternSet] = {}
         self._config: FilterTestConfig | None = None
-        self._configured = False
+        self._configured: bool = False
 
     @classmethod
     def get_instance(cls) -> LanguageFilterRegistry:
@@ -107,7 +106,7 @@ class LanguageFilterRegistry:
             language: Language identifier to reload
         """
         with self._lock:
-            self._filters.pop(language, None)
+            _ = self._filters.pop(language, None)
 
     def clear(self) -> None:
         """Clear all cached filters."""

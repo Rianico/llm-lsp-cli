@@ -11,7 +11,6 @@ It replaces the dual-cache system with a single cache using:
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from llm_lsp_cli.utils.uri import uri_to_absolute_path
 
@@ -43,7 +42,7 @@ class FileState:
     document_version: int = 0
     last_result_id: str | None = None
     is_open: bool = False
-    diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    diagnostics: list[dict[str, object]] = field(default_factory=list)
     uri: str = ""
 
 
@@ -61,6 +60,10 @@ class DiagnosticCache:
         _lock: Asyncio lock for thread-safe mutations
     """
 
+    _workspace_root: Path
+    _cache: dict[str, FileState]
+    _lock: asyncio.Lock
+
     def __init__(self, workspace_root: Path) -> None:
         """Initialize the diagnostic cache.
 
@@ -68,7 +71,7 @@ class DiagnosticCache:
             workspace_root: The root directory of the workspace for relative path resolution
         """
         self._workspace_root = workspace_root.resolve()
-        self._cache: dict[str, FileState] = {}
+        self._cache = {}
         self._lock = asyncio.Lock()
 
     def _uri_to_absolute_path(self, uri: str) -> str:
@@ -87,7 +90,7 @@ class DiagnosticCache:
     async def update_diagnostics(
         self,
         uri: str,
-        diagnostics: list[dict[str, Any]],
+        diagnostics: list[dict[str, object]],
         result_id: str | None = None,
     ) -> None:
         """Update cached diagnostics for a file.
@@ -107,7 +110,7 @@ class DiagnosticCache:
                 state.last_result_id = result_id
             self._cache[key] = state
 
-    async def get_diagnostics(self, uri: str) -> list[dict[str, Any]]:
+    async def get_diagnostics(self, uri: str) -> list[dict[str, object]]:
         """Get cached diagnostics for a file.
 
         Args:
@@ -123,7 +126,7 @@ class DiagnosticCache:
                 return []
             return list(state.diagnostics)  # Return defensive copy
 
-    def get_cached(self, uri: str) -> list[dict[str, Any]]:
+    def get_cached(self, uri: str) -> list[dict[str, object]]:
         """Get cached diagnostics for a file (synchronous fallback).
 
         This is a synchronous version for use in notification handlers

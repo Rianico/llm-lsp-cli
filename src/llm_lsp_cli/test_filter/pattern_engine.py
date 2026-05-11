@@ -257,6 +257,18 @@ class PatternSet:
         # Priority 5: Default - not a test
         return MatchResult(is_match=False)
 
+    def is_empty(self) -> bool:
+        """Check if the pattern set has no patterns configured.
+
+        Returns:
+            True if no patterns are configured, False otherwise
+        """
+        return (
+            not self._directory_patterns
+            and not self._suffix_patterns
+            and not self._prefix_patterns
+        )
+
     @classmethod
     def from_language_config(
         cls, config: LanguageTestFilterConfig, source: PatternSource = PatternSource.DEFAULT

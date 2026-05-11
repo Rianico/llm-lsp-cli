@@ -1,5 +1,6 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Configuration schema definitions for llm-lsp-cli."""
+
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class LanguageServerConfig(BaseModel):
     """Configuration for a specific language server."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     command: str = Field(..., description="Server executable command")
     args: list[str] = Field(default_factory=list, description="Command line arguments")
@@ -21,7 +22,7 @@ class LanguageServerConfig(BaseModel):
 class LanguageTestFilterConfig(BaseModel):
     """Test filter configuration for a single language."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     directory_patterns: list[str] = Field(
         default_factory=list,
@@ -45,7 +46,7 @@ class LanguageTestFilterConfig(BaseModel):
 class FilterTestConfig(BaseModel):
     """Root test filter configuration with language-segmented groups."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     defaults: LanguageTestFilterConfig = Field(default_factory=LanguageTestFilterConfig)
     languages: dict[str, LanguageTestFilterConfig] = Field(default_factory=dict)
@@ -55,7 +56,7 @@ class FilterTestConfig(BaseModel):
 class ClientConfig(BaseModel):
     """Main client configuration."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     # Daemon settings
     socket_path: str = Field(

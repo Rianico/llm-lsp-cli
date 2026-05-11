@@ -41,7 +41,7 @@ class TestFormatGrouped:
         result = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.JSON,
-            items_key="symbols",
+            _items_key="symbols",
             _source="TestServer",
             command="workspace-symbol",
         )
@@ -72,7 +72,7 @@ class TestFormatGrouped:
         result = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.JSON,
-            items_key="diagnostics",
+            _items_key="diagnostics",
             _source="TestServer",
             command="workspace-diagnostics",
         )
@@ -101,7 +101,7 @@ class TestFormatGrouped:
         result = dispatcher.format_grouped(
             grouped_data,
             OutputFormat.YAML,
-            items_key="symbols",
+            _items_key="symbols",
             _source="TestServer",
             command="workspace-symbol",
         )
@@ -232,7 +232,7 @@ class TestFormatGrouped:
 
         dispatcher = OutputDispatcher()
         result = dispatcher.format_grouped(
-            [], OutputFormat.JSON, items_key="symbols", _source="TestServer", command="workspace-symbol"
+            [], OutputFormat.JSON, _items_key="symbols", _source="TestServer", command="workspace-symbol"
         )
 
         parsed = json.loads(result)
@@ -246,7 +246,7 @@ class TestFormatGrouped:
 
         dispatcher = OutputDispatcher()
         result = dispatcher.format_grouped(
-            [], OutputFormat.YAML, items_key="symbols", _source="TestServer", command="workspace-symbol"
+            [], OutputFormat.YAML, _items_key="symbols", _source="TestServer", command="workspace-symbol"
         )
 
         parsed = yaml.safe_load(result)
@@ -267,7 +267,7 @@ class TestFormatGrouped:
 
         dispatcher = OutputDispatcher()
         result = dispatcher.format_grouped(
-            grouped_data, OutputFormat.JSON, items_key="symbols", _source="TestServer", command="workspace-symbol"
+            grouped_data, OutputFormat.JSON, _items_key="symbols", _source="TestServer", command="workspace-symbol"
         )
 
         parsed = json.loads(result)
@@ -287,7 +287,7 @@ class TestFormatGrouped:
 
         dispatcher = OutputDispatcher()
         result = dispatcher.format_grouped(
-            grouped_data, OutputFormat.JSON, items_key="diagnostics", _source="TestServer", command="workspace-diagnostics"
+            grouped_data, OutputFormat.JSON, _items_key="diagnostics", _source="TestServer", command="workspace-diagnostics"
         )
 
         parsed = json.loads(result)

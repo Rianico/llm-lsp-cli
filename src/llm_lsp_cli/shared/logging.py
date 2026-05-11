@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 """Structured logging with context tracking."""
 
 from __future__ import annotations
@@ -50,6 +49,8 @@ class StructuredLogger:
 
     Design: Request ID tracking, exception logging with stack traces.
     """
+
+    _logger: logging.Logger
 
     def __init__(
         self,

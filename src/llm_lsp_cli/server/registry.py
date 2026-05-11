@@ -1,43 +1,46 @@
-# pyright: reportUnannotatedClassAttribute=false
-# pyright: reportExplicitAny=false
-# pyright: reportAny=false
-# pyright: reportMissingTypeStubs=false
 """Server registry for managing multiple LSP workspaces.
 
-This module handles LSP response data (dict[str, Any]).
-LSP responses are inherently dynamic, so Any is used for dict value types.
+This module handles LSP response data.
+Uses object for unknown data fields; specific types for known structures.
 """
 
 import asyncio
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
-from llm_lsp_cli.config import ConfigManager
+from llm_lsp_cli.config import ClientConfig, ConfigManager
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
 from llm_lsp_cli.infrastructure.config.exceptions import ServerNotFoundError
 from llm_lsp_cli.infrastructure.config.path_resolver import ServerPathResolver
 
 from .workspace import WorkspaceManager
 
+# Pre-validated default config (cached for performance)
+_DEFAULT_CLIENT_CONFIG: ClientConfig = ClientConfig.model_validate(DEFAULT_CONFIG)
+
 
 class ServerRegistry:
     """Registry of LSP servers, one per workspace."""
 
+    _workspaces: dict[str, WorkspaceManager]
+    _global_lock: asyncio.Lock
+    _config: ClientConfig | None  # Cached typed config
+    _lsp_conf: str | None
+
     def __init__(self, lsp_conf: str | None = None):
-        self._workspaces: dict[str, WorkspaceManager] = {}
+        self._workspaces = {}
         self._global_lock = asyncio.Lock()
-        self._config: dict[str, Any] | None = None  # Cached config
+        self._config = None  # Cached config
         self._lsp_conf = lsp_conf
 
-    def _load_config(self) -> dict[str, Any]:
+    def _load_config(self) -> ClientConfig:
         """Load configuration from file."""
         if self._config is None:
             try:
-                loaded = ConfigManager.load().model_dump(mode="json")
-                self._config = loaded if loaded is not None else DEFAULT_CONFIG
+                self._config = ConfigManager.load()
             except Exception:
                 # Use defaults if config can't be loaded
-                self._config = DEFAULT_CONFIG
+                self._config = _DEFAULT_CLIENT_CONFIG
         return self._config
 
     def _get_server_command(self, language: str) -> tuple[str, list[str]]:
@@ -58,28 +61,24 @@ class ServerRegistry:
             FileNotFoundError: If server command not found
         """
         config = self._load_config()
-        languages = config.get("languages", {})
 
         # Try config file first
-        if language in languages:
-            lang_config = languages[language]
-            command = lang_config.get("command")
-            args = lang_config.get("args", [])
-
-            if command:
-                # Use ServerPathResolver for path resolution
-                try:
-                    resolved = ServerPathResolver.resolve(command)
-                    return resolved, args
-                except ServerNotFoundError as e:
-                    raise FileNotFoundError(str(e)) from e
+        lang_config = config.languages.get(language)
+        if lang_config is not None:
+            command = lang_config.command
+            args = lang_config.args
+            # Use ServerPathResolver for path resolution
+            try:
+                resolved = ServerPathResolver.resolve(command)
+                return resolved, args
+            except ServerNotFoundError as e:
+                raise FileNotFoundError(str(e)) from e
 
         # Try default config
-        if language in DEFAULT_CONFIG.get("languages", {}):
-            defaults = DEFAULT_CONFIG["languages"][language]
-            command = defaults["command"]
-            args = defaults.get("args", [])
-
+        default_lang_config = _DEFAULT_CLIENT_CONFIG.languages.get(language)
+        if default_lang_config is not None:
+            command = default_lang_config.command
+            args = default_lang_config.args
             try:
                 resolved = ServerPathResolver.resolve(command)
                 return resolved, args
@@ -87,12 +86,15 @@ class ServerRegistry:
                 raise FileNotFoundError(str(e)) from e
 
         # Not found
-        available = list(languages.keys()) or list(DEFAULT_CONFIG.get("languages", {}).keys())
-        raise FileNotFoundError(
-            f"Language server for '{language}' not configured.\n"
-            f"Available languages: {', '.join(available)}\n"
-            f"Please configure the language server in the config file."
-        )
+        available = list(config.languages.keys())
+        if not available:
+            available = list(_DEFAULT_CLIENT_CONFIG.languages.keys())
+        msg = (
+            "Language server for '{}' not configured.\n"
+            "Available languages: {}\n"
+            "Please configure the language server in the config file."
+        ).format(language, ", ".join(available))
+        raise FileNotFoundError(msg)
 
     async def get_or_create_workspace(
         self,
@@ -106,8 +108,9 @@ class ServerRegistry:
 
         workspace_key = str(Path(workspace_path).resolve())
         logger.debug(
-            f"get_or_create_workspace: key={workspace_key}, "
-            f"existing={list(self._workspaces.keys())}"
+            "get_or_create_workspace: key={}, existing={}".format(
+                workspace_key, list(self._workspaces.keys())
+            )
         )
 
         async with self._global_lock:
@@ -140,7 +143,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request definition at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -152,7 +155,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request references at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -164,7 +167,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request completions at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -176,7 +179,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> Any:
+    ) -> object:
         """Request hover at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -186,7 +189,7 @@ class ServerRegistry:
         self,
         workspace_path: str,
         file_path: str,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request document symbols."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -196,7 +199,7 @@ class ServerRegistry:
         self,
         workspace_path: str,
         query: str,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request workspace symbols."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -206,7 +209,7 @@ class ServerRegistry:
         self,
         workspace_path: str,
         file_path: str,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request diagnostics for a single document."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -215,7 +218,7 @@ class ServerRegistry:
     async def request_workspace_diagnostics(
         self,
         workspace_path: str,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request diagnostics for entire workspace."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -227,7 +230,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request incoming calls at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -239,7 +242,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> list[Any]:
+    ) -> Sequence[object]:
         """Request outgoing calls at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -251,7 +254,7 @@ class ServerRegistry:
         file_path: str,
         line: int,
         column: int,
-    ) -> Any:
+    ) -> object:
         """Request prepare rename at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
@@ -264,7 +267,7 @@ class ServerRegistry:
         line: int,
         column: int,
         new_name: str,
-    ) -> Any:
+    ) -> object:
         """Request rename at position."""
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()

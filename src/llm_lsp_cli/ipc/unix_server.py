@@ -1,4 +1,3 @@
-# pyright: reportUnannotatedClassAttribute=false
 # pyright: reportExplicitAny=false
 # pyright: reportAny=false
 """UNIX socket server for daemon to handle CLI requests.
@@ -30,6 +29,13 @@ logger = logging.getLogger(__name__)
 class UNIXServer:
     """Async UNIX socket server for handling CLI requests."""
 
+    socket_path: Path
+    request_handler: Callable[[str, dict[str, Any]], Awaitable[Any]]
+    authenticator: TokenAuthenticator | None
+    uid_validator: UidValidator | None
+    _server: asyncio.AbstractServer | None
+    _clients: set[asyncio.Task[Any]]
+
     def __init__(
         self,
         socket_path: str | Path,
@@ -41,8 +47,8 @@ class UNIXServer:
         self.request_handler = request_handler
         self.authenticator = authenticator
         self.uid_validator = uid_validator
-        self._server: asyncio.AbstractServer | None = None
-        self._clients: set[asyncio.Task[Any]] = set()
+        self._server = None
+        self._clients = set()
 
     async def start(self) -> None:
         """Start the UNIX socket server."""
@@ -63,10 +69,10 @@ class UNIXServer:
         """Stop the UNIX socket server."""
         # Close all client connections
         for task in self._clients:
-            task.cancel()
+            _ = task.cancel()
 
         if self._clients:
-            await asyncio.gather(*self._clients, return_exceptions=True)
+            _ = await asyncio.gather(*self._clients, return_exceptions=True)
             self._clients.clear()
 
         # Close server
@@ -178,7 +184,7 @@ class UNIXServer:
     async def _process_message(
         self,
         data: dict[str, Any],
-        reader: asyncio.StreamReader,  # pyright: ignore[reportUnusedParameter]
+        _reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
         """Process a parsed JSON-RPC message."""
@@ -234,7 +240,7 @@ class UNIXServer:
                 await writer.drain()
 
     async def _handle_notification(
-        self, method: str, params: dict[str, Any]  # pyright: ignore[reportUnusedParameter]
+        self, _method: str, _params: dict[str, Any]
     ) -> None:
         """Handle a notification (no response)."""
         # For now, just log notifications
