@@ -78,9 +78,9 @@ class TestMultipleFilesCachedIndependently:
         state_a = await diagnostic_cache.get_file_state(uri_a)
         state_b = await diagnostic_cache.get_file_state(uri_b)
 
-        assert state_a.diagnostics == diags_a
+        assert state_a.document_diagnostics == diags_a
         assert state_a.last_result_id == "result-a"
-        assert state_b.diagnostics == diags_b
+        assert state_b.document_diagnostics == diags_b
         assert state_b.last_result_id == "result-b"
 
     @pytest.mark.asyncio
@@ -111,9 +111,9 @@ class TestMultipleFilesCachedIndependently:
         state_a = await diagnostic_cache.get_file_state(uri_a)
         state_b = await diagnostic_cache.get_file_state(uri_b)
 
-        assert state_a.diagnostics == updated_diags_a
+        assert state_a.document_diagnostics == updated_diags_a
         assert state_a.last_result_id == "r3"
-        assert state_b.diagnostics == initial_diags_b
+        assert state_b.document_diagnostics == initial_diags_b
         assert state_b.last_result_id == "r2"  # Unchanged
 
     @pytest.mark.asyncio
@@ -359,8 +359,8 @@ class TestConcurrentDiagnosticRequests:
 
         # Final state should be consistent
         final_state = await diagnostic_cache.get_file_state(uri)
-        assert len(final_state.diagnostics) == 1
-        assert "Update" in final_state.diagnostics[0]["message"]
+        assert len(final_state.document_diagnostics) == 1
+        assert "Update" in final_state.document_diagnostics[0]["message"]
 
     @pytest.mark.asyncio
     async def test_concurrent_stale_checks_during_update(
@@ -544,7 +544,7 @@ class TestDiagnosticCacheEdgeCases:
         assert isinstance(state, FileState)
         assert state.document_version == 0
         assert state.last_result_id is None
-        assert state.diagnostics == []
+        assert state.document_diagnostics == []
 
     @pytest.mark.asyncio
     async def test_multiple_version_increments(
@@ -615,4 +615,4 @@ class TestDiagnosticCacheEdgeCases:
         state = await diagnostic_cache.get_file_state(uri)
         # resultId should be preserved
         assert state.last_result_id == "initial-id"
-        assert state.diagnostics[0]["message"] == "Updated"
+        assert state.document_diagnostics[0]["message"] == "Updated"

@@ -50,11 +50,13 @@ class TestFileStateMtime:
             document_version=5,
             last_result_id="result-123",
             is_open=True,
-            diagnostics=[{"message": "test"}],
+            document_diagnostics=[{"message": "test"}],
+            workspace_diagnostics=[{"message": "ws-test"}],
             uri="file:///test.py",
         )
         assert state.document_version == 5
         assert state.last_result_id == "result-123"
         assert state.is_open is True
-        assert len(state.diagnostics) == 1
+        assert len(state.document_diagnostics) == 1
+        assert len(state.workspace_diagnostics) == 1
         assert state.uri == "file:///test.py"

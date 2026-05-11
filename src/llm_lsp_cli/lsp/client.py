@@ -303,8 +303,8 @@ class LSPClient:
             uri = str(item.get("uri", ""))
             diagnostics = get_list_of_dicts(item, "diagnostics")
             if uri:
-                # Update cache with diagnostics (including empty list for files with no issues)
-                await self._diagnostic_cache.update_diagnostics(uri, diagnostics)
+                # Update workspace_diagnostics only (not document_diagnostics)
+                await self._diagnostic_cache.update_workspace_diagnostics(uri, diagnostics)
 
     async def shutdown(self) -> None:
         """Shutdown the LSP connection."""
@@ -567,7 +567,7 @@ class LSPClient:
             if not is_stale:
                 # Structured cache hit log with FileState info
                 self._log_cache_hit(uri, file_state, mtime)
-                return list(file_state.diagnostics)
+                return list(file_state.document_diagnostics)
 
         params = lsp.DocumentDiagnosticParams.model_validate({
             "textDocument": {"uri": uri},
@@ -582,7 +582,7 @@ class LSPClient:
                 timeout=self.timeout,
             )
             diagnostics, result_id = self._normalize_document_diagnostics(result)
-            await self._diagnostic_cache.update_diagnostics(uri, diagnostics, result_id)
+            await self._diagnostic_cache.update_document_diagnostics(uri, diagnostics, result_id)
             # Update mtime after successful refresh
             if mtime is not None:
                 await self._diagnostic_cache.set_mtime(uri, mtime)
@@ -664,7 +664,7 @@ class LSPClient:
         """
         # Extract relative path for cleaner log output
         rel_path = self._uri_to_absolute_path(uri)
-        diag_count = len(file_state.diagnostics)
+        diag_count = len(file_state.document_diagnostics)
 
         logger.info(
             (f"[cache HIT] {rel_path} | "
@@ -687,7 +687,7 @@ class LSPClient:
             result_id: Result ID from server response
         """
         rel_path = self._uri_to_absolute_path(uri)
-        diag_count = len(file_state.diagnostics)
+        diag_count = len(file_state.document_diagnostics)
 
         logger.info(
             (f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
@@ -983,9 +983,9 @@ class LSPClient:
         uri = str(params.get("uri", ""))
         diagnostics = get_list_of_dicts(params, "diagnostics")
 
-        # Cache diagnostics using unified DiagnosticCache
+        # Cache document_diagnostics only (not workspace_diagnostics)
         # Create task but don't await - this is a notification handler
-        _ = asyncio.create_task(self._diagnostic_cache.update_diagnostics(uri, diagnostics))
+        _ = asyncio.create_task(self._diagnostic_cache.update_document_diagnostics(uri, diagnostics))
 
         if uri in self._open_files:
             _, _, ready_event = self._open_files[uri]

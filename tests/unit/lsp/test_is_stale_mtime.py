@@ -184,13 +184,13 @@ class TestDiagnosticCacheUpdateDiagnosticsMtime:
 
     @pytest.mark.asyncio
     async def test_updates_diagnostics_list(self, cache: DiagnosticCache) -> None:
-        """update_diagnostics should update the diagnostics list."""
+        """update_diagnostics should update the document_diagnostics list."""
         uri = "file:///tmp/test/file.py"
         diagnostics = [{"message": "error1"}, {"message": "error2"}]
         await cache.update_diagnostics(uri, diagnostics)
 
         state = await cache.get_file_state(uri)
-        assert len(state.diagnostics) == 2
+        assert len(state.document_diagnostics) == 2
 
     @pytest.mark.asyncio
     async def test_updates_last_result_id(self, cache: DiagnosticCache) -> None:

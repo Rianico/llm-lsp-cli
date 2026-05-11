@@ -147,7 +147,7 @@ class TestClientWorkspaceDiagnostics:
             language_id="python",
         )
 
-        # Create test file and pre-populate cache using the new API
+        # Create test file and pre-populate cache using the workspace API
         test_file = temp_dir / "file.py"
         test_file.write_text("# test")
         test_uri = test_file.as_uri()
@@ -163,7 +163,8 @@ class TestClientWorkspaceDiagnostics:
                 "source": "pyright",
             }
         ]
-        await client._diagnostic_cache.update_diagnostics(test_uri, cached_diagnostics)
+        # Use update_workspace_diagnostics for workspace diagnostics
+        await client._diagnostic_cache.update_workspace_diagnostics(test_uri, cached_diagnostics)
 
         # Mock the transport (not used in push mode fallback, but needed for initialization)
         mock_transport = AsyncMock()

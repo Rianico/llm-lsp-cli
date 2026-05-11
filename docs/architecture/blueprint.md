@@ -101,6 +101,7 @@ domain/
 - Files stay open for session lifetime (no didClose)
 - mtime-based cache invalidation is ground truth
 - All file modifications backed up before application
+- Diagnostic cache split into document and workspace channels (ADR-0029)
 
 ### Layer 4: Infrastructure Layer (Outer)
 
@@ -172,6 +173,64 @@ The LSP transport layer enforces a strict type boundary (ADR-0024, ADR-0025):
 7. `StdioTransport` is not exported from `lsp/__init__.py`
 8. `send_request` is a typed gateway: accepts daemon RPC params, returns typed results (ADR-0028)
 9. CLI-to-daemon params use flat camelCase models; daemon-to-LSP params use nested LSP models (ADR-0028)
+
+## Diagnostic Cache Architecture
+
+The diagnostic cache maintains two independent channels aligned with the LSP protocol's two diagnostic sources (ADR-0029, supersedes ADR-0005's unified cache).
+
+### Channel Structure
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   LSP DIAGNOSTIC SOURCES                      │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  textDocument/publishDiagnostics  ──→  document_diagnostics  │
+│  textDocument/diagnostic          ──→  document_diagnostics  │
+│                                                              │
+│  workspace/diagnostic via $/progress──→  workspace_diagnostics│
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+                         FileState
+  ┌──────────────────────────────────────┐
+  │  mtime: float                        │
+  │  document_version: int               │
+  │  last_result_id: str | None          │
+  │  is_open: bool                       │
+  │  document_diagnostics: list[dict]    │ ← per-file channel
+  │  workspace_diagnostics: list[dict]   │ ← workspace channel
+  │  has_workspace_diagnostics: bool     │ ← tracks explicit writes
+  │  uri: str                            │
+  └──────────────────────────────────────┘
+```
+
+### Channel Semantics
+
+| Channel | LSP Source | Update Trigger | Consumer |
+|---------|-----------|----------------|----------|
+| `document_diagnostics` | `textDocument/publishDiagnostics`, `textDocument/diagnostic` | File open, file change, diagnostic request | `diagnostics` command |
+| `workspace_diagnostics` | `workspace/diagnostic` via `$/progress` | Server batch analysis | `workspace-diagnostics` command |
+
+### Design Invariants
+
+1. **Channels never cross-write**: `document_diagnostics` is written only by document-level notifications/requests; `workspace_diagnostics` is written only by workspace-level progress notifications
+2. **has_workspace_diagnostics flag**: Distinguishes "workspace diagnostics never received" from "workspace diagnostics explicitly returned as empty" -- `get_all_workspace_diagnostics()` skips files without this flag
+3. **Backward compatibility**: `get_diagnostics()` and `get_cached()` return `document_diagnostics` for existing callers
+4. **mtime applies to both channels**: Staleness detection via mtime comparison remains the ground truth for both channels (ADR-0008)
+
+### Read Routing
+
+```
+diagnostics command
+    → request_diagnostics() → document_diagnostics
+    → get_diagnostics() → document_diagnostics
+
+workspace-diagnostics command
+    → request_workspace_diagnostics() → get_all_workspace_diagnostics()
+        → iterates files with has_workspace_diagnostics=True
+        → reads workspace_diagnostics per file
+```
 
 ## Configuration System
 
@@ -607,6 +666,8 @@ llm-lsp-cli <group> <command>
 |-----------|----------|-----|
 | No didClose - files stay open | DocumentSyncContext | ADR-0008 |
 | mtime-based cache invalidation | DiagnosticCache | ADR-0008 |
+| Diagnostic cache split into document/workspace channels | FileState in DiagnosticCache | ADR-0029 |
+| has_workspace_diagnostics flag for explicit write tracking | FileState in DiagnosticCache | ADR-0029 |
 | Default dry-run for renames | RenameService | ADR-0019 |
 | Atomic backup before file modify | BackupManager | ADR-0019 |
 | Hyphenated LSP command names | commands/lsp.py | This blueprint |

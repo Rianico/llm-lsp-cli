@@ -98,21 +98,25 @@ class TestFileState:
         assert state.document_version == 0
         assert state.last_result_id is None
         assert state.is_open is False
-        assert state.diagnostics == []
+        assert state.document_diagnostics == []
+        assert state.workspace_diagnostics == []
 
     def test_filestate_with_values(self) -> None:
         """Initialize FileState with explicit values."""
-        diags: list[dict[str, Any]] = [{"message": "test"}]
+        doc_diags: list[dict[str, Any]] = [{"message": "doc_test"}]
+        ws_diags: list[dict[str, Any]] = [{"message": "ws_test"}]
         state = FileState(
             document_version=5,
             last_result_id="result-123",
             is_open=True,
-            diagnostics=diags,
+            document_diagnostics=doc_diags,
+            workspace_diagnostics=ws_diags,
         )
         assert state.document_version == 5
         assert state.last_result_id == "result-123"
         assert state.is_open is True
-        assert state.diagnostics == diags
+        assert state.document_diagnostics == doc_diags
+        assert state.workspace_diagnostics == ws_diags
 
     def test_filestate_diagnostics_append(self) -> None:
         """Append diagnostics to list preserves other fields."""
@@ -120,10 +124,10 @@ class TestFileState:
         initial_version = state.document_version
         initial_is_open = state.is_open
 
-        state.diagnostics.append({"message": "diag1"})
-        state.diagnostics.append({"message": "diag2"})
+        state.document_diagnostics.append({"message": "diag1"})
+        state.document_diagnostics.append({"message": "diag2"})
 
-        assert len(state.diagnostics) == 2
+        assert len(state.document_diagnostics) == 2
         assert state.document_version == initial_version
         assert state.is_open == initial_is_open
 
@@ -136,7 +140,8 @@ class TestFileState:
             document_version=new_version,
             last_result_id=state.last_result_id,
             is_open=state.is_open,
-            diagnostics=list(state.diagnostics),
+            document_diagnostics=list(state.document_diagnostics),
+            workspace_diagnostics=list(state.workspace_diagnostics),
         )
         assert new_state.document_version == 2
         assert state.document_version == 1  # Original unchanged
@@ -487,8 +492,9 @@ class TestDiagnosticCache:
             multiple_sample_diagnostics: dict[str, list[dict[str, Any]]],
         ) -> None:
             """Multiple files cached returns all items."""
+            # Use update_workspace_diagnostics for workspace diagnostics
             for uri, diags in multiple_sample_diagnostics.items():
-                await diagnostic_cache.update_diagnostics(uri, diags)
+                await diagnostic_cache.update_workspace_diagnostics(uri, diags)
 
             result = await diagnostic_cache.get_all_workspace_diagnostics()
 
@@ -504,7 +510,8 @@ class TestDiagnosticCache:
             sample_diagnostics: list[dict[str, Any]],
         ) -> None:
             """Verify item format has required fields."""
-            await diagnostic_cache.update_diagnostics(sample_uri, sample_diagnostics)
+            # Use update_workspace_diagnostics for workspace diagnostics
+            await diagnostic_cache.update_workspace_diagnostics(sample_uri, sample_diagnostics)
 
             result = await diagnostic_cache.get_all_workspace_diagnostics()
 
@@ -539,8 +546,8 @@ class TestDiagnosticCache:
             uri_with_errors = test_file_with_errors.as_uri()
             uri_no_errors = test_file_no_errors.as_uri()
 
-            # Add diagnostics - one file has errors, one doesn't
-            await diagnostic_cache.update_diagnostics(
+            # Add workspace diagnostics - one file has errors, one doesn't
+            await diagnostic_cache.update_workspace_diagnostics(
                 uri_with_errors,
                 [{
                     "message": "Error",
@@ -550,7 +557,7 @@ class TestDiagnosticCache:
                     }
                 }]
             )
-            await diagnostic_cache.update_diagnostics(
+            await diagnostic_cache.update_workspace_diagnostics(
                 uri_no_errors,
                 []  # Empty diagnostics - file has no errors
             )

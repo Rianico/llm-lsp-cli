@@ -4,7 +4,7 @@ Date: 2026-04-20
 
 ## Status
 
-Accepted
+Superceded by [29. Split diagnostic cache into document and workspace channels](0029-split-diagnostic-cache-into-document-and-workspace-channels.md)
 
 ## Context
 

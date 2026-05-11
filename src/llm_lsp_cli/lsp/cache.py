@@ -29,12 +29,18 @@ class FileState:
     Cache Invalidation:
         - Stale iff incoming_mtime > stored_mtime
 
+    Diagnostics Split (ADR for bug fix):
+        - document_diagnostics: Updated by textDocument/publishDiagnostics and textDocument/diagnostic
+        - workspace_diagnostics: Updated by workspace/diagnostic via $/progress
+        - The two sources are independent and must not overwrite each other
+
     Attributes:
         mtime: File modification time in epoch seconds (0.0 = untracked)
         document_version: Version number of the document (starts at 1 for open files)
-        last_result_id: Optional result ID from LSP server diagnostic response
+        last_result_id: Optional result ID from LSP server diagnostic response (document-associated)
         is_open: Whether the file is currently open in the editor
-        diagnostics: List of diagnostic dictionaries from the LSP server
+        document_diagnostics: Diagnostics from textDocument/publishDiagnostics and textDocument/diagnostic
+        workspace_diagnostics: Diagnostics from workspace/diagnostic via $/progress
         uri: The original file URI (for workspace diagnostic responses)
     """
 
@@ -42,7 +48,9 @@ class FileState:
     document_version: int = 0
     last_result_id: str | None = None
     is_open: bool = False
-    diagnostics: list[dict[str, object]] = field(default_factory=list)
+    document_diagnostics: list[dict[str, object]] = field(default_factory=list)
+    workspace_diagnostics: list[dict[str, object]] = field(default_factory=list)
+    has_workspace_diagnostics: bool = False  # True if workspace diagnostics were explicitly written
     uri: str = ""
 
 
@@ -95,6 +103,27 @@ class DiagnosticCache:
     ) -> None:
         """Update cached diagnostics for a file.
 
+        DEPRECATED: Use update_document_diagnostics instead.
+        This method delegates to update_document_diagnostics for backward compatibility.
+
+        Args:
+            uri: File URI to update
+            diagnostics: New list of diagnostic items
+            result_id: Optional result ID from LSP server response
+        """
+        await self.update_document_diagnostics(uri, diagnostics, result_id)
+
+    async def update_document_diagnostics(
+        self,
+        uri: str,
+        diagnostics: list[dict[str, object]],
+        result_id: str | None = None,
+    ) -> None:
+        """Update document diagnostics for a file.
+
+        Updated by textDocument/publishDiagnostics and textDocument/diagnostic.
+        Does NOT affect workspace_diagnostics.
+
         Args:
             uri: File URI to update
             diagnostics: New list of diagnostic items
@@ -103,15 +132,72 @@ class DiagnosticCache:
         async with self._lock:
             key = self._uri_to_absolute_path(uri)
             state = self._cache.get(key, FileState())
-            # Update diagnostics but preserve document_version and is_open
-            state.diagnostics = list(diagnostics)  # Defensive copy
+            # Update document_diagnostics, preserve all other fields
+            state.document_diagnostics = list(diagnostics)  # Defensive copy
             state.uri = uri  # Store original URI for workspace responses
             if result_id is not None:
                 state.last_result_id = result_id
             self._cache[key] = state
 
+    async def update_workspace_diagnostics(
+        self,
+        uri: str,
+        diagnostics: list[dict[str, object]],
+    ) -> None:
+        """Update workspace diagnostics for a file.
+
+        Updated by workspace/diagnostic via $/progress.
+        Does NOT affect document_diagnostics.
+
+        Args:
+            uri: File URI to update
+            diagnostics: New list of diagnostic items
+        """
+        async with self._lock:
+            key = self._uri_to_absolute_path(uri)
+            state = self._cache.get(key, FileState())
+            # Update workspace_diagnostics, preserve all other fields
+            state.workspace_diagnostics = list(diagnostics)  # Defensive copy
+            state.uri = uri  # Store original URI for workspace responses
+            state.has_workspace_diagnostics = True  # Mark that workspace diags were written
+            self._cache[key] = state
+
+    async def get_document_diagnostics(self, uri: str) -> list[dict[str, object]]:
+        """Get document diagnostics for a file.
+
+        Args:
+            uri: File URI to query
+
+        Returns:
+            List of document diagnostic items, or empty list if not cached
+        """
+        async with self._lock:
+            key = self._uri_to_absolute_path(uri)
+            state = self._cache.get(key)
+            if state is None:
+                return []
+            return list(state.document_diagnostics)  # Return defensive copy
+
+    async def get_workspace_diagnostics_for_uri(self, uri: str) -> list[dict[str, object]]:
+        """Get workspace diagnostics for a specific file URI.
+
+        Args:
+            uri: File URI to query
+
+        Returns:
+            List of workspace diagnostic items, or empty list if not cached
+        """
+        async with self._lock:
+            key = self._uri_to_absolute_path(uri)
+            state = self._cache.get(key)
+            if state is None:
+                return []
+            return list(state.workspace_diagnostics)  # Return defensive copy
+
     async def get_diagnostics(self, uri: str) -> list[dict[str, object]]:
         """Get cached diagnostics for a file.
+
+        Returns document_diagnostics for backward compatibility with existing callers.
 
         Args:
             uri: File URI to query
@@ -124,14 +210,13 @@ class DiagnosticCache:
             state = self._cache.get(key)
             if state is None:
                 return []
-            return list(state.diagnostics)  # Return defensive copy
+            return list(state.document_diagnostics)  # Return defensive copy
 
     def get_cached(self, uri: str) -> list[dict[str, object]]:
         """Get cached diagnostics for a file (synchronous fallback).
 
         This is a synchronous version for use in notification handlers
-        where await is not available. Uses the lock if a loop is running,
-        otherwise accesses directly.
+        where await is not available. Returns document_diagnostics.
 
         Args:
             uri: File URI to query
@@ -143,7 +228,7 @@ class DiagnosticCache:
         state = self._cache.get(key)
         if state is None:
             return []
-        return list(state.diagnostics)  # Return defensive copy
+        return list(state.document_diagnostics)  # Return defensive copy
 
     async def get_file_state(self, uri: str) -> FileState:
         """Get the full FileState for a file.
@@ -274,21 +359,27 @@ class DiagnosticCache:
     async def get_all_workspace_diagnostics(
         self,
     ) -> list[WorkspaceDiagnosticItem]:
-        """Get all cached diagnostics for the workspace.
+        """Get all workspace diagnostics for the workspace.
+
+        Returns only files that have had workspace_diagnostics written to them.
+        Files with only document_diagnostics are NOT included.
 
         Returns:
             List of workspace diagnostic items, each containing:
             - uri: Original file URI
             - version: Document version
-            - diagnostics: List of diagnostic items (may be empty)
+            - diagnostics: List of diagnostic items from workspace_diagnostics field
         """
         async with self._lock:
             result: list[WorkspaceDiagnosticItem] = []
             for key, state in self._cache.items():
-                # Include all cached files, not just those with diagnostics
-                # This ensures workspace-diagnostic returns complete information
+                # Only include files that have had workspace diagnostics explicitly written
+                # This is tracked by the has_workspace_diagnostics flag
+                if not state.has_workspace_diagnostics:
+                    continue
+
                 # Convert raw diagnostic dicts to Diagnostic models
-                validated_diagnostics = [Diagnostic.model_validate(d) for d in state.diagnostics]
+                validated_diagnostics = [Diagnostic.model_validate(d) for d in state.workspace_diagnostics]
                 item = WorkspaceDiagnosticItem(
                     uri=state.uri if state.uri else key,
                     version=state.document_version,

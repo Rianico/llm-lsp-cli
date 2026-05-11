@@ -46,7 +46,7 @@ class TestDiagnosticCacheSetMtime:
         uri = "file:///tmp/test/file.py"
         # Create state with specific values
         await cache.on_did_open(uri)
-        await cache.update_diagnostics(
+        await cache.update_document_diagnostics(
             uri, [{"message": "test"}], result_id="result-123"
         )
 
@@ -57,7 +57,7 @@ class TestDiagnosticCacheSetMtime:
         assert state.mtime == 300.0
         assert state.document_version == 1  # Should not change
         assert state.last_result_id == "result-123"  # Should not change
-        assert len(state.diagnostics) == 1  # Should not change
+        assert len(state.document_diagnostics) == 1  # Should not change
 
     @pytest.mark.asyncio
     async def test_overwrites_existing_mtime(self, cache: DiagnosticCache) -> None:

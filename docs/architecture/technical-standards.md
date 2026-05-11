@@ -241,7 +241,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 
 ## Diagnostic Cache
 
-The diagnostic cache implements mtime-based invalidation for LSP diagnostic responses (ADR-0008).
+The diagnostic cache implements mtime-based invalidation for LSP diagnostic responses (ADR-0008) with split channels for document and workspace diagnostics (ADR-0029).
 
 ### FileState Dataclass
 
@@ -250,48 +250,37 @@ Location: `src/llm_lsp_cli/lsp/cache.py`
 ```python
 @dataclass
 class FileState:
-    mtime: float = 0.0              # File modification time (ground truth)
-    document_version: int = 0       # LSP document version
-    last_result_id: str | None      # Server's diagnostic version
-    is_open: bool = False           # Whether didOpen was sent
-    diagnostics: list[dict]         # Cached diagnostic items
-    uri: str = ""                   # Original file URI
+    mtime: float = 0.0                      # File modification time (ground truth)
+    document_version: int = 0               # LSP document version
+    last_result_id: str | None = None       # Server's diagnostic version
+    is_open: bool = False                   # Whether didOpen was sent
+    document_diagnostics: list[dict]        # From publishDiagnostics + textDocument/diagnostic
+    workspace_diagnostics: list[dict]       # From workspace/diagnostic via $/progress
+    has_workspace_diagnostics: bool = False # True if workspace diags explicitly written
+    uri: str = ""                           # Original file URI
 ```
 
 ### DiagnosticCache Key Methods
 
-| Method | Purpose |
-|--------|---------|
-| `is_stale(uri, incoming_mtime) -> bool` | Returns `incoming_mtime > stored_mtime` |
-| `on_did_open(uri, mtime)` | Sets `is_open=True`, increments version |
-| `update_diagnostics(uri, diagnostics, result_id)` | Stores after LSP response |
-| `get_diagnostics(uri) -> list[dict]` | Returns cached or empty list |
+| Method | Channel | Purpose |
+|--------|---------|---------|
+| `is_stale(uri, incoming_mtime) -> bool` | Both | Returns `incoming_mtime > stored_mtime` |
+| `on_did_open(uri, mtime)` | Both | Sets `is_open=True`, increments version |
+| `update_document_diagnostics(uri, diagnostics, result_id)` | Document | Stores after publishDiagnostics or textDocument/diagnostic |
+| `update_workspace_diagnostics(uri, diagnostics)` | Workspace | Stores after workspace/diagnostic via $/progress |
+| `get_document_diagnostics(uri) -> list[dict]` | Document | Returns cached document diagnostics |
+| `get_workspace_diagnostics_for_uri(uri) -> list[dict]` | Workspace | Returns cached workspace diagnostics for a file |
+| `get_all_workspace_diagnostics() -> list[WorkspaceDiagnosticItem]` | Workspace | Returns all files with has_workspace_diagnostics=True |
+| `get_diagnostics(uri) -> list[dict]` | Document | Backward-compatible alias for get_document_diagnostics |
 
 ### Cache Invariants
 
-1. **mtime is ground truth** - Staleness determined solely by mtime comparison
+1. **mtime is ground truth** - Staleness determined solely by mtime comparison (applies to both channels)
 2. **Monotonic document_version** - Never decrements, increments on didChange
 3. **No didClose** - Files remain open for session (per ADR-0008)
 4. **previousResultId optimization** - Server can return "unchanged" if nothing changed
-
-### Cache HIT Logging (ADR-0009)
-
-Cache HIT messages logged at INFO level:
-
-```
-[cache HIT] src/main.py | resultId=abc123 | mtime=1745400000.0 | v=1 | open=True | diags=5
-```
-
-### Diagnostic Log File
-
-When started with `--diagnostic-log`, full LSP messages written to `diagnostics.log`:
-
-```bash
-llm-lsp-cli daemon start --diagnostic-log
-```
-
-- Logger: `llm_lsp_cli.lsp.diagnostic`
-- File: `$PWD/.llm-lsp-cli/diagnostics.log`
+5. **Channels never cross-write** - document_diagnostics written only by document-level sources; workspace_diagnostics written only by workspace-level sources (ADR-0029)
+6. **has_workspace_diagnostics flag** - Distinguishes "never received" from "explicitly empty"; get_all_workspace_diagnostics skips files without this flag (ADR-0029)
 
 ## Type Annotations
 

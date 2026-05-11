@@ -261,8 +261,8 @@ class TestProgressHandlingWithTokenMatching:
         # Give async task time to complete
         await asyncio.sleep(0.01)
 
-        # Verify diagnostics were cached
-        cached = await lsp_client._diagnostic_cache.get_diagnostics(test_uri)
+        # Verify diagnostics were cached in workspace_diagnostics
+        cached = await lsp_client._diagnostic_cache.get_workspace_diagnostics_for_uri(test_uri)
         assert len(cached) == 1
         assert cached[0]["message"] == "Test error"
 
@@ -386,7 +386,8 @@ class TestProgressProcessingAndCacheUpdates:
         lsp_client._handle_progress(params)
         await asyncio.sleep(0.01)
 
-        cached = await lsp_client._diagnostic_cache.get_diagnostics(test_uri)
+        # Verify workspace_diagnostics was updated
+        cached = await lsp_client._diagnostic_cache.get_workspace_diagnostics_for_uri(test_uri)
         assert len(cached) == 1
         assert cached[0]["message"] == "Test error"
 
@@ -416,8 +417,8 @@ class TestProgressProcessingAndCacheUpdates:
         lsp_client._handle_progress(params)
         await asyncio.sleep(0.01)
 
-        # Verify file IS in cache with empty diagnostics
-        cached = await lsp_client._diagnostic_cache.get_diagnostics(test_uri)
+        # Verify file IS in cache with empty workspace_diagnostics
+        cached = await lsp_client._diagnostic_cache.get_workspace_diagnostics_for_uri(test_uri)
         assert cached == []  # Empty list, but file is cached
 
     @pytest.mark.asyncio
@@ -449,7 +450,7 @@ class TestProgressProcessingAndCacheUpdates:
         lsp_client._handle_progress(params)
         await asyncio.sleep(0.01)
 
-        cached = await lsp_client._diagnostic_cache.get_diagnostics(test_uri)
+        cached = await lsp_client._diagnostic_cache.get_workspace_diagnostics_for_uri(test_uri)
         assert len(cached) == 1
 
 
@@ -466,12 +467,13 @@ class TestRequestWorkspaceDiagnostics:
         self, lsp_client: LSPClient, sample_diagnostics: list[dict[str, object]]
     ) -> None:
         """Test request_workspace_diagnostics returns cached diagnostics directly."""
-        # Create test file and add to cache
+        # Create test file and add to workspace cache
         test_file = lsp_client.workspace_path / "test.py"
         test_file.write_text("# test")
         test_uri = test_file.as_uri()
 
-        await lsp_client._diagnostic_cache.update_diagnostics(test_uri, sample_diagnostics)
+        # Use update_workspace_diagnostics for workspace diagnostics
+        await lsp_client._diagnostic_cache.update_workspace_diagnostics(test_uri, sample_diagnostics)
 
         # Mark workspace as indexed
         lsp_client._workspace_indexed.set()
