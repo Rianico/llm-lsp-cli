@@ -17,13 +17,9 @@ class FlowStyleDumper(yaml.SafeDumper):
     pass
 
 
-def _represent_sequence(
-    dumper: yaml.SafeDumper, data: list[object]
-) -> yaml.SequenceNode:
+def _represent_sequence(dumper: yaml.SafeDumper, data: list[object]) -> yaml.SequenceNode:
     """Represent sequences in flow style (inline with brackets)."""
-    return dumper.represent_sequence(
-        "tag:yaml.org,2002:seq", data, flow_style=True
-    )
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
 
 
 FlowStyleDumper.add_representer(list, _represent_sequence)

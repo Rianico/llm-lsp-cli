@@ -160,8 +160,7 @@ def get_capabilities_for_server_path(server_path: str) -> dict[str, object]:
         default_path = capabilities_dir / "default.json"
         if not default_path.exists():
             raise FileNotFoundError(
-                (f"Capabilities file not found for server '{server_name}' "
-                 "and default.json is missing")
+                f"Capabilities file not found for server '{server_name}' and default.json missing"
             )
         # Load default.json directly to propagate JSONDecodeError
         content = default_path.read_text()
@@ -233,6 +232,7 @@ def format_capabilities(
     # If server_filter was provided but no capabilities found, fall back to all servers
     if server_filter is not None and not capabilities:
         import typer
+
         typer.echo(
             f"Warning: Capabilities not found for '{server_filter}', showing all servers.",
             err=True,
@@ -242,9 +242,7 @@ def format_capabilities(
     if format == "json":
         return json.dumps(capabilities, indent=2)
     elif format == "yaml":
-        return str(
-            yaml.safe_dump(capabilities, default_flow_style=False, sort_keys=False)
-        )
+        return str(yaml.safe_dump(capabilities, default_flow_style=False, sort_keys=False))
     elif format == "text":
         lines: list[str] = []
         for server_name, server_caps in capabilities.items():

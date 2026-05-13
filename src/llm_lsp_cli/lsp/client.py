@@ -125,9 +125,7 @@ class LSPClient:
         # Send initialize request via typed transport
         init_params = self._build_initialize_params()
         assert self._transport is not None
-        result = await self._transport.send_initialize(
-            init_params, timeout=self.timeout
-        )
+        result = await self._transport.send_initialize(init_params, timeout=self.timeout)
 
         # Store capabilities as dict for server_capabilities property
         self._capabilities = result.capabilities.model_dump(mode="json", by_alias=True)
@@ -270,7 +268,7 @@ class LSPClient:
         value_dict = cast(dict[str, object], value)
 
         # Use type helpers for safe extraction from untyped dict
-        from llm_lsp_cli.utils.type_helpers import get_str, get_list
+        from llm_lsp_cli.utils.type_helpers import get_list, get_str
 
         kind = get_str(value_dict, "kind", "")
         raw_items = get_list(value_dict, "items")
@@ -497,13 +495,15 @@ class LSPClient:
                     sym_info = lsp.SymbolInformation.model_validate(item)
                     if sym_info.location:
                         symbols.append(
-                            lsp.DocumentSymbol.model_validate({
-                                "name": sym_info.name,
-                                "kind": sym_info.kind,
-                                "range": sym_info.location.range.model_dump(),
-                                "selectionRange": sym_info.location.range.model_dump(),
-                                "deprecated": sym_info.deprecated,
-                            })
+                            lsp.DocumentSymbol.model_validate(
+                                {
+                                    "name": sym_info.name,
+                                    "kind": sym_info.kind,
+                                    "range": sym_info.location.range.model_dump(),
+                                    "selectionRange": sym_info.location.range.model_dump(),
+                                    "deprecated": sym_info.deprecated,
+                                }
+                            )
                         )
                 except Exception:
                     # Skip invalid items
@@ -569,10 +569,12 @@ class LSPClient:
                 self._log_cache_hit(uri, file_state, mtime)
                 return list(file_state.document_diagnostics)
 
-        params = lsp.DocumentDiagnosticParams.model_validate({
-            "textDocument": {"uri": uri},
-            "previousResultId": file_state.last_result_id,
-        })
+        params = lsp.DocumentDiagnosticParams.model_validate(
+            {
+                "textDocument": {"uri": uri},
+                "previousResultId": file_state.last_result_id,
+            }
+        )
 
         assert self._transport is not None
         try:
@@ -664,13 +666,13 @@ class LSPClient:
         """
         # Extract relative path for cleaner log output
         rel_path = self._uri_to_absolute_path(uri)
-        diag_count = len(file_state.document_diagnostics)
 
         logger.info(
-            (f"[cache HIT] {rel_path} | "
-             f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}... "
-             f"| mtime={current_mtime:.2f} | v={file_state.document_version} | "
-             f"open={file_state.is_open} | diags={diag_count}")
+            (
+                f"[cache HIT] {rel_path} | "
+                f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}"
+                f" | mtime={current_mtime:.2f} | v={file_state.document_version}"
+            )
         )
 
     def _log_cache_hit_server(
@@ -690,9 +692,11 @@ class LSPClient:
         diag_count = len(file_state.document_diagnostics)
 
         logger.info(
-            (f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
-             f"resultId={result_id[:8] if result_id else 'None'}... | "
-             f"diags={diag_count}")
+            (
+                f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
+                f"resultId={result_id[:8] if result_id else 'None'}... | "
+                f"diags={diag_count}"
+            )
         )
 
     def _uri_to_absolute_path(self, uri: str) -> str:
@@ -882,9 +886,7 @@ class LSPClient:
                     "uri": uri,
                     "version": version,
                 },
-                "contentChanges": [
-                    {"text": content}
-                ],
+                "contentChanges": [{"text": content}],
             },
         )
         return uri
@@ -985,7 +987,9 @@ class LSPClient:
 
         # Cache document_diagnostics only (not workspace_diagnostics)
         # Create task but don't await - this is a notification handler
-        _ = asyncio.create_task(self._diagnostic_cache.update_document_diagnostics(uri, diagnostics))
+        _ = asyncio.create_task(
+            self._diagnostic_cache.update_document_diagnostics(uri, diagnostics)
+        )
 
         if uri in self._open_files:
             _, _, ready_event = self._open_files[uri]
@@ -995,7 +999,7 @@ class LSPClient:
 
     def _handle_progress(self, params: dict[str, object]) -> None:
         """Handle $/progress notification."""
-        from llm_lsp_cli.utils.type_helpers import get_str, get_dict
+        from llm_lsp_cli.utils.type_helpers import get_dict, get_str
 
         token = params.get("token", "")
 

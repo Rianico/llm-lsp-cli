@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any, Literal, override, overload
+from typing import Any, Literal, overload, override
 
 from llm_lsp_cli.lsp.types import (
     CompletionItem,
@@ -239,7 +239,7 @@ class UNIXClient:
         if not self.socket_path.exists():
             raise FileNotFoundError(
                 f"Socket not found: {self.socket_path}\n"
-                "Is the daemon running? Start it with: llm-lsp-cli start"
+                + "Is the daemon running? Start it with: llm-lsp-cli start"
             )
 
         reader, writer = await asyncio.wait_for(

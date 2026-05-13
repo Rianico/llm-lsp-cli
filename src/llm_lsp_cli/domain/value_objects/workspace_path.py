@@ -54,8 +54,6 @@ class WorkspacePath:
         try:
             _ = resolved_child.relative_to(self.path)
         except ValueError as err:
-            raise PathValidationError(
-                f"Path escapes workspace boundary: {relative_path}"
-            ) from err
+            raise PathValidationError(f"Path escapes workspace boundary: {relative_path}") from err
 
         return resolved_child

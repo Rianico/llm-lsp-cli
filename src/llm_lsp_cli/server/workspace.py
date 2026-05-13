@@ -73,7 +73,8 @@ class WorkspaceManager:
                     )
                 except asyncio.TimeoutError:
                     logger.error(
-                        f"LSP server initialization timed out after {self.timeout}s. Server: {self.server_command}, Workspace: {self.workspace_path}"
+                        f"LSP server init timed out after {self.timeout}s. "
+                        + f"Server: {self.server_command}, Workspace: {self.workspace_path}"
                     )
                     raise
                 self._initialized = True

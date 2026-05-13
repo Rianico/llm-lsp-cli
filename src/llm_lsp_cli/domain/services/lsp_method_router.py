@@ -27,7 +27,7 @@ def _create_method_config(
     required_params: list[str] | None = None,
     uri_mapping: bool = True,
 ) -> LspMethodConfig:
-    """Helper to create LspMethodConfig with common URI mapping pattern.
+    """Create LspMethodConfig with common URI mapping pattern.
 
     Args:
         registry_method: The registry method name.

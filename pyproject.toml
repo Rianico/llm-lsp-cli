@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "A CLI tool that interacts with language servers to provide code intelligence features for LLM-assisted development"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = "==3.14.*"
 authors = [{ name = "Rianico", email = "zhexunakun@163.com" }]
 keywords = ["lsp", "language-server", "cli", "code-intelligence", "llm", "developer-tools"]
 classifiers = [
@@ -12,9 +12,7 @@ classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development",
   "Topic :: Text Editors :: Integrated Development Environments (IDE)",
 ]
@@ -53,13 +51,17 @@ packages = ["src/llm_lsp_cli"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "D"]
+ignore = ["D107", "D102"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

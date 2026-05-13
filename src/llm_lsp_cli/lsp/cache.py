@@ -30,16 +30,16 @@ class FileState:
         - Stale iff incoming_mtime > stored_mtime
 
     Diagnostics Split (ADR for bug fix):
-        - document_diagnostics: Updated by textDocument/publishDiagnostics and textDocument/diagnostic
+        - document_diagnostics: Updated by publishDiagnostics and diagnostic
         - workspace_diagnostics: Updated by workspace/diagnostic via $/progress
         - The two sources are independent and must not overwrite each other
 
     Attributes:
         mtime: File modification time in epoch seconds (0.0 = untracked)
         document_version: Version number of the document (starts at 1 for open files)
-        last_result_id: Optional result ID from LSP server diagnostic response (document-associated)
+        last_result_id: Optional result ID from LSP server diagnostic response
         is_open: Whether the file is currently open in the editor
-        document_diagnostics: Diagnostics from textDocument/publishDiagnostics and textDocument/diagnostic
+        document_diagnostics: Diagnostics from publishDiagnostics and diagnostic
         workspace_diagnostics: Diagnostics from workspace/diagnostic via $/progress
         uri: The original file URI (for workspace diagnostic responses)
     """
@@ -379,7 +379,9 @@ class DiagnosticCache:
                     continue
 
                 # Convert raw diagnostic dicts to Diagnostic models
-                validated_diagnostics = [Diagnostic.model_validate(d) for d in state.workspace_diagnostics]
+                validated_diagnostics = [
+                    Diagnostic.model_validate(d) for d in state.workspace_diagnostics
+                ]
                 item = WorkspaceDiagnosticItem(
                     uri=state.uri if state.uri else key,
                     version=state.document_version,

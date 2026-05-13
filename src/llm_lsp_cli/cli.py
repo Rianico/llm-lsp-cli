@@ -25,7 +25,7 @@ def global_options_callback(
         OutputFormat, typer.Option(help="Output format (text, yaml, json, or csv)")
     ] = OutputFormat.JSON,
 ) -> None:
-    """Callback to capture global options into context."""
+    """Capture global options into context."""
     ctx.obj = GlobalOptions(
         workspace=workspace,
         language=language,

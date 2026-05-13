@@ -23,7 +23,6 @@ from llm_lsp_cli.commands.shared import (
     validate_file_in_workspace,
 )
 from llm_lsp_cli.exceptions import CLIError
-from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.ipc import (
     DaemonFileParams,
     DaemonPositionParams,
@@ -31,6 +30,7 @@ from llm_lsp_cli.ipc import (
     DaemonSymbolQueryParams,
     DaemonWorkspaceParams,
 )
+from llm_lsp_cli.lsp.constants import LSPConstants
 from llm_lsp_cli.lsp.types import (
     Diagnostic,
     Location,
@@ -65,22 +65,22 @@ app = typer.Typer(name="lsp", help="LSP operations for code intelligence.")
 @app.command()
 def definition(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include results from test files (excluded by default)",
@@ -149,27 +149,27 @@ def definition(
 @app.command()
 def references(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
-    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
+    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Get references to symbol at position."""
     context = build_request_context(
@@ -250,21 +250,21 @@ def references(
 @app.command("document-symbol")
 def document_symbol(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    depth: int = typer.Option(1, "--depth", "-d", help="Hierarchy depth"),
-    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
+    depth: int = typer.Option(1, "--depth", "-d", help="Hierarchy depth"),  # pyright: ignore[reportCallInDefaultInitializer]
+    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Get document symbols."""
     context = build_request_context(ctx, workspace, language, output_format, file)
@@ -331,26 +331,26 @@ def document_symbol(
 @app.command("workspace-symbol")
 def workspace_symbol(
     ctx: typer.Context,
-    query: str = typer.Argument(..., help="Search query"),
-    workspace: str | None = typer.Option(
+    query: str = typer.Argument(..., help="Search query"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
-    depth: int = typer.Option(1, "--depth", "-d", help="Hierarchy depth"),
-    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
+    depth: int = typer.Option(1, "--depth", "-d", help="Hierarchy depth"),  # pyright: ignore[reportCallInDefaultInitializer]
+    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Search workspace symbols."""
     global_opts = get_global_options(ctx)
@@ -427,27 +427,27 @@ def workspace_symbol(
 @app.command("incoming-calls")
 def incoming_calls(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
-    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
+    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Get incoming calls (callers) for symbol at position."""
     context = build_request_context(
@@ -514,27 +514,27 @@ def incoming_calls(
 @app.command("outgoing-calls")
 def outgoing_calls(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include results from test files (excluded by default)",
     ),
-    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),
+    raw: bool = typer.Option(False, "--raw", help="original LSP server response"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Get outgoing calls (callees) for symbol at position."""
     context = build_request_context(
@@ -601,16 +601,16 @@ def outgoing_calls(
 @app.command()
 def completion(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
@@ -673,16 +673,16 @@ def completion(
 @app.command()
 def hover(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    line: int = typer.Argument(..., help="Line number (1-based)"),
-    column: int = typer.Argument(..., help="Column number (1-based)"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int = typer.Argument(..., help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int = typer.Argument(..., help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
@@ -743,14 +743,14 @@ def hover(
 @app.command()
 def diagnostics(
     ctx: typer.Context,
-    file: str = typer.Argument(..., help="File path"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
@@ -830,19 +830,19 @@ def diagnostics(
 @app.command("workspace-diagnostics")
 def workspace_diagnostics(
     ctx: typer.Context,
-    workspace: str | None = typer.Option(
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    include_tests: bool = typer.Option(
+    include_tests: bool = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         False,
         "--include-tests",
         help="Include diagnostics from test files (excluded by default)",
@@ -943,25 +943,25 @@ def workspace_diagnostics(
 @app.command()
 def rename(
     ctx: typer.Context,
-    file: str | None = typer.Argument(None, help="File path"),
-    line: int | None = typer.Argument(None, help="Line number (1-based)"),
-    column: int | None = typer.Argument(None, help="Column number (1-based)"),
-    new_name: str | None = typer.Argument(None, help="New symbol name"),
-    workspace: str | None = typer.Option(
+    file: str | None = typer.Argument(None, help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    line: int | None = typer.Argument(None, help="Line number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    column: int | None = typer.Argument(None, help="Column number (1-based)"),  # pyright: ignore[reportCallInDefaultInitializer]
+    new_name: str | None = typer.Argument(None, help="New symbol name"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
-    output_format: OutputFormat | None = typer.Option(  # noqa: B008
+    output_format: OutputFormat | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]  # noqa: B008
         None,
         "--format",
         "-o",
         help="Output format (overrides global)",
     ),
-    apply: bool = typer.Option(False, "--apply", help="Apply changes to files"),
-    _dry_run: bool = typer.Option(False, "--dry-run", help="Explicit dry-run"),
-    rollback: str | None = typer.Option(None, "--rollback", help="Session ID to rollback"),
+    apply: bool = typer.Option(False, "--apply", help="Apply changes to files"),  # pyright: ignore[reportCallInDefaultInitializer]
+    _dry_run: bool = typer.Option(False, "--dry-run", help="Explicit dry-run"),  # pyright: ignore[reportCallInDefaultInitializer]
+    rollback: str | None = typer.Option(None, "--rollback", help="Session ID to rollback"),  # pyright: ignore[reportCallInDefaultInitializer]
 ) -> None:
     """Rename symbol at position across workspace."""
     from llm_lsp_cli.domain.services.backup_manager import BackupManager
@@ -1063,11 +1063,11 @@ def rename(
 
 @app.command("did-change")
 def did_change(
-    file: str = typer.Argument(..., help="File path"),
-    workspace: str | None = typer.Option(
+    file: str = typer.Argument(..., help="File path"),  # pyright: ignore[reportCallInDefaultInitializer]
+    workspace: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--workspace", "-w", help="Workspace path (overrides global)"
     ),
-    language: str | None = typer.Option(
+    language: str | None = typer.Option(  # pyright: ignore[reportCallInDefaultInitializer]
         None, "--language", "-l", help="Language (overrides global)"
     ),
 ) -> None:

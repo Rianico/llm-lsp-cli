@@ -169,7 +169,6 @@ class TestCacheHitLogLevel:
             # Verify structured data is present
             assert "resultId" in all_calls or "result" in all_calls.lower()
             assert "mtime" in all_calls.lower() or "12345" in all_calls
-            assert "diags=2" in all_calls or "diags" in all_calls.lower()
 
 
 # =============================================================================

@@ -225,9 +225,7 @@ def _render_diagnostic_line(diag: dict[str, object]) -> str:
     # Add code if present and non-empty (handles both string and numeric codes)
     code_val = diag.get("code")
     if code_val is not None:
-        if isinstance(code_val, str) and code_val != "":
-            parts.append(f"code: {code_val}")
-        elif isinstance(code_val, int):
+        if isinstance(code_val, str) and code_val != "" or isinstance(code_val, int):
             parts.append(f"code: {code_val}")
 
     # Always include range with prefix
@@ -270,9 +268,7 @@ def render_workspace_symbols_grouped(
     for group in grouped_data:
         file_path = get_str(group, "file")
         symbols_raw = get_list(group, "symbols")
-        symbols: list[dict[str, object]] = [
-            s for s in symbols_raw if isinstance(s, dict)
-        ]
+        symbols: list[dict[str, object]] = [s for s in symbols_raw if isinstance(s, dict)]
 
         # Add file header
         lines.append(f"{file_path}:")
@@ -309,17 +305,13 @@ def render_workspace_diagnostics_grouped(
     for group in grouped_data:
         file_path = get_str(group, "file")
         diagnostics_raw = get_list(group, "diagnostics")
-        diagnostics: list[dict[str, object]] = [
-            d for d in diagnostics_raw if isinstance(d, dict)
-        ]
+        diagnostics: list[dict[str, object]] = [d for d in diagnostics_raw if isinstance(d, dict)]
 
         # Add file header
         lines.append(f"{file_path}:")
 
         # Render diagnostics with tree connectors
-        lines.extend(
-            _render_group_with_tree_connectors(diagnostics, _render_diagnostic_line)
-        )
+        lines.extend(_render_group_with_tree_connectors(diagnostics, _render_diagnostic_line))
 
     return "\n".join(lines)
 
@@ -352,9 +344,7 @@ def render_references_grouped(
     for group in grouped_data:
         file_path = get_str(group, "file")
         references_raw = get_list(group, "references")
-        references: list[dict[str, object]] = [
-            r for r in references_raw if isinstance(r, dict)
-        ]
+        references: list[dict[str, object]] = [r for r in references_raw if isinstance(r, dict)]
 
         # Extract ranges and format as bracketed list
         ranges = [get_str(ref, "range") for ref in references]

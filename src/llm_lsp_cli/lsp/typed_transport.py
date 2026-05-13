@@ -17,12 +17,14 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
     # Handler types for notification/request callbacks
-    NotificationHandler = Callable[[dict[str, object]], None] | Callable[
-        [dict[str, object]], Coroutine[object, object, None]
-    ]
-    RequestHandler = Callable[[dict[str, object]], object] | Callable[
-        [dict[str, object]], Coroutine[object, object, object]
-    ]
+    NotificationHandler = (
+        Callable[[dict[str, object]], None]
+        | Callable[[dict[str, object]], Coroutine[object, object, None]]
+    )
+    RequestHandler = (
+        Callable[[dict[str, object]], object]
+        | Callable[[dict[str, object]], Coroutine[object, object, object]]
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -542,7 +544,7 @@ class TypedLSPTransport:
         """
         await self._transport.stop()
 
-    def on_notification(self, method: str, handler: "NotificationHandler") -> None:
+    def on_notification(self, method: str, handler: NotificationHandler) -> None:
         """Register a notification handler.
 
         Delegates to underlying transport.
@@ -553,7 +555,7 @@ class TypedLSPTransport:
         """
         self._transport.on_notification(method, handler)
 
-    def on_request(self, method: str, handler: "RequestHandler") -> None:
+    def on_request(self, method: str, handler: RequestHandler) -> None:
         """Register a server->client request handler.
 
         Delegates to underlying transport.

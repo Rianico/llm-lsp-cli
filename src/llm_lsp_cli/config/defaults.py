@@ -5,7 +5,7 @@ Configuration uses object for dict value types due to nested structure.
 Validated at runtime by Pydantic models.
 """
 
-from .schema import LanguageTestFilterConfig, FilterTestConfig
+from .schema import FilterTestConfig, LanguageTestFilterConfig
 
 DEFAULT_CONFIG: dict[str, object] = {
     "languages": {
@@ -48,7 +48,11 @@ DEFAULT_CONFIG: dict[str, object] = {
         "java": {
             "command": "jdtls",
             "root_markers": [
-                "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", ".git",
+                "pom.xml",
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                ".git",
             ],
         },
         # C/C++:

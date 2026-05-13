@@ -120,9 +120,7 @@ class RuntimePathBuilder:
             Path to the log file (deprecated).
         """
         warnings.warn(
-            "build_log_file_path is deprecated. "
-            "LSP server log files are no longer created separately. "
-            "Use build_daemon_log_path instead.",
+            "build_log_file_path is deprecated. Use build_daemon_log_path instead.",
             DeprecationWarning,
             stacklevel=2,
         )

@@ -76,9 +76,7 @@ class StructuredLogger:
             # Default to a console handler with basic formatting
             console_handler = logging.StreamHandler()
             console_handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             self._logger.addHandler(console_handler)
 

@@ -370,10 +370,7 @@ class OutputDispatcher:
         match fmt:
             case OutputFormat.JSON:
                 old_text, new_text, file_records = group_rename_edits_by_file(rename_records)
-                items = [
-                    {"file": fr.file, "ranges": fr.ranges}
-                    for fr in file_records
-                ]
+                items = [{"file": fr.file, "ranges": fr.ranges} for fr in file_records]
                 data = _build_top_level_dict(_source, None, command)
                 data["old_text"] = old_text
                 data["new_text"] = new_text
@@ -382,10 +379,7 @@ class OutputDispatcher:
 
             case OutputFormat.YAML:
                 old_text, new_text, file_records = group_rename_edits_by_file(rename_records)
-                yaml_items = [
-                    {"file": fr.file, "ranges": fr.ranges}
-                    for fr in file_records
-                ]
+                yaml_items = [{"file": fr.file, "ranges": fr.ranges} for fr in file_records]
                 yaml_data = _build_top_level_dict(_source, None, command)
                 yaml_data["old_text"] = old_text
                 yaml_data["new_text"] = new_text

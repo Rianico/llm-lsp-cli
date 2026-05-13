@@ -9,7 +9,6 @@ When adding a new method-name constant:
 
 from typing import Literal
 
-
 class LSPConstants:
     """LSP protocol constants type stubs.
 

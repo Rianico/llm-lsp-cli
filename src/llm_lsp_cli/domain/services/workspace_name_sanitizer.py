@@ -44,9 +44,7 @@ class WorkspaceNameSanitizer:
             raise NameValidationError("Workspace name cannot be empty")
 
         if "\x00" in name:
-            raise NameValidationError(
-                f"Workspace name contains null byte: {repr(name)}"
-            )
+            raise NameValidationError(f"Workspace name contains null byte: {repr(name)}")
 
         result = name.strip().lower()
         result = result.replace("/", "_").replace("\\", "_").replace(" ", "_")

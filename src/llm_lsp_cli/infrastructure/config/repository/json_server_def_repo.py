@@ -148,14 +148,9 @@ class JsonServerDefinitionRepository:
             _ = self._config_file.write_text(content)
         except OSError as e:
             logger.error("Failed to save config to %s: %s", self._config_file, e)
-            raise ConfigWriteError(
-                str(self._config_file),
-                f"Failed to save config: {e}"
-            ) from e
+            raise ConfigWriteError(str(self._config_file), f"Failed to save config: {e}") from e
 
-    def _parse_definitions(
-        self, data: dict[str, object]
-    ) -> dict[str, ServerDefinition]:
+    def _parse_definitions(self, data: dict[str, object]) -> dict[str, ServerDefinition]:
         """Parse server definitions from raw data.
 
         Args:
@@ -194,7 +189,9 @@ class JsonServerDefinitionRepository:
                     language_id=lang_id,
                     command=str(command_val) if command_val else "",
                     args=args_list,
-                    timeout_seconds=int(timeout_val) if isinstance(timeout_val, (int, float)) else 30,
+                    timeout_seconds=int(timeout_val)
+                    if isinstance(timeout_val, (int, float))
+                    else 30,
                 )
             except (TypeError, ValueError) as e:
                 logger.warning("Skipping invalid server definition for %s: %s", lang_id, e)

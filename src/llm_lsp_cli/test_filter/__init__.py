@@ -143,10 +143,7 @@ def _filter_by_uri(
     if include_tests:
         return items
 
-    return [
-        item for item in items
-        if not _is_test_uri(get_str(item, uri_key), language=language)
-    ]
+    return [item for item in items if not _is_test_uri(get_str(item, uri_key), language=language)]
 
 
 def filter_test_locations(
@@ -189,8 +186,7 @@ def filter_test_symbols(
         sym
         for sym in symbols
         if not _is_test_uri(
-            get_str(get_optional_dict(sym, "location") or {}, "uri"),
-            language=language
+            get_str(get_optional_dict(sym, "location") or {}, "uri"), language=language
         )
     ]
 

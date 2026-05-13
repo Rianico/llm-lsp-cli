@@ -200,7 +200,7 @@ class DaemonManager:
             pid = int(self.pid_file.read_text().strip())
             os.kill(pid, 0)  # Check if process exists
             return True
-        except (ValueError, OSError):
+        except ValueError, OSError:
             # PID file exists but process not running
             self.pid_file.unlink(missing_ok=True)
             return False
@@ -607,14 +607,14 @@ class RequestHandler:
                 logger.debug(f"Could not stat file {file_path}, proceeding without mtime")
 
             # Call client method directly with uri to avoid _ensure_open
-            # Result type varies by method: diagnostics -> list[dict], symbols -> list[DocumentSymbol], etc.
+            # Result type varies: diagnostics -> list[dict], symbols -> list[DocumentSymbol]
             result: object
             if registry_method == "request_diagnostics":
                 result = await client.request_diagnostics(file_path=file_path, uri=uri, mtime=mtime)
             elif registry_method == "request_document_symbols":
                 result = await client.request_document_symbols(file_path=file_path, uri=uri)
             else:
-                # This should never happen - doc sync methods are only diagnostics and document_symbols
+                # Should never happen - only diagnostics and document_symbols
                 raise ValueError(f"Unsupported doc sync method: {registry_method}")
 
             logger.debug(f"Client method {registry_method} returned for {method}")
@@ -730,9 +730,7 @@ class RequestHandler:
                 )
             elif registry_method == "request_workspace_symbols":
                 query = params.get("query", self.DEFAULTS["query"])
-                logger.debug(
-                    f"Workspace symbol request: workspace={workspace_path}, query={query}"
-                )
+                logger.debug(f"Workspace symbol request: workspace={workspace_path}, query={query}")
                 result = await self._registry.request_workspace_symbols(
                     workspace_path=workspace_path,
                     query=query if isinstance(query, str) else "",

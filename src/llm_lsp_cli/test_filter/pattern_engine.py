@@ -211,7 +211,7 @@ class PatternSet:
             from pathlib import Path
 
             filename = Path(path_str).name
-        except (ValueError, OSError):
+        except ValueError, OSError:
             filename = path_str.split("/")[-1] if "/" in path_str else path_str
 
         # Priority 1: Check include (negation) patterns first
@@ -264,9 +264,7 @@ class PatternSet:
             True if no patterns are configured, False otherwise
         """
         return (
-            not self._directory_patterns
-            and not self._suffix_patterns
-            and not self._prefix_patterns
+            not self._directory_patterns and not self._suffix_patterns and not self._prefix_patterns
         )
 
     @classmethod

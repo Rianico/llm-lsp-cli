@@ -88,7 +88,9 @@ class ProgressHandler:
             token=state.token,
             title=state.title,
             message=str(message_raw) if message_raw is not None else state.message,
-            percentage=int(percentage_raw) if isinstance(percentage_raw, (int, float)) else state.percentage,
+            percentage=int(percentage_raw)
+            if isinstance(percentage_raw, (int, float))
+            else state.percentage,
             cancellable=state.cancellable,
             started=state.started,
             completed=state.completed,

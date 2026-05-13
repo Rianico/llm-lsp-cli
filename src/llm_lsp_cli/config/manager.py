@@ -57,8 +57,11 @@ class ConfigManager:
 
     @classmethod
     def build_socket_path(
-        cls, workspace_path: str, language: str,
-        base_dir: Path | None = None, lsp_server_name: str | None = None,
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
+        lsp_server_name: str | None = None,
     ) -> Path:
         """Build socket file path."""
         from .path_builder import RuntimePathBuilder
@@ -69,8 +72,11 @@ class ConfigManager:
 
     @classmethod
     def build_pid_file_path(
-        cls, workspace_path: str, language: str,
-        base_dir: Path | None = None, lsp_server_name: str | None = None,
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
+        lsp_server_name: str | None = None,
     ) -> Path:
         """Build PID file path."""
         from .path_builder import RuntimePathBuilder
@@ -81,8 +87,11 @@ class ConfigManager:
 
     @classmethod
     def build_log_file_path(
-        cls, workspace_path: str, language: str,
-        base_dir: Path | None = None, lsp_server_name: str | None = None,
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
+        lsp_server_name: str | None = None,
     ) -> Path:
         """Build log file path.
 
@@ -92,9 +101,7 @@ class ConfigManager:
         from .path_builder import RuntimePathBuilder
 
         warnings.warn(
-            "build_log_file_path is deprecated. "
-            "LSP server log files are no longer created separately. "
-            "Use build_daemon_log_path instead.",
+            "build_log_file_path is deprecated. Use build_daemon_log_path instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -104,25 +111,27 @@ class ConfigManager:
 
     @classmethod
     def build_daemon_log_path(
-        cls, workspace_path: str, language: str, base_dir: Path | None = None,
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
     ) -> Path:
         """Build daemon log file path."""
         from .path_builder import RuntimePathBuilder
 
-        return RuntimePathBuilder().build_daemon_log_path(
-            workspace_path, language, base_dir
-        )
+        return RuntimePathBuilder().build_daemon_log_path(workspace_path, language, base_dir)
 
     @classmethod
     def build_diagnostic_log_path(
-        cls, workspace_path: str, language: str, base_dir: Path | None = None,
+        cls,
+        workspace_path: str,
+        language: str,
+        base_dir: Path | None = None,
     ) -> Path:
         """Build diagnostic log file path."""
         from .path_builder import RuntimePathBuilder
 
-        return RuntimePathBuilder().build_diagnostic_log_path(
-            workspace_path, language, base_dir
-        )
+        return RuntimePathBuilder().build_diagnostic_log_path(workspace_path, language, base_dir)
 
     @classmethod
     def ensure_runtime_dir(cls) -> Path:
@@ -210,7 +219,7 @@ class ConfigManager:
 
         typer.secho(
             "Created default config at ~/.config/llm-lsp-cli/config.yaml\n"
-            "Create .llm-lsp-cli.yaml in your project to override settings.",
+            + "Create .llm-lsp-cli.yaml in your project to override settings.",
             fg=typer.colors.YELLOW,
         )
 
@@ -276,9 +285,7 @@ class ConfigManager:
         lang_config = cls.get_language_config(language)
         if lang_config:
             try:
-                resolved = validate_server_installed(
-                    lang_config.command, _language=language
-                )
+                resolved = validate_server_installed(lang_config.command, _language=language)
                 return resolved, lang_config.args
             except ValidationServerError as e:
                 raise FileNotFoundError(str(e)) from e
@@ -297,8 +304,7 @@ class ConfigManager:
 
         raise FileNotFoundError(
             f"Language server for '{language}' not found.\n"
-            f"Please install the appropriate language server and ensure it's in PATH,\n"
-            f"or specify --lang-server-path to provide a custom path."
+            + "Install it or specify --lang-server-path for a custom path."
         )
 
     @classmethod

@@ -25,7 +25,7 @@ class ServerPathResolver:
     """
 
     # Shell metacharacters that indicate injection attempts (always dangerous)
-    DANGEROUS_METACHARACTERS: frozenset[str] = frozenset([';', '|', '&', '`', '>', '<'])
+    DANGEROUS_METACHARACTERS: frozenset[str] = frozenset([";", "|", "&", "`", ">", "<"])
 
     @staticmethod
     def resolve(command: str) -> str:
@@ -90,28 +90,20 @@ class ServerPathResolver:
             ServerPathValidationError: If command contains dangerous metacharacters
         """
         if not command or not command.strip():
-            raise ServerPathValidationError(
-                command, "Command is empty or whitespace only"
-            )
+            raise ServerPathValidationError(command, "Command is empty or whitespace only")
 
         # Check for command substitution $() first (before checking individual chars)
-        if '$(' in command:
-            raise ServerPathValidationError(
-                command, "Contains command substitution: $()"
-            )
+        if "$(" in command:
+            raise ServerPathValidationError(command, "Contains command substitution: $()")
 
         # Check for backtick substitution
-        if '`' in command:
-            raise ServerPathValidationError(
-                command, "Contains backtick substitution"
-            )
+        if "`" in command:
+            raise ServerPathValidationError(command, "Contains backtick substitution")
 
         # Check for other dangerous metacharacters
         for char in ServerPathResolver.DANGEROUS_METACHARACTERS:
             if char in command:
-                raise ServerPathValidationError(
-                    command, f"Contains shell metacharacter: {char!r}"
-                )
+                raise ServerPathValidationError(command, f"Contains shell metacharacter: {char!r}")
 
     @staticmethod
     def _expand_path(command: str) -> str:

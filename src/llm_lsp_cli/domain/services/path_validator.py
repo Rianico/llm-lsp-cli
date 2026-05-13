@@ -28,9 +28,7 @@ class PathValidator:
         self._workspace_root: Path = workspace_root.resolve()
 
         if not self._workspace_root.exists():
-            raise PathValidationError(
-                f"Workspace root does not exist: {self._workspace_root}"
-            )
+            raise PathValidationError(f"Workspace root does not exist: {self._workspace_root}")
 
     def validate_within_boundary(self, path: str | Path) -> Path:
         """Validate that a path is within the workspace boundary.
@@ -48,9 +46,7 @@ class PathValidator:
         # Check for null bytes first
         path_str = str(path)
         if "\x00" in path_str:
-            raise PathValidationError(
-                f"Path contains null byte: {repr(path_str)}"
-            )
+            raise PathValidationError(f"Path contains null byte: {repr(path_str)}")
 
         # Convert to Path if string
         path_obj = Path(path) if isinstance(path, str) else path
@@ -66,8 +62,6 @@ class PathValidator:
         try:
             _ = resolved.relative_to(self._workspace_root)
         except ValueError as err:
-            raise PathValidationError(
-                f"Path is outside workspace boundary: {path_str}"
-            ) from err
+            raise PathValidationError(f"Path is outside workspace boundary: {path_str}") from err
 
         return resolved

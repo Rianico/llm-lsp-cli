@@ -91,20 +91,24 @@ def _format_log_prefix(
 class LogCategory(Enum):
     """LSP method log routing category."""
 
-    SKIP = auto()   # Skip daemon.log; log full to diagnostics.log only
-    DAEMON = auto() # Log full to daemon.log only; skip diagnostics.log
-    MASK = auto()   # Log masked to daemon.log; log full to diagnostics.log
+    SKIP = auto()  # Skip daemon.log; log full to diagnostics.log only
+    DAEMON = auto()  # Log full to daemon.log only; skip diagnostics.log
+    MASK = auto()  # Log masked to daemon.log; log full to diagnostics.log
 
 
-_SKIP_METHODS = frozenset({
-    LSPConstants.PROGRESS,
-})
+_SKIP_METHODS = frozenset(
+    {
+        LSPConstants.PROGRESS,
+    }
+)
 
-_DAEMON_ONLY_METHODS = frozenset({
-    LSPConstants.WINDOW_LOG_MESSAGE,
-    LSPConstants.WORKSPACE_CONFIGURATION,
-    LSPConstants.CLIENT_REGISTER_CAPABILITY,
-})
+_DAEMON_ONLY_METHODS = frozenset(
+    {
+        LSPConstants.WINDOW_LOG_MESSAGE,
+        LSPConstants.WORKSPACE_CONFIGURATION,
+        LSPConstants.CLIENT_REGISTER_CAPABILITY,
+    }
+)
 
 
 def _classify_method(method: str) -> LogCategory:
@@ -313,7 +317,7 @@ class StdioTransport:
             logger.error(f"LSP server command not found: {self.command}")
             raise RuntimeError(
                 f"LSP server command not found: {self.command}. "
-                f"Ensure the server is installed and in PATH."
+                + "Ensure the server is installed and in PATH."
             ) from e
         except PermissionError as e:
             logger.error(f"Permission denied executing LSP server: {self.command}")
@@ -336,12 +340,10 @@ class StdioTransport:
 
             stderr_text = stderr_output.decode("utf-8", errors="replace").strip()
             logger.error(
-                f"LSP server exited immediately with code {self._process.returncode}. "
-                f"Stderr: {stderr_text}"
+                f"LSP server exited (code {self._process.returncode}). Stderr: {stderr_text}"
             )
             raise RuntimeError(
-                f"LSP server exited immediately with code {self._process.returncode}. "
-                f"Error: {stderr_text}"
+                f"LSP server exited (code {self._process.returncode}). Error: {stderr_text}"
             )
 
         self._running = True
@@ -441,7 +443,7 @@ class StdioTransport:
             for header in headers:
                 if header.startswith("Content-Length: "):
                     return int(header.split(": ")[1])
-        except (ValueError, UnicodeDecodeError, IndexError):
+        except ValueError, UnicodeDecodeError, IndexError:
             pass
         return None
 
@@ -609,7 +611,9 @@ class StdioTransport:
             _ = self._pending.pop(request_id, None)
             raise TimeoutError(f"Request timed out: {method}") from None
 
-    async def send_notification(self, method: str, params: Mapping[str, object] | None = None) -> None:
+    async def send_notification(
+        self, method: str, params: Mapping[str, object] | None = None
+    ) -> None:
         """Send a notification (no response expected)."""
         assert self._process is not None, "Transport not started"
 

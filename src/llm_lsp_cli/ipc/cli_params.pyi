@@ -1,3 +1,6 @@
+# ruff: noqa: N803
+# Reason: Argument names match IPC protocol conventions (camelCase).
+# Renaming would break API consistency with the protocol specification.
 """Type stubs for daemon RPC parameter models.
 
 These stubs inform the type checker that both snake_case field names
@@ -6,7 +9,6 @@ validate_by_name=True behavior).
 """
 
 from typing import overload
-
 
 class DaemonPositionParams:
     """Position-based params for LSP methods."""
@@ -25,7 +27,6 @@ class DaemonPositionParams:
         line: int = ...,
         column: int = ...,
     ) -> None: ...
-
     @overload
     def __init__(
         self,
@@ -35,9 +36,7 @@ class DaemonPositionParams:
         line: int = ...,
         column: int = ...,
     ) -> None: ...
-
     def __init__(self, **data: object) -> None: ...
-
 
 class DaemonFileParams:
     """File-based params for LSP methods."""
@@ -52,7 +51,6 @@ class DaemonFileParams:
         workspace_path: str,
         file_path: str,
     ) -> None: ...
-
     @overload
     def __init__(
         self,
@@ -60,9 +58,7 @@ class DaemonFileParams:
         workspacePath: str,
         filePath: str,
     ) -> None: ...
-
     def __init__(self, **data: object) -> None: ...
-
 
 class DaemonWorkspaceParams:
     """Workspace-only params for LSP methods."""
@@ -75,16 +71,13 @@ class DaemonWorkspaceParams:
         *,
         workspace_path: str,
     ) -> None: ...
-
     @overload
     def __init__(
         self,
         *,
         workspacePath: str,
     ) -> None: ...
-
     def __init__(self, **data: object) -> None: ...
-
 
 class DaemonRenameParams(DaemonPositionParams):
     """Rename params with new_name in addition to position."""
@@ -101,7 +94,6 @@ class DaemonRenameParams(DaemonPositionParams):
         column: int = ...,
         new_name: str,
     ) -> None: ...
-
     @overload
     def __init__(
         self,
@@ -112,9 +104,7 @@ class DaemonRenameParams(DaemonPositionParams):
         column: int = ...,
         newName: str,
     ) -> None: ...
-
     def __init__(self, **data: object) -> None: ...
-
 
 class DaemonSymbolQueryParams(DaemonWorkspaceParams):
     """Workspace symbol params with query string."""
@@ -128,7 +118,6 @@ class DaemonSymbolQueryParams(DaemonWorkspaceParams):
         workspace_path: str,
         query: str,
     ) -> None: ...
-
     @overload
     def __init__(
         self,
@@ -136,5 +125,4 @@ class DaemonSymbolQueryParams(DaemonWorkspaceParams):
         workspacePath: str,
         query: str,
     ) -> None: ...
-
     def __init__(self, **data: object) -> None: ...

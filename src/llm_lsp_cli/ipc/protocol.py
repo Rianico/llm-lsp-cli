@@ -66,7 +66,7 @@ class JSONRPCRequest:
         return header + body
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "JSONRPCRequest":
+    def from_dict(cls, data: dict[str, Any]) -> JSONRPCRequest:
         """Create from dictionary."""
         return cls(
             method=data["method"],
@@ -104,7 +104,7 @@ class JSONRPCResponse:
         return header + body
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "JSONRPCResponse":
+    def from_dict(cls, data: dict[str, Any]) -> JSONRPCResponse:
         """Create from dictionary."""
         return cls(
             result=data.get("result"),
@@ -183,7 +183,7 @@ def parse_message(data: bytes) -> tuple[dict[str, Any] | None, bytes]:
         if line.startswith("Content-Length: "):
             try:
                 content_length = int(line.split(": ")[1])
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 raise ValueError(f"Invalid Content-Length header: {line}") from None
 
     if content_length is None:

@@ -9,10 +9,12 @@ from llm_lsp_cli.utils.type_helpers import get_optional_int, get_optional_list
 
 # Variable-level symbol kinds that are excluded by default
 # Using frozenset for O(1) lookup and immutability
-VARIABLE_KINDS: frozenset[int] = frozenset({
-    8,   # SYMBOL_KIND_FIELD
-    13,  # SYMBOL_KIND_VARIABLE
-})
+VARIABLE_KINDS: frozenset[int] = frozenset(
+    {
+        8,  # SYMBOL_KIND_FIELD
+        13,  # SYMBOL_KIND_VARIABLE
+    }
+)
 
 
 def is_variable_symbol(symbol: dict[str, object]) -> bool:
@@ -61,9 +63,7 @@ def filter_symbols(
             children = get_optional_list(symbol, "children")
             if children is not None:
                 # Type narrow children to dict list
-                child_dicts: list[dict[str, object]] = [
-                    c for c in children if isinstance(c, dict)
-                ]
+                child_dicts: list[dict[str, object]] = [c for c in children if isinstance(c, dict)]
                 filtered_children = filter_symbols(child_dicts, verbosity)
                 symbol = {**symbol, "children": filtered_children}
                 filtered.append(symbol)

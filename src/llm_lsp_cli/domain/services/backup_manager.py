@@ -255,8 +255,7 @@ class BackupManager:
             "session_id": session.session_id,
             "timestamp": session.timestamp.isoformat(),
             "affected_files": {
-                str(orig): str(backup)
-                for orig, backup in session.affected_files.items()
+                str(orig): str(backup) for orig, backup in session.affected_files.items()
             },
             "status": session.status,
         }

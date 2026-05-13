@@ -1,15 +1,14 @@
-from __future__ import annotations
-
 """LSP type definitions based on LSP 3.17 specification.
 
 All types are Pydantic BaseModel classes for runtime validation.
 CamelCase aliases are used for LSP JSON compatibility.
 """
 
+from __future__ import annotations
+
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # =============================================================================
 # Leaf Types (no dependencies on other LSP types)
@@ -180,9 +179,7 @@ class WorkspaceEdit(BaseModel):
     )
 
     changes: dict[str, list[TextEdit]] | None = None
-    document_changes: list[TextDocumentEdit] | None = Field(
-        default=None, alias="documentChanges"
-    )
+    document_changes: list[TextDocumentEdit] | None = Field(default=None, alias="documentChanges")
 
 
 # =============================================================================
@@ -212,9 +209,7 @@ class LocationLink(BaseModel):
         extra="ignore",
     )
 
-    origin_selection_range: Range | None = Field(
-        default=None, alias="originSelectionRange"
-    )
+    origin_selection_range: Range | None = Field(default=None, alias="originSelectionRange")
     target_uri: str = Field(alias="targetUri")
     target_range: Range = Field(alias="targetRange")
     target_selection_range: Range = Field(alias="targetSelectionRange")
@@ -260,9 +255,7 @@ class CompletionItem(BaseModel):
     detail: str | None = None
     documentation: str | MarkupContent | None = None
     text_edit: TextEdit | None = Field(default=None, alias="textEdit")
-    additional_text_edits: list[TextEdit] | None = Field(
-        default=None, alias="additionalTextEdits"
-    )
+    additional_text_edits: list[TextEdit] | None = Field(default=None, alias="additionalTextEdits")
 
 
 class CompletionList(BaseModel):
@@ -335,7 +328,7 @@ class DocumentSymbol(BaseModel):
     detail: str | None = None
     tags: list[int] | None = None
     deprecated: bool | None = None
-    children: list["DocumentSymbol"] | None = None
+    children: list[DocumentSymbol] | None = None
 
 
 class UnifiedSymbolInformation(BaseModel):
@@ -356,7 +349,7 @@ class UnifiedSymbolInformation(BaseModel):
     deprecated: bool | None = None
     location: Location | None = None
     container_name: str | None = Field(default=None, alias="containerName")
-    children: list["UnifiedSymbolInformation"] | None = None
+    children: list[UnifiedSymbolInformation] | None = None
 
 
 class WorkspaceSymbolParams(BaseModel):
@@ -561,33 +554,19 @@ class TextDocumentClientCapabilities(BaseModel):
     signature_help: dict[str, object] | None = Field(default=None, alias="signatureHelp")
     definition: dict[str, object] | None = None
     references: dict[str, object] | None = None
-    document_highlight: dict[str, object] | None = Field(
-        default=None, alias="documentHighlight"
-    )
-    document_symbol: dict[str, object] | None = Field(
-        default=None, alias="documentSymbol"
-    )
+    document_highlight: dict[str, object] | None = Field(default=None, alias="documentHighlight")
+    document_symbol: dict[str, object] | None = Field(default=None, alias="documentSymbol")
     code_action: dict[str, object] | None = Field(default=None, alias="codeAction")
     code_lens: dict[str, object] | None = Field(default=None, alias="codeLens")
     document_link: dict[str, object] | None = Field(default=None, alias="documentLink")
-    color_provider: dict[str, object] | None = Field(
-        default=None, alias="colorProvider"
-    )
+    color_provider: dict[str, object] | None = Field(default=None, alias="colorProvider")
     formatting: dict[str, object] | None = None
-    range_formatting: dict[str, object] | None = Field(
-        default=None, alias="rangeFormatting"
-    )
-    on_type_formatting: dict[str, object] | None = Field(
-        default=None, alias="onTypeFormatting"
-    )
+    range_formatting: dict[str, object] | None = Field(default=None, alias="rangeFormatting")
+    on_type_formatting: dict[str, object] | None = Field(default=None, alias="onTypeFormatting")
     rename: dict[str, object] | None = None
     folding_range: dict[str, object] | None = Field(default=None, alias="foldingRange")
-    selection_range: dict[str, object] | None = Field(
-        default=None, alias="selectionRange"
-    )
-    publish_diagnostics: dict[str, object] | None = Field(
-        default=None, alias="publishDiagnostics"
-    )
+    selection_range: dict[str, object] | None = Field(default=None, alias="selectionRange")
+    publish_diagnostics: dict[str, object] | None = Field(default=None, alias="publishDiagnostics")
 
 
 class ClientCapabilities(BaseModel):
@@ -600,9 +579,7 @@ class ClientCapabilities(BaseModel):
     )
 
     workspace: dict[str, object] | None = None
-    text_document: TextDocumentClientCapabilities | None = Field(
-        default=None, alias="textDocument"
-    )
+    text_document: TextDocumentClientCapabilities | None = Field(default=None, alias="textDocument")
     window: dict[str, object] | None = None
     general: dict[str, object] | None = None
     experimental: object | None = None
@@ -624,12 +601,8 @@ class ServerCapabilities(BaseModel):
     notebook_document_sync: dict[str, object] | None = Field(
         default=None, alias="notebookDocumentSync"
     )
-    completion_provider: dict[str, object] | None = Field(
-        default=None, alias="completionProvider"
-    )
-    hover_provider: bool | dict[str, object] | None = Field(
-        default=None, alias="hoverProvider"
-    )
+    completion_provider: dict[str, object] | None = Field(default=None, alias="completionProvider")
+    hover_provider: bool | dict[str, object] | None = Field(default=None, alias="hoverProvider")
     signature_help_provider: dict[str, object] | None = Field(
         default=None, alias="signatureHelpProvider"
     )
@@ -657,15 +630,11 @@ class ServerCapabilities(BaseModel):
     code_action_provider: bool | dict[str, object] | None = Field(
         default=None, alias="codeActionProvider"
     )
-    code_lens_provider: dict[str, object] | None = Field(
-        default=None, alias="codeLensProvider"
-    )
+    code_lens_provider: dict[str, object] | None = Field(default=None, alias="codeLensProvider")
     document_link_provider: dict[str, object] | None = Field(
         default=None, alias="documentLinkProvider"
     )
-    color_provider: bool | dict[str, object] | None = Field(
-        default=None, alias="colorProvider"
-    )
+    color_provider: bool | dict[str, object] | None = Field(default=None, alias="colorProvider")
     document_formatting_provider: bool | dict[str, object] | None = Field(
         default=None, alias="documentFormattingProvider"
     )
@@ -675,9 +644,7 @@ class ServerCapabilities(BaseModel):
     document_on_type_formatting_provider: dict[str, object] | None = Field(
         default=None, alias="documentOnTypeFormattingProvider"
     )
-    rename_provider: bool | dict[str, object] | None = Field(
-        default=None, alias="renameProvider"
-    )
+    rename_provider: bool | dict[str, object] | None = Field(default=None, alias="renameProvider")
     folding_range_provider: bool | dict[str, object] | None = Field(
         default=None, alias="foldingRangeProvider"
     )
@@ -696,9 +663,7 @@ class ServerCapabilities(BaseModel):
     semantic_tokens_provider: dict[str, object] | None = Field(
         default=None, alias="semanticTokensProvider"
     )
-    moniker_provider: bool | dict[str, object] | None = Field(
-        default=None, alias="monikerProvider"
-    )
+    moniker_provider: bool | dict[str, object] | None = Field(default=None, alias="monikerProvider")
     type_hierarchy_provider: bool | dict[str, object] | None = Field(
         default=None, alias="typeHierarchyProvider"
     )
@@ -708,9 +673,7 @@ class ServerCapabilities(BaseModel):
     inlay_hint_provider: bool | dict[str, object] | None = Field(
         default=None, alias="inlayHintProvider"
     )
-    diagnostic_provider: dict[str, object] | None = Field(
-        default=None, alias="diagnosticProvider"
-    )
+    diagnostic_provider: dict[str, object] | None = Field(default=None, alias="diagnosticProvider")
     workspace_symbol_provider: bool | dict[str, object] | None = Field(
         default=None, alias="workspaceSymbolProvider"
     )
@@ -735,9 +698,7 @@ class InitializeParams(BaseModel):
     initialization_options: object | None = Field(default=None, alias="initializationOptions")
     capabilities: ClientCapabilities | None = None
     trace: str | None = None
-    workspace_folders: list[WorkspaceFolder] | None = Field(
-        default=None, alias="workspaceFolders"
-    )
+    workspace_folders: list[WorkspaceFolder] | None = Field(default=None, alias="workspaceFolders")
 
 
 class InitializeResult(BaseModel):

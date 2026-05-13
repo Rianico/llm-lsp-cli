@@ -103,9 +103,7 @@ class UNIXServer:
             if self.authenticator is not None:
                 # Read token line (token followed by \r\n\r\n)
                 try:
-                    token_line = await asyncio.wait_for(
-                        reader.readuntil(b"\r\n\r\n"), timeout=5.0
-                    )
+                    token_line = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5.0)
                 except asyncio.TimeoutError:
                     logger.warning("Authentication timeout: no token received")
                     return
@@ -117,9 +115,7 @@ class UNIXServer:
 
                 if not self.authenticator.validate(token_value):
                     # Log authentication failure
-                    logger.warning(
-                        "Authentication failed: invalid or missing token"
-                    )
+                    logger.warning("Authentication failed: invalid or missing token")
                     # Send error response and close connection
                     error_response = build_error(
                         code=ERROR_INTERNAL_ERROR,
@@ -137,9 +133,7 @@ class UNIXServer:
                 # Get peer UID from socket using UidValidator helper
                 peer_uid = UidValidator.get_peer_uid_from_writer(writer)
                 if peer_uid is not None and not self.uid_validator.validate(peer_uid):
-                    logger.warning(
-                        f"UID validation failed: peer UID {peer_uid} does not match"
-                    )
+                    logger.warning(f"UID validation failed: peer UID {peer_uid} does not match")
                     error_response = build_error(
                         code=ERROR_INTERNAL_ERROR,
                         message="Unauthorized: UID mismatch",
@@ -239,9 +233,7 @@ class UNIXServer:
                 writer.write(response.to_bytes())
                 await writer.drain()
 
-    async def _handle_notification(
-        self, _method: str, _params: dict[str, Any]
-    ) -> None:
+    async def _handle_notification(self, _method: str, _params: dict[str, Any]) -> None:
         """Handle a notification (no response)."""
         # For now, just log notifications
         pass

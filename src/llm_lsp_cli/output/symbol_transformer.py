@@ -21,7 +21,6 @@ from llm_lsp_cli.utils.type_helpers import (
     get_str,
 )
 
-
 # Tag mapping: LSP SymbolTag numeric values to string representations
 TAG_MAP: dict[int, str] = {
     1: "@deprecated",

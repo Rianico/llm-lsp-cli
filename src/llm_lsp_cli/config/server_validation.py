@@ -138,9 +138,7 @@ def print_server_not_found_alert(
         if install_url:
             message += f"\n  Install from: {install_url}"
         else:
-            message += (
-                "\n  Hint: Install the language server or use --lang-server-path."
-            )
+            message += "\n  Hint: Install the language server or use --lang-server-path."
 
     typer.secho(message, fg=typer.colors.RED, err=True)
 

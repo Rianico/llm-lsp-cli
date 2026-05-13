@@ -11,7 +11,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, overload, cast
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 import typer
 
@@ -25,16 +25,25 @@ from llm_lsp_cli.utils.root_detector import (
 )
 from llm_lsp_cli.utils.type_helpers import (
     get_dict as _get_dict,
+)
+from llm_lsp_cli.utils.type_helpers import (
     get_int as _get_int,
+)
+from llm_lsp_cli.utils.type_helpers import (
     get_optional_dict as _get_optional_dict,
+)
+from llm_lsp_cli.utils.type_helpers import (
     get_optional_str as _get_optional_str,
+)
+from llm_lsp_cli.utils.type_helpers import (
     get_str as _get_str,
 )
 
 if TYPE_CHECKING:
     from llm_lsp_cli.daemon import DaemonManager
 
-from pydantic import BaseModel as _BaseModel, TypeAdapter
+from pydantic import BaseModel as _BaseModel
+from pydantic import TypeAdapter
 
 from llm_lsp_cli.daemon import RESPONSE_KEYS
 from llm_lsp_cli.ipc import (
@@ -193,10 +202,12 @@ def resolve_workspace_path(workspace: str | None) -> str:
 def resolve_language(
     workspace: str | None, language: str | None
 ) -> tuple[str, str | None, list[str]]:
-    """Resolve workspace path and language, returning (workspace_path, language_or_none, available_languages).
+    """Resolve workspace path and language.
 
-    Returns None for language when no language can be detected and no explicit language provided.
-    Returns the list of available languages for error messaging without requiring a second config load.
+    Returns:
+        Tuple of (workspace_path, language_or_none, available_languages).
+        Language is None when no language can be detected and none provided.
+        Available languages are returned for error messaging without extra config load.
     """
     from llm_lsp_cli.config import ConfigManager
     from llm_lsp_cli.utils.language_detector import FILE_EXTENSION_MAP
@@ -207,9 +218,7 @@ def resolve_language(
         config_obj = ConfigManager.load()
         if config_obj:
             for lang_name, lang_conf in config_obj.languages.items():
-                language_configs[lang_name] = {
-                    "root_markers": lang_conf.root_markers
-                }
+                language_configs[lang_name] = {"root_markers": lang_conf.root_markers}
     except Exception:
         pass
 
@@ -241,9 +250,7 @@ def _format_no_language_message(available_languages: list[str]) -> str:
     Returns:
         Formatted error message with available languages.
     """
-    langs_str = (
-        ", ".join(sorted(available_languages)) if available_languages else "none configured"
-    )
+    langs_str = ", ".join(sorted(available_languages)) if available_languages else "none configured"
     return (
         f"No language detected in workspace. "
         f"Supported languages: {langs_str}. "
@@ -264,9 +271,7 @@ def require_language_or_detect(workspace: str | None, language: str | None) -> t
     Raises:
         CLIError: When no language can be detected
     """
-    workspace_path, detected_language, available_languages = resolve_language(
-        workspace, language
-    )
+    workspace_path, detected_language, available_languages = resolve_language(workspace, language)
 
     if detected_language is None:
         raise CLIError(_format_no_language_message(available_languages))
@@ -284,8 +289,10 @@ def validate_file_in_workspace(file: str, workspace: str | None) -> Path:
         _ = file_path.relative_to(workspace_resolved)
     except ValueError:
         typer.echo(
-            (f"Error: File path escapes workspace boundary: {file_path}\n"
-             f"Workspace: {workspace_resolved}"),
+            (
+                f"Error: File path escapes workspace boundary: {file_path}\n"
+                f"Workspace: {workspace_resolved}"
+            ),
             err=True,
         )
         raise typer.Exit(1) from None
@@ -320,9 +327,7 @@ def build_request_context(
         config_obj = ConfigManager.load()
         if config_obj:
             for lang_name, lang_conf in config_obj.languages.items():
-                language_configs[lang_name] = {
-                    "root_markers": lang_conf.root_markers
-                }
+                language_configs[lang_name] = {"root_markers": lang_conf.root_markers}
     except Exception:
         pass
 
@@ -365,19 +370,15 @@ def build_request_context(
     )
 
 
-def _get_daemon_log_path(
-    error: Exception, workspace_path: str, language: str
-) -> str:
+def _get_daemon_log_path(error: Exception, workspace_path: str, language: str) -> str:
     """Extract log path from daemon error or build default path."""
-    log_file: object = getattr(error, 'log_file', None)
+    log_file: object = getattr(error, "log_file", None)
     if log_file:
         return str(log_file)
     return str(ConfigManager.build_daemon_log_path(workspace_path, language))
 
 
-def _handle_daemon_error(
-    error: Exception, workspace_path: str, language: str
-) -> CLIError:
+def _handle_daemon_error(error: Exception, workspace_path: str, language: str) -> CLIError:
     """Convert daemon errors to CLI errors with log paths."""
     from llm_lsp_cli.exceptions import DaemonCrashedError, DaemonStartupError
 
@@ -389,13 +390,13 @@ def _handle_daemon_error(
         return CLIError(f"Daemon crashed: {error}\nCheck logs at: {log_path}")
     if isinstance(error, FileNotFoundError):
         return CLIError(
-            ("Cannot connect to daemon. Socket not found.\n"
-             "Ensure the daemon is running: llm-lsp-cli daemon status")
+            "Cannot connect to daemon. Socket not found.\n"
+            + "Ensure the daemon is running: llm-lsp-cli daemon status"
         )
     if isinstance(error, OSError):
         return CLIError(
-            (f"Cannot connect to daemon: {error}\n"
-             "Ensure the daemon is running: llm-lsp-cli daemon start")
+            f"Cannot connect to daemon: {error}\n"
+            + "Ensure the daemon is running: llm-lsp-cli daemon start"
         )
     return CLIError(str(error))
 
@@ -544,10 +545,7 @@ def send_request(
 
     # Extract workspace_path and detect language
     file_path: str | None
-    if isinstance(params, DaemonPositionParams):
-        workspace_path = params.workspace_path
-        file_path = params.file_path
-    elif isinstance(params, DaemonFileParams):
+    if isinstance(params, DaemonPositionParams) or isinstance(params, DaemonFileParams):
         workspace_path = params.workspace_path
         file_path = params.file_path
     elif isinstance(params, DaemonWorkspaceParams):
@@ -772,9 +770,7 @@ def run_daemon_command(
     workspace_path, detected_language = require_language_or_detect(
         effective_workspace, effective_language
     )
-    manager = create_daemon_manager(
-        workspace_path, detected_language, lsp_conf, debug, trace
-    )
+    manager = create_daemon_manager(workspace_path, detected_language, lsp_conf, debug, trace)
 
     is_running = manager.is_running()
     if check_running is True and not is_running:
@@ -791,7 +787,7 @@ def run_daemon_command(
         try:
             action_fn(manager, command_name, detected_language)
         except Exception as e:
-            log_path = getattr(e, 'log_file', None) or str(manager.daemon_log_file)
+            log_path = getattr(e, "log_file", None) or str(manager.daemon_log_file)
             typer.echo(f"[{command_name}] Failed: {e}", err=True)
             typer.echo(f"[{command_name}] Check logs at: {log_path}", err=True)
             raise typer.Exit(1) from e

@@ -31,9 +31,8 @@ def start(
         str | None, typer.Option("--workspace", "-w", help="Workspace path")
     ] = None,
     language: Annotated[
-        str | None, typer.Option(
-            "--language", "-l", help="Language (auto-detected if not specified)"
-        )
+        str | None,
+        typer.Option("--language", "-l", help="Language (auto-detected if not specified)"),
     ] = None,
     lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
     debug: Annotated[bool, typer.Option("--debug", "-d", help="Enable debug logging")] = False,
@@ -84,9 +83,8 @@ def stop(
         str | None, typer.Option("--workspace", "-w", help="Workspace path")
     ] = None,
     language: Annotated[
-        str | None, typer.Option(
-            "--language", "-l", help="Language (auto-detected if not specified)"
-        )
+        str | None,
+        typer.Option("--language", "-l", help="Language (auto-detected if not specified)"),
     ] = None,
     lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
 ) -> None:
@@ -117,9 +115,8 @@ def restart(
         str | None, typer.Option("--workspace", "-w", help="Workspace path")
     ] = None,
     language: Annotated[
-        str | None, typer.Option(
-            "--language", "-l", help="Language (auto-detected if not specified)"
-        )
+        str | None,
+        typer.Option("--language", "-l", help="Language (auto-detected if not specified)"),
     ] = None,
     lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
     debug: Annotated[bool, typer.Option("--debug", "-d", help="Enable debug logging")] = False,
@@ -163,9 +160,8 @@ def status(
         str | None, typer.Option("--workspace", "-w", help="Workspace path")
     ] = None,
     language: Annotated[
-        str | None, typer.Option(
-            "--language", "-l", help="Language (auto-detected if not specified)"
-        )
+        str | None,
+        typer.Option("--language", "-l", help="Language (auto-detected if not specified)"),
     ] = None,
     lsp_conf: Annotated[str | None, typer.Option(help="Custom LSP config")] = None,
 ) -> None:

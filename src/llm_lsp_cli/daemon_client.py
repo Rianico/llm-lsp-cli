@@ -235,7 +235,7 @@ class DaemonClient:
                 workspace=self.workspace_path,
                 language=self.language,
             ) from None
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             # Enhanced timeout error with LSP initialization context
             raise DaemonError(
                 f"LSP initialization timed out after {self.connection_timeout}s. "
@@ -294,21 +294,17 @@ class DaemonClient:
         except DaemonStartupError as e:
             log_file = (
                 e.log_file
-                if hasattr(e, 'log_file') and e.log_file
+                if hasattr(e, "log_file") and e.log_file
                 else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
             )
-            raise CLIError(
-                f"Failed to start daemon: {e}\n" + f"Check logs at: {log_file}"
-            ) from e
+            raise CLIError(f"Failed to start daemon: {e}\n" + f"Check logs at: {log_file}") from e
         except DaemonCrashedError as e:
             log_file = (
                 e.log_file
-                if hasattr(e, 'log_file') and e.log_file
+                if hasattr(e, "log_file") and e.log_file
                 else ConfigManager.build_daemon_log_path(self.workspace_path, self.language)
             )
-            raise CLIError(
-                f"Daemon crashed: {e}\n" + f"Check logs at: {log_file}"
-            ) from e
+            raise CLIError(f"Daemon crashed: {e}\n" + f"Check logs at: {log_file}") from e
         except FileNotFoundError:
             raise CLIError(
                 "Cannot connect to daemon. Socket not found.\n"
@@ -381,9 +377,7 @@ class DaemonClient:
         # This preserves immediate crash output (e.g., import errors)
         # Note: delete=False is required because the async subprocess needs
         # the file to persist after the context manager exits
-        with tempfile.NamedTemporaryFile(
-            mode='w+', delete=False, suffix='.log'
-        ) as stderr_file:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as stderr_file:
             stderr_path = Path(stderr_file.name)
 
             try:
@@ -402,9 +396,7 @@ class DaemonClient:
                 # Check if process died immediately
                 if process.returncode is not None:
                     # Read stderr for diagnostics
-                    stderr_content = (
-                        stderr_path.read_text() if stderr_path.exists() else ""
-                    )
+                    stderr_content = stderr_path.read_text() if stderr_path.exists() else ""
                     error_detail = (
                         f"Daemon process exited immediately with code {process.returncode}"
                     )

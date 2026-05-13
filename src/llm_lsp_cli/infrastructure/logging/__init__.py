@@ -27,12 +27,12 @@ class Colors:
 
     # ANSI color codes (lowercase to allow redefinition in disable())
     reset: str = "\033[0m"
-    cli: str = "\033[36m"       # Cyan for client
-    server: str = "\033[33m"    # Yellow for server
-    success: str = "\033[32m"   # Green for success
-    error: str = "\033[31m"     # Red for error
-    info: str = "\033[34m"      # Blue for info
-    debug: str = "\033[37m"     # White for debug
+    cli: str = "\033[36m"  # Cyan for client
+    server: str = "\033[33m"  # Yellow for server
+    success: str = "\033[32m"  # Green for success
+    error: str = "\033[31m"  # Red for error
+    info: str = "\033[34m"  # Blue for info
+    debug: str = "\033[37m"  # White for debug
 
     # Flag to track explicit disable
     _disabled: bool = False

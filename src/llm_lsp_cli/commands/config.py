@@ -67,7 +67,8 @@ def config_list(
     lsp_server: Annotated[
         str | None,
         typer.Option(
-            "--lsp-server", "-ls",
+            "--lsp-server",
+            "-ls",
             help="Override auto-detected LSP server (e.g., 'pyright-langserver')",
         ),
     ] = None,
@@ -101,9 +102,7 @@ def config_list(
             config_obj = ConfigManager.load()
             if config_obj:
                 for lang_name, lang_conf in config_obj.languages.items():
-                    language_configs[lang_name] = {
-                        "root_markers": lang_conf.root_markers
-                    }
+                    language_configs[lang_name] = {"root_markers": lang_conf.root_markers}
         except Exception:
             pass
 
@@ -152,6 +151,9 @@ def config_init(
     else:
         config_path = ConfigManager.get_config_dir() / "config.yaml"
         _ = _write_config_with_confirmation(
-            config_path, force, "configuration", create_parent=True,
+            config_path,
+            force,
+            "configuration",
+            create_parent=True,
             success_prefix="default configuration",
         )
