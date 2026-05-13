@@ -21,10 +21,7 @@ from .defaults import DEFAULT_CONFIG
 from .initialize_params import build_initialize_params
 from .merge import deep_merge
 from .schema import ClientConfig, LanguageServerConfig
-from .server_validation import (
-    ServerNotFoundError as ValidationServerError,
-)
-from .server_validation import validate_server_installed
+from .server_validation import ServerNotFoundError as ValidationServerError, validate_server_installed
 
 
 class ConfigManager:
@@ -93,11 +90,7 @@ class ConfigManager:
         base_dir: Path | None = None,
         lsp_server_name: str | None = None,
     ) -> Path:
-        """Build log file path.
-
-        Deprecated: LSP server log files are no longer created separately.
-        All LSP stderr output is now captured in daemon.log only.
-        """
+        """Build log file path. Deprecated: use build_daemon_log_path instead."""
         from .path_builder import RuntimePathBuilder
 
         warnings.warn(
@@ -270,9 +263,6 @@ class ConfigManager:
 
         Returns:
             Tuple of (resolved_executable_path, args_list)
-
-        Raises:
-            FileNotFoundError: If server executable cannot be resolved
         """
         if cli_arg:
             # CLI arg is treated as custom path

@@ -48,6 +48,8 @@ def mock_handler(mock_registry: MagicMock) -> MagicMock:
     handler = MagicMock(spec=RequestHandler)
     handler._registry = mock_registry
     handler.handle = AsyncMock()
+    # Wire shutdown_servers to call registry's shutdown_all
+    handler.shutdown_servers = mock_registry.shutdown_all
     return handler
 
 
@@ -245,6 +247,8 @@ class TestMultipleWorkspacesAllShutdown:
         handler = MagicMock(spec=RequestHandler)
         handler._registry = registry
         handler.handle = AsyncMock()
+        # Wire shutdown_servers to call registry's shutdown_all
+        handler.shutdown_servers = registry.shutdown_all
 
         with (
             patch("llm_lsp_cli.daemon.RequestHandler", return_value=handler),
