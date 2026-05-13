@@ -1,0 +1,20 @@
+# worktrunk project config
+
+[post-start]
+# Copy .claude config files from repo to new worktree
+# Patterns: settings.json*, hooks/, rules/, hookify.*
+copy-claude = """
+  SRC='{{ repo_path }}/.claude'; \
+  DST='{{ worktree_path }}/.claude'; \
+  mkdir -p "$DST"; \
+  for f in "$SRC"/settings.json* "$SRC"/hookify.*; do \
+    [ -e "$f" ] && cp -a "$f" "$DST/"; \
+  done; \
+  for d in hooks rules; do \
+    [ -d "$SRC/$d" ] && cp -a "$SRC/$d" "$DST/"; \
+  done
+"""
+
+[pre-merge]
+# Run tests before merging — blocks merge on failure
+test = "uv run pytest tests/ -q"
