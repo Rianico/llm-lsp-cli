@@ -1189,10 +1189,7 @@ class CompactFormatter:
             elif isinstance(hover.contents, list):
                 # Handle array of MarkedString
                 first = hover.contents[0] if hover.contents else None
-                if first is not None and hasattr(first, "value"):
-                    content = first.value or ""
-                else:
-                    content = ""
+                content = first.value or "" if first is not None and hasattr(first, "value") else ""
             else:
                 content = ""
 
@@ -1261,7 +1258,7 @@ class _HasFile(Protocol):
 _T = TypeVar("_T", bound=_HasFile)
 
 
-def _group_records_by_file(
+def _group_records_by_file[T: _HasFile](
     records: list[_T],
     items_key: str,
 ) -> list[dict[str, object]]:

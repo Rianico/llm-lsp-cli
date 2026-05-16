@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Protocol
 
 
-class ServerStatus(str, Enum):
+class ServerStatus(StrEnum):
     """Server lifecycle status enumeration."""
 
     NOT_STARTED = "not_started"

@@ -224,9 +224,10 @@ def _render_diagnostic_line(diag: dict[str, object]) -> str:
 
     # Add code if present and non-empty (handles both string and numeric codes)
     code_val = diag.get("code")
-    if code_val is not None:
-        if isinstance(code_val, str) and code_val != "" or isinstance(code_val, int):
-            parts.append(f"code: {code_val}")
+    if code_val is not None and (
+        isinstance(code_val, str) and code_val != "" or isinstance(code_val, int)
+    ):
+        parts.append(f"code: {code_val}")
 
     # Always include range with prefix
     parts.append(f"range: {range_str}")

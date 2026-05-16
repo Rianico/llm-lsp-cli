@@ -335,7 +335,7 @@ class StdioTransport:
                         self._process.stderr.read(),
                         timeout=2.0,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     stderr_output = b"(stderr read timeout)"
 
             stderr_text = stderr_output.decode("utf-8", errors="replace").strip()
@@ -607,7 +607,7 @@ class StdioTransport:
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _ = self._pending.pop(request_id, None)
             raise TimeoutError(f"Request timed out: {method}") from None
 
@@ -709,7 +709,7 @@ class StdioTransport:
         if self._process:
             try:
                 _ = await asyncio.wait_for(self._process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Kill if not exiting
                 self._process.kill()
                 _ = await self._process.wait()

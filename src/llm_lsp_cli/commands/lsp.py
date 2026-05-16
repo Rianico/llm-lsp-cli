@@ -8,6 +8,7 @@ passing to the formatter (ADR-0027).
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import cast
 
@@ -791,10 +792,8 @@ def diagnostics(
         diagnostics_list: list[Diagnostic] = []
         for diag in diagnostics_list_raw:
             if isinstance(diag, dict):
-                try:
+                with contextlib.suppress(Exception):
                     diagnostics_list.append(Diagnostic.model_validate(diag))
-                except Exception:
-                    pass  # Skip invalid diagnostics
 
         formatter = CompactFormatter(workspace_path)
         records = formatter.transform_diagnostics(diagnostics_list, file_path=str(file_path))
@@ -896,10 +895,8 @@ def workspace_diagnostics(
             file_diagnostics: list[Diagnostic] = []
             for diag in cast(list[object], file_diagnostics_raw):
                 if isinstance(diag, dict):
-                    try:
+                    with contextlib.suppress(Exception):
                         file_diagnostics.append(Diagnostic.model_validate(diag))
-                    except Exception:
-                        pass  # Skip invalid diagnostics
 
             # Use normalize_uri_to_absolute for proper absolute paths
             file_path = normalize_uri_to_absolute(uri, Path(workspace_path))

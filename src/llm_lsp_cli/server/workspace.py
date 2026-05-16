@@ -71,7 +71,7 @@ class WorkspaceManager:
                         self._client.initialize(),
                         timeout=self.timeout,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.error(
                         f"LSP server init timed out after {self.timeout}s. "
                         + f"Server: {self.server_command}, Workspace: {self.workspace_path}"

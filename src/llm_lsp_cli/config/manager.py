@@ -21,7 +21,8 @@ from .defaults import DEFAULT_CONFIG
 from .initialize_params import build_initialize_params
 from .merge import deep_merge
 from .schema import ClientConfig, LanguageServerConfig
-from .server_validation import ServerNotFoundError as ValidationServerError, validate_server_installed
+from .server_validation import ServerNotFoundError as ValidationServerError
+from .server_validation import validate_server_installed
 
 
 class ConfigManager:

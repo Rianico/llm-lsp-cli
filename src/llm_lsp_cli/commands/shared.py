@@ -545,7 +545,7 @@ def send_request(
 
     # Extract workspace_path and detect language
     file_path: str | None
-    if isinstance(params, DaemonPositionParams) or isinstance(params, DaemonFileParams):
+    if isinstance(params, (DaemonPositionParams, DaemonFileParams)):
         workspace_path = params.workspace_path
         file_path = params.file_path
     elif isinstance(params, DaemonWorkspaceParams):

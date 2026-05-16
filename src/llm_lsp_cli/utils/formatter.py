@@ -9,7 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
-from enum import Enum
+from enum import StrEnum
 from typing import cast
 
 import yaml
@@ -86,7 +86,7 @@ def get_diagnostic_tag_name(tag: int) -> str:
     return DIAGNOSTIC_TAG_MAP.get(tag, f"Unknown({tag})")
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     """Output format options."""
 
     TEXT = "text"
@@ -353,12 +353,11 @@ def format_hover_csv(hover: object) -> str:
 
     # Extract content from hover
     content = get_str(contents, "value", "") if contents else ""
-    if not content:
-        if isinstance(hover, dict):
-            hover_dict = cast(dict[str, object], hover)
-            cont = hover_dict.get("contents")
-            if isinstance(cont, str):
-                content = cont
+    if not content and isinstance(hover, dict):
+        hover_dict = cast(dict[str, object], hover)
+        cont = hover_dict.get("contents")
+        if isinstance(cont, str):
+            content = cont
 
     # Escape embedded newlines for CSV single-line output
     if content:

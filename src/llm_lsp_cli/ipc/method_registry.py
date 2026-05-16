@@ -17,7 +17,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from llm_lsp_cli.lsp.types import (
     CompletionItem,
@@ -43,7 +43,7 @@ from .models import (
 )
 
 # MethodName Literal type for compile-time method name checking
-MethodName: TypeAlias = Literal[
+type MethodName = Literal[
     "ping",
     "shutdown",
     "status",
@@ -60,7 +60,7 @@ MethodName: TypeAlias = Literal[
 # Type alias for method type pairs
 # The result type can be a BaseModel subclass, a union type (Hover | None),
 # or a generic alias (list[Location]). Using object allows all these cases.
-MethodTypePair: TypeAlias = tuple[type[object], object]
+type MethodTypePair = tuple[type[object], object]
 
 # Registry mapping method names to (params_type, result_type)
 # Note: result_type may be a generic like list[Location] which is represented

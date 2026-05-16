@@ -104,7 +104,7 @@ class UNIXServer:
                 # Read token line (token followed by \r\n\r\n)
                 try:
                     token_line = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("Authentication timeout: no token received")
                     return
                 except asyncio.IncompleteReadError:
@@ -165,7 +165,7 @@ class UNIXServer:
         except asyncio.IncompleteReadError:
             # Expected during normal client disconnect - log at DEBUG
             logger.debug("Client disconnected (IncompleteReadError)")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.debug("Client connection timeout")
         except Exception:
             # Log exception with traceback for debugging

@@ -107,11 +107,8 @@ class ServerRegistry:
         logger = logging.getLogger("llm_lsp_cli.server.registry")
 
         workspace_key = str(Path(workspace_path).resolve())
-        logger.debug(
-            "get_or_create_workspace: key={}, existing={}".format(
-                workspace_key, list(self._workspaces.keys())
-            )
-        )
+        existing = list(self._workspaces.keys())
+        logger.debug(f"get_or_create_workspace: key={workspace_key}, existing={existing}")
 
         async with self._global_lock:
             if workspace_key not in self._workspaces:

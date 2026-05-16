@@ -522,7 +522,7 @@ class LSPClient:
                 self._workspace_indexed.wait(),
                 timeout=_WORKSPACE_INDEX_TIMEOUT,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Workspace indexing timed out, proceeding anyway")
 
         params = {"query": query}
@@ -668,11 +668,11 @@ class LSPClient:
         rel_path = self._uri_to_absolute_path(uri)
 
         logger.info(
-            (
+
                 f"[cache HIT] {rel_path} | "
                 f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}"
                 f" | mtime={current_mtime:.2f} | v={file_state.document_version}"
-            )
+
         )
 
     def _log_cache_hit_server(
@@ -692,11 +692,11 @@ class LSPClient:
         diag_count = len(file_state.document_diagnostics)
 
         logger.info(
-            (
+
                 f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
                 f"resultId={result_id[:8] if result_id else 'None'}... | "
                 f"diags={diag_count}"
-            )
+
         )
 
     def _uri_to_absolute_path(self, uri: str) -> str:
@@ -740,7 +740,7 @@ class LSPClient:
                 self._workspace_indexed.wait(),
                 timeout=_WORKSPACE_DIAGNOSTIC_TIMEOUT,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Workspace indexing timed out, diagnostics may be incomplete")
 
         # Return cached diagnostics from unified cache

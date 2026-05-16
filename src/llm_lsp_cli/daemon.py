@@ -336,10 +336,10 @@ class DocumentSyncContext:
         # File remains open - no didClose sent
     """
 
-    lsp_client: "LSPClient"
+    lsp_client: LSPClient
     file_path: Path
 
-    def __init__(self, lsp_client: "LSPClient", file_path: Path):
+    def __init__(self, lsp_client: LSPClient, file_path: Path):
         """
         Initialize document sync context.
 
@@ -573,7 +573,7 @@ class RequestHandler:
         registry_method: str,
         response_key: str,
         lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams,
-        client: "LSPClient",
+        client: LSPClient,
         file_path: str,
     ) -> dict[str, object]:
         """Send LSP request using client directly.

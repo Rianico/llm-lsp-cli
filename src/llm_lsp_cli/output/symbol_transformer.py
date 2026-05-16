@@ -117,19 +117,13 @@ def _transform_symbol(
     # Get range - handle both document and workspace symbol formats
     location_raw = sym.get("location")
     location: dict[str, object]
-    if isinstance(location_raw, dict):
-        location = cast(dict[str, object], location_raw)
-    else:
-        location = sym
+    location = cast(dict[str, object], location_raw) if isinstance(location_raw, dict) else sym
 
     range_raw = location.get("range")
     if range_raw is None or not isinstance(range_raw, dict):
         range_raw = sym.get("range")
     range_obj: dict[str, object]
-    if isinstance(range_raw, dict):
-        range_obj = cast(dict[str, object], range_raw)
-    else:
-        range_obj = {}
+    range_obj = cast(dict[str, object], range_raw) if isinstance(range_raw, dict) else {}
 
     # Format range as compact string
     range_str = _format_range(range_obj)
