@@ -942,7 +942,7 @@ class CompactFormatter:
                     call_dict = cast(dict[str, object], call)
                     from_item = call_dict.get("from_") or call_dict.get("from", {})
                 # Cast call to object to avoid type narrowing issues
-                record = self._transform_call_hierarchy_item(cast(object, call), from_item)
+                record = self._transform_call_hierarchy_item(call, from_item)
             records.append(record)
 
         # Sort by file then name
@@ -1258,7 +1258,10 @@ class _HasFile(Protocol):
 _T = TypeVar("_T", bound=_HasFile)
 
 
-def _group_records_by_file[T: _HasFile](
+# ruff: noqa: UP047
+# Reason: TypeVar-based generics work correctly with mypy; new type parameter syntax
+# causes mypy errors. Keep traditional approach for cross-tool compatibility.
+def _group_records_by_file(
     records: list[_T],
     items_key: str,
 ) -> list[dict[str, object]]:

@@ -1294,9 +1294,8 @@ class LSPClient:
 
         # Check for exception with error response
         # Cast to object for hasattr/getattr - error could be any exception type
-        error_obj = cast(object, error)
-        if hasattr(error_obj, "response"):
-            response: object = getattr(error_obj, "response", {})
+        if hasattr(error, "response"):
+            response: object = getattr(error, "response", {})
             if isinstance(response, dict):
                 response_dict = cast(dict[str, object], response)
                 error_info_val = response_dict.get("error", {})

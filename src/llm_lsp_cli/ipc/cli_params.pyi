@@ -36,7 +36,6 @@ class DaemonPositionParams:
         line: int = ...,
         column: int = ...,
     ) -> None: ...
-    def __init__(self, **data: object) -> None: ...
 
 class DaemonFileParams:
     """File-based params for LSP methods."""
@@ -58,7 +57,6 @@ class DaemonFileParams:
         workspacePath: str,
         filePath: str,
     ) -> None: ...
-    def __init__(self, **data: object) -> None: ...
 
 class DaemonWorkspaceParams:
     """Workspace-only params for LSP methods."""
@@ -77,7 +75,6 @@ class DaemonWorkspaceParams:
         *,
         workspacePath: str,
     ) -> None: ...
-    def __init__(self, **data: object) -> None: ...
 
 class DaemonRenameParams(DaemonPositionParams):
     """Rename params with new_name in addition to position."""
@@ -104,7 +101,6 @@ class DaemonRenameParams(DaemonPositionParams):
         column: int = ...,
         newName: str,
     ) -> None: ...
-    def __init__(self, **data: object) -> None: ...
 
 class DaemonSymbolQueryParams(DaemonWorkspaceParams):
     """Workspace symbol params with query string."""
@@ -125,4 +121,3 @@ class DaemonSymbolQueryParams(DaemonWorkspaceParams):
         workspacePath: str,
         query: str,
     ) -> None: ...
-    def __init__(self, **data: object) -> None: ...

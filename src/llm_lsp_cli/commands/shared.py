@@ -668,7 +668,7 @@ def _validate_response(method: str, inner_value: object) -> object:
         if not isinstance(inner_value, list):
             return inner_value
         model_type = list_item_types[method]
-        adapter = TypeAdapter(list[model_type])
+        adapter = TypeAdapter(list[model_type])  # type: ignore[valid-type]
         return adapter.validate_python(inner_value)
 
     # Unknown method - return as-is

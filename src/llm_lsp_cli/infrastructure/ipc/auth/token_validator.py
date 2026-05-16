@@ -68,7 +68,7 @@ class TokenAuthenticator:
         _ = token_path.write_text(token.value)
 
         # Set secure permissions (owner read/write only)
-        _ = token_path.chmod(0o600)
+        token_path.chmod(0o600)
 
         return token_path
 
