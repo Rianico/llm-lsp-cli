@@ -668,11 +668,9 @@ class LSPClient:
         rel_path = self._uri_to_absolute_path(uri)
 
         logger.info(
-
-                f"[cache HIT] {rel_path} | "
-                f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}"
-                f" | mtime={current_mtime:.2f} | v={file_state.document_version}"
-
+            f"[cache HIT] {rel_path} | " +
+            f"resultId={file_state.last_result_id[:8] if file_state.last_result_id else 'None'}" +
+            f" | mtime={current_mtime:.2f} | v={file_state.document_version}"
         )
 
     def _log_cache_hit_server(
@@ -692,11 +690,9 @@ class LSPClient:
         diag_count = len(file_state.document_diagnostics)
 
         logger.info(
-
-                f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | "
-                f"resultId={result_id[:8] if result_id else 'None'}... | "
-                f"diags={diag_count}"
-
+            f"[← res textDocument/diagnostic] cache HIT (unchanged) {rel_path} | " +
+            f"resultId={result_id[:8] if result_id else 'None'}... | " +
+            f"diags={diag_count}"
         )
 
     def _uri_to_absolute_path(self, uri: str) -> str:
@@ -1293,9 +1289,10 @@ class LSPClient:
                 return bool(code == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         # Check for exception with error response
-        # Cast to object for hasattr/getattr - error could be any exception type
-        if hasattr(error, "response"):
-            response: object = getattr(error, "response", {})
+        # At this point, error is not LSPError or dict, so cast to object for hasattr/getattr
+        error_obj = cast(object, error)
+        if hasattr(error_obj, "response"):
+            response: object = getattr(error_obj, "response", {})
             if isinstance(response, dict):
                 response_dict = cast(dict[str, object], response)
                 error_info_val = response_dict.get("error", {})
