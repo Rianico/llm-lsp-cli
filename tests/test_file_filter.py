@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # These imports will fail initially - that's expected in RED phase
-# from llm_lsp_cli.test_filter import (
+# from llm_lsp_cli.file_filter import (
 #     _is_test_path,
 #     _filter_test_locations,
 #     _filter_test_symbols,
@@ -15,49 +15,49 @@ class TestIsTestPath:
 
     def test_is_test_path_tests_directory(self) -> None:
         """Test detection of Python test directories."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/tests/test_file.py") is True
         assert _is_test_path("file:///project/tests/models.py") is True
 
     def test_is_test_path_test_directory(self) -> None:
         """Test detection of test directories."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/test/test_file.py") is True
         assert _is_test_path("file:///project/test/bar.py") is True
 
     def test_is_test_path_jest_tests(self) -> None:
         """Test detection of Jest __tests__ directory."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/__tests__/Component.test.tsx") is True
         assert _is_test_path("file:///project/src/__tests__/foo.ts") is True
 
     def test_is_test_path_java_maven(self) -> None:
         """Test detection of Java test directories."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/src/test/java/MyTest.java") is True
         assert _is_test_path("file:///project/src/tests/java/MyTest.java") is True
 
     def test_is_test_path_csharp_tests(self) -> None:
         """Test detection of C# test directories."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/Tests/MyTest.cs") is True
         assert _is_test_path("file:///project/Test/MyTest.cs") is True
 
     def test_is_test_path_go_test_file(self) -> None:
         """Test detection of Go test files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/handler_test.go") is True
         assert _is_test_path("file:///project/utils/util_test.go") is True
 
     def test_is_test_path_typescript_test_file(self) -> None:
         """Test detection of TypeScript test files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/component.test.ts") is True
         assert _is_test_path("file:///project/component.test.tsx") is True
@@ -66,7 +66,7 @@ class TestIsTestPath:
 
     def test_is_test_path_javascript_test_file(self) -> None:
         """Test detection of JavaScript test files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/component.test.js") is True
         assert _is_test_path("file:///project/component.spec.js") is True
@@ -75,7 +75,7 @@ class TestIsTestPath:
 
     def test_is_test_path_csharp_test_file(self) -> None:
         """Test detection of C# test files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/MyClass.test.cs") is True
         assert _is_test_path("file:///project/MyClass.tests.cs") is True
@@ -83,14 +83,14 @@ class TestIsTestPath:
 
     def test_is_test_path_python_prefix(self) -> None:
         """Test detection of Python test file prefix."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/test_utils.py") is True
         assert _is_test_path("file:///project/tests/test_models.py") is True
 
     def test_is_test_path_non_test_file(self) -> None:
         """Test that non-test files are not detected as tests."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/src/main.py") is False
         assert _is_test_path("file:///project/lib/utils.py") is False
@@ -98,7 +98,7 @@ class TestIsTestPath:
 
     def test_is_test_path_case_insensitive(self) -> None:
         """Test that detection is case-insensitive."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/TESTS/test.py") is True
         assert _is_test_path("file:///project/Tests/test.py") is True
@@ -106,13 +106,13 @@ class TestIsTestPath:
 
     def test_is_test_path_empty_uri(self) -> None:
         """Test that empty URI returns False."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("") is False
 
     def test_is_test_path_spec_directory(self) -> None:
         """Test detection of spec directories."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/spec/component.spec.ts") is True
         assert _is_test_path("file:///project/specs/component.spec.ts") is True
@@ -123,14 +123,14 @@ class TestFilterTestLocations:
 
     def test_filter_test_locations_empty(self) -> None:
         """Test that empty locations list returns empty list."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         result = filter_test_locations([], include_tests=False)
         assert result == []
 
     def test_filter_test_locations_all_tests(self) -> None:
         """Test that all test locations are filtered out."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///tests/test_main.py"},
@@ -141,7 +141,7 @@ class TestFilterTestLocations:
 
     def test_filter_test_locations_mixed(self) -> None:
         """Test that only test locations are filtered out."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -156,7 +156,7 @@ class TestFilterTestLocations:
 
     def test_filter_test_locations_include_true(self) -> None:
         """Test that include_tests=True returns all locations."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -167,7 +167,7 @@ class TestFilterTestLocations:
 
     def test_filter_test_locations_missing_uri(self) -> None:
         """Test that locations with missing URI are not filtered."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -184,14 +184,14 @@ class TestFilterTestSymbols:
 
     def test_filter_test_symbols_empty(self) -> None:
         """Test that empty symbols list returns empty list."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         result = filter_test_symbols([], include_tests=False)
         assert result == []
 
     def test_filter_test_symbols_all_tests(self) -> None:
         """Test that all test symbols are filtered out."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         symbols = [
             {"name": "TestClass", "location": {"uri": "file:///tests/test_main.py"}},
@@ -202,7 +202,7 @@ class TestFilterTestSymbols:
 
     def test_filter_test_symbols_mixed(self) -> None:
         """Test that only test symbols are filtered out."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass", "location": {"uri": "file:///src/main.py"}},
@@ -216,7 +216,7 @@ class TestFilterTestSymbols:
 
     def test_filter_test_symbols_include_true(self) -> None:
         """Test that include_tests=True returns all symbols."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass", "location": {"uri": "file:///src/main.py"}},
@@ -227,7 +227,7 @@ class TestFilterTestSymbols:
 
     def test_filter_test_symbols_missing_location(self) -> None:
         """Test symbols with missing location URI."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         symbols = [
             {"name": "MyClass"},  # No location

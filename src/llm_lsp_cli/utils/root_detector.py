@@ -67,7 +67,7 @@ def _matches_marker(directory: Path, marker: str) -> bool:
         else:
             # Exact file match
             return (directory / marker).exists()
-    except OSError, PermissionError:
+    except (OSError, PermissionError):
         return False
 
 

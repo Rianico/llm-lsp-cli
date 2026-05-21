@@ -52,7 +52,7 @@ from llm_lsp_cli.output.path_resolver import (
 )
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.output.server_name import get_server_display_name
-from llm_lsp_cli.test_filter import (
+from llm_lsp_cli.file_filter import (
     filter_test_diagnostic_items,
     filter_test_locations,
     filter_test_symbols,

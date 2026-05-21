@@ -200,7 +200,7 @@ class DaemonManager:
             pid = int(self.pid_file.read_text().strip())
             os.kill(pid, 0)  # Check if process exists
             return True
-        except ValueError, OSError:
+        except (ValueError, OSError):
             # PID file exists but process not running
             self.pid_file.unlink(missing_ok=True)
             return False

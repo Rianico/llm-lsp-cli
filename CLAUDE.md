@@ -49,7 +49,7 @@ src/llm_lsp_cli/
 ├── ipc/                # JSON-RPC over UNIX sockets
 ├── config/             # Configuration management, server capabilities
 ├── output/             # LLM-optimized output formatting
-├── test_filter/        # Test file exclusion patterns
+├── file_filter/        # File filtering patterns
 ├── domain/             # Domain layer (entities, services, repositories, value_objects)
 ├── server/             # Server registry and workspace management
 ├── application/        # Application interfaces (dependency injection boundaries)

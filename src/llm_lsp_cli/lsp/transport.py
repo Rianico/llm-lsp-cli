@@ -443,7 +443,7 @@ class StdioTransport:
             for header in headers:
                 if header.startswith("Content-Length: "):
                     return int(header.split(": ")[1])
-        except ValueError, UnicodeDecodeError, IndexError:
+        except (ValueError, UnicodeDecodeError, IndexError):
             pass
         return None
 

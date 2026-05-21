@@ -1,4 +1,4 @@
-"""Language filter registry for managing per-language test filters."""
+"""Language filter registry for managing per-language file filters."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from .pattern_engine import PatternSet, PatternSource
 
 if TYPE_CHECKING:
-    from llm_lsp_cli.config.schema import FilterTestConfig
+    from llm_lsp_cli.config.schema import FileFilterConfig
 
 
 class LanguageFilterRegistry:
@@ -24,7 +24,7 @@ class LanguageFilterRegistry:
     def __init__(self) -> None:
         """Initialize the registry."""
         self._filters: dict[str, PatternSet] = {}
-        self._config: FilterTestConfig | None = None
+        self._config: FileFilterConfig | None = None
         self._configured: bool = False
 
     @classmethod
@@ -36,11 +36,11 @@ class LanguageFilterRegistry:
                     cls._instance = cls()
         return cls._instance
 
-    def configure(self, config: FilterTestConfig) -> None:
+    def configure(self, config: FileFilterConfig) -> None:
         """Load configuration and clear cache.
 
         Args:
-            config: FilterTestConfig with language-specific patterns
+            config: FileFilterConfig with language-specific patterns
         """
         with self._lock:
             self._config = config

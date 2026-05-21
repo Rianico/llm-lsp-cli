@@ -1,4 +1,4 @@
-"""Integration tests for filter chain (test_filter + symbol_filter)."""
+"""Integration tests for filter chain (file_filter + symbol_filter)."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,7 +11,7 @@ runner = CliRunner()
 
 
 class TestFilterChainIntegration:
-    """Tests for test_filter and symbol_filter working together."""
+    """Tests for file_filter and symbol_filter working together."""
 
     def test_test_filter_excludes_test_files(self) -> None:
         """Verify test files are excluded by default."""

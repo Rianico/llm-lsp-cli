@@ -16,8 +16,8 @@ from typing import Any
 
 import pytest
 
-from llm_lsp_cli.config.schema import LanguageTestFilterConfig, FilterTestConfig
-from llm_lsp_cli.test_filter import (
+from llm_lsp_cli.config.schema import LanguageFileFilterConfig, FileFilterConfig
+from llm_lsp_cli.file_filter import (
     PatternSet,
     PatternSource,
     filter_test_locations,
@@ -26,7 +26,7 @@ from llm_lsp_cli.test_filter import (
     get_registry,
     reload_config,
 )
-from llm_lsp_cli.test_filter.pattern_engine import CompiledPattern
+from llm_lsp_cli.file_filter.pattern_engine import CompiledPattern
 
 
 class TestCLIIntegrationWithConfig:
@@ -314,8 +314,8 @@ class TestConfigurationOverride:
         registry = get_registry()
 
         # Create custom config with minimal patterns
-        custom_config = FilterTestConfig(
-            defaults=LanguageTestFilterConfig(
+        custom_config = FileFilterConfig(
+            defaults=LanguageFileFilterConfig(
                 directory_patterns=["**/custom_tests/**"],
                 suffix_patterns=["_custom.py"],
                 prefix_patterns=[],
@@ -343,8 +343,8 @@ class TestConfigurationOverride:
         registry = get_registry()
 
         # Custom config with Python override
-        custom_config = FilterTestConfig(
-            defaults=LanguageTestFilterConfig(
+        custom_config = FileFilterConfig(
+            defaults=LanguageFileFilterConfig(
                 directory_patterns=["**/tests/**"],
                 suffix_patterns=[],
                 prefix_patterns=[],
@@ -352,7 +352,7 @@ class TestConfigurationOverride:
                 enabled=True,
             ),
             languages={
-                "python": LanguageTestFilterConfig(
+                "python": LanguageFileFilterConfig(
                     directory_patterns=["**/python_tests/**"],
                     suffix_patterns=[],
                     prefix_patterns=[],
@@ -380,8 +380,8 @@ class TestConfigurationOverride:
         """Empty language config should fall back to defaults."""
         registry = get_registry()
 
-        custom_config = FilterTestConfig(
-            defaults=LanguageTestFilterConfig(
+        custom_config = FileFilterConfig(
+            defaults=LanguageFileFilterConfig(
                 directory_patterns=["**/tests/**"],
                 suffix_patterns=["_test.go"],
                 prefix_patterns=[],
@@ -389,7 +389,7 @@ class TestConfigurationOverride:
                 enabled=True,
             ),
             languages={
-                "custom": LanguageTestFilterConfig(
+                "custom": LanguageFileFilterConfig(
                     directory_patterns=[],
                     suffix_patterns=[],
                     prefix_patterns=[],
@@ -627,7 +627,7 @@ class TestPatternSetFromConfig:
 
     def test_from_language_config_loads_all_patterns(self) -> None:
         """Verify all pattern types are loaded from config."""
-        config = LanguageTestFilterConfig(
+        config = LanguageFileFilterConfig(
             directory_patterns=["**/tests/**"],
             suffix_patterns=["_test.py", ".spec.py"],
             prefix_patterns=["test_"],
@@ -649,7 +649,7 @@ class TestPatternSetFromConfig:
 
     def test_from_language_config_empty_lists(self) -> None:
         """Verify empty config creates empty pattern sets."""
-        config = LanguageTestFilterConfig(
+        config = LanguageFileFilterConfig(
             directory_patterns=[],
             suffix_patterns=[],
             prefix_patterns=[],

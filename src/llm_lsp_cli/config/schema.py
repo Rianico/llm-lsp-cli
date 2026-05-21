@@ -19,8 +19,8 @@ class LanguageServerConfig(BaseModel):
     )
 
 
-class LanguageTestFilterConfig(BaseModel):
-    """Test filter configuration for a single language."""
+class LanguageFileFilterConfig(BaseModel):
+    """File filter configuration for a single language."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
@@ -43,14 +43,14 @@ class LanguageTestFilterConfig(BaseModel):
     enabled: bool = Field(default=True)
 
 
-class FilterTestConfig(BaseModel):
-    """Root test filter configuration with language-segmented groups."""
+class FileFilterConfig(BaseModel):
+    """Root file filter configuration with language-segmented groups."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
-    defaults: LanguageTestFilterConfig = Field(default_factory=LanguageTestFilterConfig)
-    languages: dict[str, LanguageTestFilterConfig] = Field(default_factory=dict)
-    fallback: LanguageTestFilterConfig | None = None
+    defaults: LanguageFileFilterConfig = Field(default_factory=LanguageFileFilterConfig)
+    languages: dict[str, LanguageFileFilterConfig] = Field(default_factory=dict)
+    fallback: LanguageFileFilterConfig | None = None
 
 
 class ClientConfig(BaseModel):
@@ -75,8 +75,8 @@ class ClientConfig(BaseModel):
         default_factory=dict, description="Language-specific server configurations"
     )
 
-    # Test filter configuration
-    test_filter: FilterTestConfig = Field(default_factory=FilterTestConfig)
+    # File filter configuration
+    file_filter: FileFilterConfig = Field(default_factory=FileFilterConfig)
 
     # Global settings
     trace_lsp: bool = Field(default=False, description="Enable LSP communication tracing")

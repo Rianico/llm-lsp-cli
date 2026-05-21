@@ -12,7 +12,7 @@ class TestGlobPatternMatching:
         Pattern: **/tests/**/*.py
         Should match: file:///project/tests/unit/test_main.py
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # ** matches zero or more directories
         assert _is_test_path("file:///project/tests/test.py", language="python") is True
@@ -26,7 +26,7 @@ class TestGlobPatternMatching:
         Pattern: **/test_*.py
         Should match: file:///src/test_main.py
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///src/test_main.py", language="python") is True
         assert _is_test_path("file:///src/test_utils.py", language="python") is True
@@ -43,7 +43,7 @@ class TestGlobPatternMatching:
         This test demonstrates that ? works correctly for single chars,
         but broader patterns like test_*.py will also match multi-char names.
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # ? matches exactly one character
         # Note: test_ab.py IS a test because Python has test_*.py pattern
@@ -57,7 +57,7 @@ class TestGlobPatternMatching:
 
         Pattern: *_test.go
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/handler_test.go", language="go") is True
         assert _is_test_path("file:///project/utils/util_test.go", language="go") is True
@@ -68,7 +68,7 @@ class TestGlobPatternMatching:
 
         Pattern: **/__tests__/**/*.ts
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert (
             _is_test_path("file:///project/__tests__/Component.test.ts", language="typescript")
@@ -93,7 +93,7 @@ class TestGlobPatternMatching:
 
         Pattern: **/src/test/**
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/src/test/java/MyTest.java", language="java") is True
         assert (
@@ -111,7 +111,7 @@ class TestGlobPatternMatching:
         Pattern: **/tests/**
         Include patterns (negation): **/tests/common/** (excluded)
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/tests/integration_test.rs", language="rust") is True
         # tests/common/** is excluded by include_patterns (negation)
@@ -124,7 +124,7 @@ class TestLanguageIsolation:
 
     def test_python_patterns_dont_affect_go(self) -> None:
         """Python tests/ directory should NOT match Go files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Go has no directory patterns, only suffix _test.go
         # So a Go file in tests/ should NOT be marked as test without suffix
@@ -134,7 +134,7 @@ class TestLanguageIsolation:
 
     def test_python_patterns_dont_affect_typescript(self) -> None:
         """Python tests/ pattern should NOT match TypeScript files outside __tests__."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # TypeScript uses __tests__/ not tests/
         assert _is_test_path("file:///project/tests/component.ts", language="typescript") is False
@@ -145,7 +145,7 @@ class TestLanguageIsolation:
 
     def test_typescript_patterns_dont_affect_python(self) -> None:
         """TypeScript __tests__ pattern should NOT match Python files."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Python doesn't use __tests__/ convention
         # Python files in __tests__/ should still match via generic tests/ pattern
@@ -160,7 +160,7 @@ class TestLanguageIsolation:
 
     def test_go_only_uses_suffix_patterns(self) -> None:
         """Go language only uses suffix patterns, no directory patterns."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Any .go file not ending in _test.go should NOT be a test
         assert _is_test_path("file:///project/handler.go", language="go") is False
@@ -171,7 +171,7 @@ class TestLanguageIsolation:
 
     def test_unknown_language_uses_defaults(self) -> None:
         """Unknown languages should fall back to default patterns."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Unknown language should still detect common test patterns
         assert _is_test_path("file:///project/tests/test_file.xyz", language="unknown") is True
@@ -188,7 +188,7 @@ class TestFalsePositiveEdgeCases:
         'tests_backup' because it contains 'tests'. Glob patterns should
         require exact segment matching.
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # tests_backup is NOT the same as tests directory
         assert _is_test_path("file:///project/tests_backup/test.py", language="python") is False
@@ -196,7 +196,7 @@ class TestFalsePositiveEdgeCases:
 
     def test_testimonial_directory_not_matched(self) -> None:
         """testimonial/ should NOT match **/test/**/*.py pattern."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # testimonial contains 'test' but is NOT a test directory
         assert _is_test_path("file:///project/testimonial/page.tsx", language="typescript") is False
@@ -204,28 +204,28 @@ class TestFalsePositiveEdgeCases:
 
     def test_testing_directory_not_matched(self) -> None:
         """testing/ should NOT match **/test/**/*.py pattern."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # testing is NOT the same as test directory
         assert _is_test_path("file:///project/testing/utils.py", language="python") is False
 
     def test_latest_directory_not_matched(self) -> None:
         """latest/ should NOT match patterns containing 'test'."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Edge case: 'latest' contains 'test' substring
         assert _is_test_path("file:///project/latest/release.py", language="python") is False
 
     def test_protest_directory_not_matched(self) -> None:
         """protest/ should NOT match patterns containing 'test'."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Edge case: 'protest' contains 'test' substring
         assert _is_test_path("file:///project/protest/sign.py", language="python") is False
 
     def test_contest_directory_not_matched(self) -> None:
         """contest/ should NOT match patterns containing 'test'."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Edge case: 'contest' contains 'test' substring
         assert _is_test_path("file:///project/contest/entry.py", language="python") is False
@@ -239,7 +239,7 @@ class TestIncludePatternsNegation:
 
         Include patterns (negation) override directory patterns.
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # These are in tests/ but should NOT be tests
         # (fixtures, data, conftest)
@@ -254,7 +254,7 @@ class TestIncludePatternsNegation:
 
         Common test utilities/shared code shouldn't be filtered out.
         """
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/tests/common/mod.rs", language="rust") is False
         assert _is_test_path("file:///project/tests/common/helpers.rs", language="rust") is False
@@ -263,7 +263,7 @@ class TestIncludePatternsNegation:
 
     def test_python_test_file_still_detected_outside_fixtures(self) -> None:
         """Normal test files outside fixtures should still be detected."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # These should still be detected as tests
         assert _is_test_path("file:///project/tests/test_main.py", language="python") is True
@@ -276,7 +276,7 @@ class TestConfigurationLoading:
 
     def test_default_patterns_loaded_for_python(self) -> None:
         """Default Python patterns should be loaded from defaults.py."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Verify default Python patterns work
         assert _is_test_path("file:///project/tests/test_file.py", language="python") is True
@@ -288,7 +288,7 @@ class TestConfigurationLoading:
 
         This test verifies the configuration system allows overrides.
         """
-        from llm_lsp_cli.test_filter import _is_test_path, reload_config
+        from llm_lsp_cli.file_filter import _is_test_path, reload_config
 
         # Note: This test requires the reload_config mechanism to work
         # It may need integration with config manager
@@ -309,25 +309,25 @@ class TestCaseInsensitiveMatching:
 
     def test_uppercase_tests_directory(self) -> None:
         """TESTS/ should match **/tests/**/*.py pattern."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/TESTS/test.py", language="python") is True
 
     def test_mixed_case_test_directory(self) -> None:
         """Tests/ should match **/tests/**/*.py pattern."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/Tests/test.py", language="python") is True
 
     def test_uppercase_test_suffix(self) -> None:
         """TEST.PY should match test file patterns."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert _is_test_path("file:///project/tests/TEST.PY", language="python") is True
 
     def test_mixed_case_typescript_test(self) -> None:
         """Component.TEST.TS should match TypeScript test patterns."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         assert (
             _is_test_path(
@@ -343,7 +343,7 @@ class TestPerformanceAndCaching:
 
     def test_is_test_path_caches_results(self) -> None:
         """Repeated calls to _is_test_path should use cache."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # First call populates cache
         result1 = _is_test_path("file:///project/tests/test.py", language="python")
@@ -357,7 +357,7 @@ class TestPerformanceAndCaching:
         self,
     ) -> None:
         """Same URI with different languages should cache separately."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         uri = "file:///project/tests/handler.go"
 
@@ -375,7 +375,7 @@ class TestBackwardCompatibility:
 
     def test_is_test_path_works_without_language_parameter(self) -> None:
         """_is_test_path should work without language parameter (backward compat)."""
-        from llm_lsp_cli.test_filter import _is_test_path
+        from llm_lsp_cli.file_filter import _is_test_path
 
         # Old code calls _is_test_path without language
         # Should still work using defaults/fallback
@@ -384,7 +384,7 @@ class TestBackwardCompatibility:
 
     def test_filter_test_locations_backward_compat(self) -> None:
         """filter_test_locations should work without language parameter."""
-        from llm_lsp_cli.test_filter import filter_test_locations
+        from llm_lsp_cli.file_filter import filter_test_locations
 
         locations = [
             {"uri": "file:///src/main.py"},
@@ -398,7 +398,7 @@ class TestBackwardCompatibility:
 
     def test_filter_test_symbols_backward_compat(self) -> None:
         """filter_test_symbols should work without language parameter."""
-        from llm_lsp_cli.test_filter import filter_test_symbols
+        from llm_lsp_cli.file_filter import filter_test_symbols
 
         symbols = [
             {"name": "Main", "location": {"uri": "file:///src/main.py"}},

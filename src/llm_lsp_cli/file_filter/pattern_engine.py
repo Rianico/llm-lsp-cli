@@ -1,4 +1,4 @@
-"""Pattern matching engine for glob-based test filtering."""
+"""Pattern matching engine for glob-based file filtering."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
-    from llm_lsp_cli.config.schema import LanguageTestFilterConfig
+    from llm_lsp_cli.config.schema import LanguageFileFilterConfig
 
 
 class PatternSource(Enum):
@@ -211,7 +211,7 @@ class PatternSet:
             from pathlib import Path
 
             filename = Path(path_str).name
-        except ValueError, OSError:
+        except (ValueError, OSError):
             filename = path_str.split("/")[-1] if "/" in path_str else path_str
 
         # Priority 1: Check include (negation) patterns first
@@ -269,12 +269,12 @@ class PatternSet:
 
     @classmethod
     def from_language_config(
-        cls, config: LanguageTestFilterConfig, source: PatternSource = PatternSource.DEFAULT
+        cls, config: LanguageFileFilterConfig, source: PatternSource = PatternSource.DEFAULT
     ) -> PatternSet:
         """Create a PatternSet from a language configuration.
 
         Args:
-            config: LanguageTestFilterConfig with pattern lists
+            config: LanguageFileFilterConfig with pattern lists
             source: PatternSource to attribute patterns to
 
         Returns:
