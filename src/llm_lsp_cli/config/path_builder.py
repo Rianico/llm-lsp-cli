@@ -7,12 +7,11 @@ LSP responses are inherently dynamic, so object is used for dict value types.
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import warnings
 from pathlib import Path
-
-import logging
 
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
 from llm_lsp_cli.utils.type_helpers import get_dict, get_str

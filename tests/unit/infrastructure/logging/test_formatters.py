@@ -28,7 +28,7 @@ class TestColorFormatter:
         formatter = ColorFormatter()
         output = formatter.format(error_log_entry)
 
-        assert Colors.ERROR in output
+        assert Colors.error in output
 
     def test_color_formatter_uses_success_color(
         self, success_log_entry: LogEntry, mock_tty_stdout: None
@@ -37,7 +37,7 @@ class TestColorFormatter:
         formatter = ColorFormatter()
         output = formatter.format(success_log_entry)
 
-        assert Colors.SUCCESS in output
+        assert Colors.success in output
 
     def test_color_formatter_falls_back_to_plain(
         self,
@@ -73,7 +73,7 @@ class TestLSPMessageFormatter:
         output = formatter.format_trace("→", lsp_message)
 
         assert "→" in output
-        assert Colors.CLI in output
+        assert Colors.cli in output
 
     def test_lsp_formatter_shows_direction_received(
         self, lsp_message: dict, mock_tty_stdout: None
@@ -83,7 +83,7 @@ class TestLSPMessageFormatter:
         output = formatter.format_trace("←", lsp_message)
 
         assert "←" in output
-        assert Colors.SERVER in output
+        assert Colors.server in output
 
     def test_lsp_formatter_extracts_method(self) -> None:
         """Verify formatter extracts method name from LSP message."""

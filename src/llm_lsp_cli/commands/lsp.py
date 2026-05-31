@@ -24,6 +24,11 @@ from llm_lsp_cli.commands.shared import (
     validate_file_in_workspace,
 )
 from llm_lsp_cli.exceptions import CLIError
+from llm_lsp_cli.file_filter import (
+    filter_test_diagnostic_items,
+    filter_test_locations,
+    filter_test_symbols,
+)
 from llm_lsp_cli.ipc import (
     DaemonFileParams,
     DaemonPositionParams,
@@ -52,11 +57,6 @@ from llm_lsp_cli.output.path_resolver import (
 )
 from llm_lsp_cli.output.raw_formatter import RawFormatter
 from llm_lsp_cli.output.server_name import get_server_display_name
-from llm_lsp_cli.file_filter import (
-    filter_test_diagnostic_items,
-    filter_test_locations,
-    filter_test_symbols,
-)
 from llm_lsp_cli.utils import OutputFormat
 from llm_lsp_cli.utils.language_detector import detect_language_from_file
 

@@ -17,7 +17,7 @@ from llm_lsp_cli.infrastructure.logging import (
 
 
 @pytest.fixture(autouse=True)
-def reset_colors_state() -> Generator[None, None, None]:
+def reset_colors_state(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
     """Reset Colors state before and after each test."""
     # Save state
     saved_disabled = Colors._disabled
@@ -38,6 +38,7 @@ def reset_colors_state() -> Generator[None, None, None]:
     Colors.error = "\033[31m"
     Colors.info = "\033[34m"
     Colors.debug = "\033[37m"
+    monkeypatch.delenv("NO_COLOR", raising=False)
 
     yield
 

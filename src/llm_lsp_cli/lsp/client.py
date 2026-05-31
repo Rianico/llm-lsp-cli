@@ -1289,10 +1289,8 @@ class LSPClient:
                 return bool(code == LSPConstants.ERROR_METHOD_NOT_FOUND)
 
         # Check for exception with error response
-        # At this point, error is not LSPError or dict, so cast to object for hasattr/getattr
-        error_obj = cast(object, error)
-        if hasattr(error_obj, "response"):
-            response: object = getattr(error_obj, "response", {})
+        if hasattr(error, "response"):
+            response: object = getattr(error, "response", {})
             if isinstance(response, dict):
                 response_dict = cast(dict[str, object], response)
                 error_info_val = response_dict.get("error", {})

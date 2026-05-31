@@ -942,7 +942,7 @@ class CompactFormatter:
                     call_dict = cast(dict[str, object], call)
                     from_item = call_dict.get("from_") or call_dict.get("from", {})
                 # At this point, call is either a dict (handled above) or unknown object
-                record = self._transform_call_hierarchy_item(cast(object, call), from_item)
+                record = self._transform_call_hierarchy_item(call, from_item)
             records.append(record)
 
         # Sort by file then name

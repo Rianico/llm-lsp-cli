@@ -1,11 +1,12 @@
 """End-to-end tests for logging functionality."""
 
 import logging
-import os
 import subprocess
 import sys
 from datetime import datetime
 from unittest.mock import patch
+
+import pytest
 
 from llm_lsp_cli.infrastructure.logging import (
     ColorFormatter,
@@ -42,20 +43,10 @@ class TestLoggingE2E:
 
         assert result.returncode == 0 or "usage" in result.stdout.lower()
 
-    def test_colors_disabled_when_piped(self) -> None:
+    def test_colors_disabled_when_piped(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify colors are disabled when output is piped."""
-        original_no_color = os.environ.get("NO_COLOR")
-
-        try:
-            os.environ["NO_COLOR"] = "1"
-            assert Colors.supported() is False
-
-            os.environ.pop("NO_COLOR", None)
-        finally:
-            if original_no_color:
-                os.environ["NO_COLOR"] = original_no_color
-            else:
-                os.environ.pop("NO_COLOR", None)
+        monkeypatch.setenv("NO_COLOR", "1")
+        assert Colors.supported() is False
 
     def test_log_entry_serialization(self) -> None:
         """Verify LogEntry serializes correctly for JSON output."""
@@ -108,17 +99,19 @@ class TestLoggingE2E:
                     msg = f"{level} should not log when min is {min_level}"
                     assert logger._should_log(level) is False, msg
 
-    def test_formatter_color_mapping(self) -> None:
+    def test_formatter_color_mapping(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify formatters use correct color mapping."""
+        monkeypatch.delenv("NO_COLOR", raising=False)
+
         with patch.object(sys.stdout, "isatty", return_value=True):
             Colors._disabled = False
-            Colors.RESET = "\033[0m"
-            Colors.CLI = "\033[36m"
-            Colors.SERVER = "\033[33m"
-            Colors.SUCCESS = "\033[32m"
-            Colors.ERROR = "\033[31m"
-            Colors.INFO = "\033[34m"
-            Colors.DEBUG = "\033[37m"
+            Colors.reset = "\033[0m"
+            Colors.cli = "\033[36m"
+            Colors.server = "\033[33m"
+            Colors.success = "\033[32m"
+            Colors.error = "\033[31m"
+            Colors.info = "\033[34m"
+            Colors.debug = "\033[37m"
 
             formatter = ColorFormatter()
 
@@ -129,7 +122,7 @@ class TestLoggingE2E:
                 message="Error",
             )
             error_output = formatter.format(error_entry)
-            assert Colors.ERROR in error_output
+            assert Colors.error in error_output
 
             success_entry = LogEntry(
                 timestamp=datetime.now(),
@@ -138,7 +131,7 @@ class TestLoggingE2E:
                 message="Success",
             )
             success_output = formatter.format(success_entry)
-            assert Colors.SUCCESS in success_output
+            assert Colors.success in success_output
 
             info_entry = LogEntry(
                 timestamp=datetime.now(),
@@ -147,6 +140,6 @@ class TestLoggingE2E:
                 message="Info",
             )
             info_output = formatter.format(info_entry)
-            assert Colors.INFO in info_output
+            assert Colors.info in info_output
 
-            assert Colors.CLI in error_output
+            assert Colors.cli in error_output

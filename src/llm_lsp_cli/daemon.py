@@ -536,7 +536,11 @@ class RequestHandler:
         logger.debug(f"Received request: {method} with params: {params}")
 
         if method == "ping":
-            return {"status": "healthy", "daemon": True, "lsp_server": self._registry.has_workspaces}
+            return {
+                "status": "healthy",
+                "daemon": True,
+                "lsp_server": self._registry.has_workspaces,
+            }
 
         elif method == "shutdown":
             self._shutdown = True
