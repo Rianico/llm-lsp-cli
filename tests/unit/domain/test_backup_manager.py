@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_lsp_cli.output.formatter import Position
+from llm_lsp_cli.lsp.types import Position
 
 # =============================================================================
 # Test Class: TestBackupManagerExists

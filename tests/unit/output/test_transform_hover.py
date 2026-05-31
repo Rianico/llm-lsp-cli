@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_lsp_cli.output.formatter import CompactFormatter, HoverRecord
+from llm_lsp_cli.output.formatter import CompactFormatter, HoverRecord, compact_range
 
 
 class TestTransformHoverContentExtraction:
@@ -137,4 +137,4 @@ class TestTransformHoverReturnTypes:
         assert record.content == "def foo(x: int) -> str"
         assert record.range is not None
         # Verify compact format: 0-based (5,0)-(5,10) -> 1-based "6:1-6:11"
-        assert record.range.to_compact() == "6:1-6:11"
+        assert compact_range(record.range) == "6:1-6:11"

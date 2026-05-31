@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from pydantic import BaseModel, field_validator
 
 if TYPE_CHECKING:
-    from llm_lsp_cli.output.formatter import Position
+    from llm_lsp_cli.lsp.types import Position
 
 
 class RenameManifest(BaseModel):

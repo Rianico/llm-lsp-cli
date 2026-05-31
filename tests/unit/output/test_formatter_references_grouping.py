@@ -33,15 +33,15 @@ class TestGroupLocationsByFile:
         records = [
             LocationRecord(
                 file="src/utils.py",
-                range=Range(start=Position(4, 9), end=Position(4, 24)),
+                range=Range(start=Position(line=4, character=9), end=Position(line=4, character=24)),
             ),
             LocationRecord(
                 file="src/main.py",
-                range=Range(start=Position(19, 9), end=Position(19, 24)),
+                range=Range(start=Position(line=19, character=9), end=Position(line=19, character=24)),
             ),
             LocationRecord(
                 file="src/utils.py",
-                range=Range(start=Position(7, 4), end=Position(7, 19)),
+                range=Range(start=Position(line=7, character=4), end=Position(line=7, character=19)),
             ),
         ]
         result = group_locations_by_file(records)
@@ -62,15 +62,15 @@ class TestGroupLocationsByFile:
         records = [
             LocationRecord(
                 file="z/module.py",
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
             ),
             LocationRecord(
                 file="a/module.py",
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
             ),
             LocationRecord(
                 file="m/module.py",
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
             ),
         ]
         result = group_locations_by_file(records)
@@ -89,15 +89,15 @@ class TestGroupLocationsByFile:
         records = [
             LocationRecord(
                 file="src/utils.py",
-                range=Range(start=Position(20, 0), end=Position(20, 10)),
+                range=Range(start=Position(line=20, character=0), end=Position(line=20, character=10)),
             ),
             LocationRecord(
                 file="src/utils.py",
-                range=Range(start=Position(5, 0), end=Position(5, 10)),
+                range=Range(start=Position(line=5, character=0), end=Position(line=5, character=10)),
             ),
             LocationRecord(
                 file="src/utils.py",
-                range=Range(start=Position(15, 0), end=Position(15, 10)),
+                range=Range(start=Position(line=15, character=0), end=Position(line=15, character=10)),
             ),
         ]
         result = group_locations_by_file(records)
@@ -124,7 +124,7 @@ class TestGroupLocationsByFile:
         records = [
             LocationRecord(
                 file="src/main.py",
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
             )
         ]
         result = group_locations_by_file(records)
@@ -144,11 +144,11 @@ class TestGroupLocationsByFile:
         records = [
             LocationRecord(
                 file="src/main.py",
-                range=Range(start=Position(10, 20), end=Position(10, 30)),
+                range=Range(start=Position(line=10, character=20), end=Position(line=10, character=30)),
             ),
             LocationRecord(
                 file="src/main.py",
-                range=Range(start=Position(10, 5), end=Position(10, 15)),
+                range=Range(start=Position(line=10, character=5), end=Position(line=10, character=15)),
             ),
         ]
         result = group_locations_by_file(records)
@@ -190,7 +190,7 @@ class TestLocationRecordAttributes:
 
         record = LocationRecord(
             file="src/main.py",
-            range=Range(start=Position(0, 0), end=Position(0, 10)),
+            range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
         )
         assert hasattr(record, "file")
         assert record.file == "src/main.py"

@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_lsp_cli.output.formatter import CallHierarchyRecord, CompactFormatter, Position, Range
+from llm_lsp_cli.lsp.types import Position, Range
+from llm_lsp_cli.output.formatter import CallHierarchyRecord, CompactFormatter
 from tests.fixtures import (
     CALL_HIERARCHY_INCOMING_RESPONSE,
     CALL_HIERARCHY_OUTGOING_RESPONSE,

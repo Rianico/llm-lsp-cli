@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_lsp_cli.output.formatter import CompletionRecord, Position, Range
+from llm_lsp_cli.lsp.types import Position, Range
+from llm_lsp_cli.output.formatter import CompletionRecord
 from llm_lsp_cli.output.protocol import FormattableRecord
 
 

@@ -5,7 +5,7 @@ import json
 import pytest
 
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
-from llm_lsp_cli.output.formatter import DiagnosticRecord, Range, SymbolRecord
+from llm_lsp_cli.output.formatter import DiagnosticRecord, Range, SymbolRecord, range_from_dict
 from llm_lsp_cli.utils import OutputFormat
 
 
@@ -20,7 +20,7 @@ class TestSourceFieldSplit:
         records = [
             DiagnosticRecord(
                 file="src/main.py",
-                range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
+                range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
                 severity=1,
                 severity_name="Error",
                 code="E001",
@@ -48,7 +48,7 @@ class TestSourceFieldSplit:
         records = [
             DiagnosticRecord(
                 file="src/main.py",
-                range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
+                range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
                 severity=1,
                 severity_name="Error",
                 code="E001",
@@ -79,7 +79,7 @@ class TestSourceFieldSplit:
                 name="my_func",
                 kind=12,
                 kind_name="Function",
-                range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 0}}),
+                range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 0}}),
             )
         ]
 
@@ -101,7 +101,7 @@ class TestSourceFieldSplit:
             name="MyClass",
             kind=5,
             kind_name="Class",
-            range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}}),
+            range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 10, "character": 0}}),
         )
 
         result = dispatcher.format(
@@ -126,7 +126,7 @@ class TestDiagnosticRecordNoFileInDict:
         """DiagnosticRecord.to_compact_dict() should NOT include file field."""
         record = DiagnosticRecord(
             file="src/main.py",
-            range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
+            range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 5}}),
             severity=1,
             severity_name="Error",
             code="E001",
@@ -152,7 +152,7 @@ class TestSymbolRecordNoFileInDict:
             name="my_func",
             kind=12,
             kind_name="Function",
-            range=Range.from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 0}}),
+            range=range_from_dict({"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 0}}),
         )
 
         result = record.to_compact_dict()

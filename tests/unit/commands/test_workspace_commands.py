@@ -707,7 +707,7 @@ class TestFormatterGroupingIntegration:
         diags = [
             DiagnosticRecord(
                 file="a.py",
-                range=Range(Position(0, 0), Position(1, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=1, character=0)),
                 severity=1,
                 severity_name="Error",
                 code="E001",
@@ -716,7 +716,7 @@ class TestFormatterGroupingIntegration:
             ),
             DiagnosticRecord(
                 file="b.py",
-                range=Range(Position(0, 0), Position(1, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=1, character=0)),
                 severity=2,
                 severity_name="Warning",
                 code="W001",

@@ -990,7 +990,8 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit returns list of RenameEditRecord."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position, RenameEditRecord
+        from llm_lsp_cli.lsp.types import Position
+        from llm_lsp_cli.output.formatter import RenameEditRecord
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1013,7 +1014,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit handles null WorkspaceEdit."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1035,7 +1036,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit handles empty WorkspaceEdit."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1058,7 +1059,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit handles legacy 'changes' field."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         # Update URI to match temp workspace
         for uri in sample_workspace_edit_with_changes["changes"]:
@@ -1088,7 +1089,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit skips file operations."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1112,7 +1113,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit normalizes URIs to absolute paths."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         # Update URI to match temp workspace
         sample_workspace_edit["documentChanges"][0]["textDocument"]["uri"] = (
@@ -1141,7 +1142,7 @@ class TestRenameServicePreviewFromEdit:
         """Verify preview_from_edit does not modify files."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1176,7 +1177,8 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit returns tuple of records and session."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager, RenameSession
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position, RenameEditRecord
+        from llm_lsp_cli.lsp.types import Position
+        from llm_lsp_cli.output.formatter import RenameEditRecord
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1204,7 +1206,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit creates backup before modifying files."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1228,7 +1230,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit modifies files with new text."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         # Update URI to match temp workspace
         sample_workspace_edit["documentChanges"][0]["textDocument"]["uri"] = (
@@ -1261,7 +1263,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit updates session status to 'applied'."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1284,7 +1286,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit creates manifest.json and request.json."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1307,7 +1309,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit handles null WorkspaceEdit."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)
@@ -1330,7 +1332,7 @@ class TestRenameServiceApplyFromEdit:
         """Verify apply_from_edit handles empty WorkspaceEdit."""
         from llm_lsp_cli.domain.services.backup_manager import BackupManager
         from llm_lsp_cli.domain.services.rename_service import RenameService
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         backup_manager = BackupManager(temp_workspace)
         service = RenameService(backup_manager)

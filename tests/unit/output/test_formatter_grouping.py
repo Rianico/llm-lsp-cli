@@ -27,21 +27,21 @@ class TestGroupSymbolsByFile:
                 name="func1",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(0, 0), Position(5, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=5, character=0)),
             ),
             SymbolRecord(
                 file="src/main.py",
                 name="func2",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(6, 0), Position(10, 0)),
+                range=Range(start=Position(line=6, character=0), end=Position(line=10, character=0)),
             ),
             SymbolRecord(
                 file="src/other.py",
                 name="MyClass",
                 kind=5,
                 kind_name="Class",
-                range=Range(Position(0, 0), Position(20, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=20, character=0)),
             ),
         ]
 
@@ -71,21 +71,21 @@ class TestGroupSymbolsByFile:
                 name="z_func",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(0, 0), Position(5, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=5, character=0)),
             ),
             SymbolRecord(
                 file="a.py",
                 name="a_func",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(0, 0), Position(5, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=5, character=0)),
             ),
             SymbolRecord(
                 file="m.py",
                 name="m_func",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(0, 0), Position(5, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=5, character=0)),
             ),
         ]
 
@@ -118,7 +118,7 @@ class TestGroupSymbolsByFile:
                 name="func",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(0, 0), Position(5, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=5, character=0)),
             ),
         ]
 
@@ -143,7 +143,7 @@ class TestGroupSymbolsByFile:
                 name="MyFunc",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(1, 0), Position(5, 0)),
+                range=Range(start=Position(line=1, character=0), end=Position(line=5, character=0)),
                 detail="A test function",
             ),
         ]
@@ -171,7 +171,7 @@ class TestGroupSymbolsByFile:
                 name=f"func{i}",
                 kind=12,
                 kind_name="Function",
-                range=Range(Position(i * 10, 0), Position(i * 10 + 5, 0)),
+                range=Range(start=Position(line=i * 10, character=0), end=Position(line=i * 10 + 5, character=0)),
             )
             for i in range(50)
         ]
@@ -198,7 +198,7 @@ class TestGroupDiagnosticsByFile:
         diagnostics = [
             DiagnosticRecord(
                 file="src/main.py",
-                range=Range(Position(0, 0), Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E001",
@@ -207,7 +207,7 @@ class TestGroupDiagnosticsByFile:
             ),
             DiagnosticRecord(
                 file="src/main.py",
-                range=Range(Position(5, 0), Position(5, 5)),
+                range=Range(start=Position(line=5, character=0), end=Position(line=5, character=5)),
                 severity=2,
                 severity_name="Warning",
                 code="W001",
@@ -216,7 +216,7 @@ class TestGroupDiagnosticsByFile:
             ),
             DiagnosticRecord(
                 file="src/other.py",
-                range=Range(Position(2, 0), Position(2, 10)),
+                range=Range(start=Position(line=2, character=0), end=Position(line=2, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E002",
@@ -243,7 +243,7 @@ class TestGroupDiagnosticsByFile:
         diagnostics = [
             DiagnosticRecord(
                 file="z.py",
-                range=Range(Position(0, 0), Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E",
@@ -252,7 +252,7 @@ class TestGroupDiagnosticsByFile:
             ),
             DiagnosticRecord(
                 file="a.py",
-                range=Range(Position(0, 0), Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E",
@@ -285,7 +285,7 @@ class TestGroupDiagnosticsByFile:
         diagnostics = [
             DiagnosticRecord(
                 file="test.py",
-                range=Range(Position(1, 0), Position(1, 10)),
+                range=Range(start=Position(line=1, character=0), end=Position(line=1, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E001",
@@ -313,7 +313,7 @@ class TestGroupDiagnosticsByFile:
         diagnostics = [
             DiagnosticRecord(
                 file="mixed.py",
-                range=Range(Position(0, 0), Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code="E",
@@ -322,7 +322,7 @@ class TestGroupDiagnosticsByFile:
             ),
             DiagnosticRecord(
                 file="mixed.py",
-                range=Range(Position(5, 0), Position(5, 5)),
+                range=Range(start=Position(line=5, character=0), end=Position(line=5, character=5)),
                 severity=2,
                 severity_name="Warning",
                 code="W",
@@ -331,7 +331,7 @@ class TestGroupDiagnosticsByFile:
             ),
             DiagnosticRecord(
                 file="mixed.py",
-                range=Range(Position(10, 0), Position(10, 5)),
+                range=Range(start=Position(line=10, character=0), end=Position(line=10, character=5)),
                 severity=3,
                 severity_name="Information",
                 code="I",

@@ -9,8 +9,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from llm_lsp_cli.lsp.types import TextEdit, WorkspaceEdit
-from llm_lsp_cli.output.formatter import Position, Range, RenameEditRecord
+from llm_lsp_cli.lsp.types import Position, Range, TextEdit, WorkspaceEdit
+from llm_lsp_cli.output.formatter import RenameEditRecord
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 
 from .backup_manager import BackupManager, RenameSession
@@ -325,17 +325,7 @@ class RenameService:
         """
         records: list[RenameEditRecord] = []
         for edit in edits:
-            # Convert lsp.types.Range to formatter Range
-            range_obj = Range(
-                start=Position(
-                    line=edit.range.start.line,
-                    character=edit.range.start.character,
-                ),
-                end=Position(
-                    line=edit.range.end.line,
-                    character=edit.range.end.character,
-                ),
-            )
+            range_obj = edit.range
             old_text = self._extract_text_at_range(content, range_obj)
             records.append(
                 RenameEditRecord(

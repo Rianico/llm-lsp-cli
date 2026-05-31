@@ -489,7 +489,7 @@ class TestDiagnosticsAbsolutePaths:
         diagnostics = [
             DiagnosticRecord(
                 file=str(tmp_path / "src" / "a.py"),
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code=None,
@@ -498,7 +498,7 @@ class TestDiagnosticsAbsolutePaths:
             ),
             DiagnosticRecord(
                 file=str(tmp_path / "src" / "b.py"),
-                range=Range(start=Position(0, 0), end=Position(0, 10)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=0, character=10)),
                 severity=1,
                 severity_name="Error",
                 code=None,
@@ -535,14 +535,14 @@ class TestGroupingAbsolutePaths:
                 name="func_a",
                 kind=12,
                 kind_name="Function",
-                range=Range(start=Position(0, 0), end=Position(10, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=10, character=0)),
             ),
             SymbolRecord(
                 file=str(tmp_path / "src" / "b.py"),
                 name="func_b",
                 kind=12,
                 kind_name="Function",
-                range=Range(start=Position(0, 0), end=Position(10, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=10, character=0)),
             ),
         ]
         grouped = group_symbols_by_file(records)
@@ -562,11 +562,11 @@ class TestGroupingAbsolutePaths:
         records = [
             LocationRecord(
                 file=str(tmp_path / "src" / "a.py"),
-                range=Range(start=Position(0, 0), end=Position(10, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=10, character=0)),
             ),
             LocationRecord(
                 file=str(tmp_path / "src" / "b.py"),
-                range=Range(start=Position(0, 0), end=Position(10, 0)),
+                range=Range(start=Position(line=0, character=0), end=Position(line=10, character=0)),
             ),
         ]
         grouped = group_locations_by_file(records)

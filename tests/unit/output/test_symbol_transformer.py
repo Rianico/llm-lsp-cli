@@ -9,7 +9,7 @@ as specified in ADR-0013.
 import pytest
 
 from llm_lsp_cli.output import formatter
-from llm_lsp_cli.output.formatter import CompactFormatter, SymbolRecord
+from llm_lsp_cli.output.formatter import CompactFormatter, SymbolRecord, compact_range
 
 # =============================================================================
 # Fixtures
@@ -295,7 +295,7 @@ class TestFieldTransformation:
 
         assert len(result) == 1
         # 0-based line 21 -> 1-based line 22
-        assert result[0].range.to_compact() == "22:6-22:16"
+        assert compact_range(result[0].range) == "22:6-22:16"
 
     def test_selection_range_included_when_present(self, simple_class_symbol: dict) -> None:
         """SelectionRange is preserved and formatted."""
@@ -305,7 +305,7 @@ class TestFieldTransformation:
         assert len(result) == 1
         assert result[0].selection_range is not None
         # 0-based line 0 -> 1-based line 1
-        assert result[0].selection_range.to_compact() == "1:7-1:14"
+        assert compact_range(result[0].selection_range) == "1:7-1:14"
 
     def test_detail_field_preserved(self, class_with_methods: dict) -> None:
         """Detail field is passed through unchanged."""
@@ -407,8 +407,8 @@ class TestSymbolRecordFields:
             kind=12,
             kind_name="Function",
             range=formatter.Range(
-                formatter.Position(0, 0),
-                formatter.Position(10, 0),
+                start=formatter.Position(line=0, character=0),
+                end=formatter.Position(line=10, character=0),
             ),
         )
         assert hasattr(rec, "parent")
@@ -422,21 +422,19 @@ class TestSymbolRecordFields:
             kind=12,
             kind_name="Function",
             range=formatter.Range(
-                formatter.Position(0, 0),
-                formatter.Position(10, 0),
+                start=formatter.Position(line=0, character=0),
+                end=formatter.Position(line=10, character=0),
             ),
         )
         assert hasattr(rec, "children")
         assert rec.children == []
 
-    def test_symbol_record_immutable_fields(self) -> None:
-        """Position and Range remain immutable/frozen."""
-        from llm_lsp_cli.output.formatter import Position, Range
+    def test_symbol_record_range_is_pydantic_model(self) -> None:
+        """Position and Range are Pydantic models (no longer frozen dataclasses)."""
+        from llm_lsp_cli.lsp.types import Position as LspPosition, Range as LspRange
 
-        pos = Position(1, 2)
-        with pytest.raises(AttributeError):
-            pos.line = 5  # type: ignore[misc]
+        pos = LspPosition(line=1, character=2)
+        assert pos.line == 1
 
-        range_obj = Range(Position(0, 0), Position(10, 0))
-        with pytest.raises(AttributeError):
-            range_obj.start = Position(5, 5)  # type: ignore[misc]
+        range_obj = LspRange(start=LspPosition(line=0, character=0), end=LspPosition(line=10, character=0))
+        assert range_obj.start.line == 0

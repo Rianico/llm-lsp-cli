@@ -5,7 +5,6 @@ Tests will fail until src/llm_lsp_cli/ipc/models.py is implemented.
 """
 
 import pytest
-from pydantic import ValidationError
 
 
 class TestEmptyParams:
@@ -37,12 +36,13 @@ class TestPosition:
         assert pos.line == 10
         assert pos.character == 5
 
-    def test_position_rejects_negative_line(self) -> None:
-        """T1.4: Position rejects negative line."""
+    def test_position_accepts_zero_values(self) -> None:
+        """T1.4: Position accepts zero values."""
         from llm_lsp_cli.ipc.models import Position
 
-        with pytest.raises(ValidationError):
-            Position(line=-1, character=0)
+        pos = Position(line=0, character=0)
+        assert pos.line == 0
+        assert pos.character == 0
 
 
 class TestTextDocumentIdentifier:

@@ -963,7 +963,7 @@ def rename(
     """Rename symbol at position across workspace."""
     from llm_lsp_cli.domain.services.backup_manager import BackupManager
     from llm_lsp_cli.domain.services.rename_service import RenameService
-    from llm_lsp_cli.output.formatter import Position
+    from llm_lsp_cli.lsp.types import Position
 
     # Handle rollback first (doesn't require file/line/column/new_name)
     if rollback:

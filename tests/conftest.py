@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 if TYPE_CHECKING:
-    from llm_lsp_cli.output.formatter import Position
+    from llm_lsp_cli.lsp.types import Position
 
 
 def setup_mock_client_cache_accessors(mock_client: MagicMock, cache: "DiagnosticCache") -> None:
@@ -140,7 +140,7 @@ def use_class():
 @pytest.fixture
 def sample_position() -> "Position":
     """Create a sample Position for testing rename operations."""
-    from llm_lsp_cli.output.formatter import Position
+    from llm_lsp_cli.lsp.types import Position
 
     return Position(line=1, character=6)
 

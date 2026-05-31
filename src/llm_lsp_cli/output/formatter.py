@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
+from llm_lsp_cli.lsp.types import Position, Range
 from llm_lsp_cli.output.path_resolver import normalize_uri_to_absolute
 from llm_lsp_cli.utils.formatter import SYMBOL_KIND_MAP, get_diagnostic_tag_name
 from llm_lsp_cli.utils.type_helpers import (
@@ -30,85 +31,67 @@ if TYPE_CHECKING:
         DocumentSymbol,
         SymbolInformation,
     )
-    from llm_lsp_cli.lsp.types import (
-        Range as LspRange,
+
+
+def range_to_compact(start_line: int, start_char: int, end_line: int, end_char: int) -> str:
+    """Convert 0-based range coordinates to compact 1-based string format.
+
+    Args:
+        start_line: 0-based start line
+        start_char: 0-based start character
+        end_line: 0-based end line
+        end_char: 0-based end character
+
+    Returns:
+        Compact string like "1:1-1:11" (1-based)
+    """
+    return f"{start_line + 1}:{start_char + 1}-{end_line + 1}:{end_char + 1}"
+
+
+def compact_range(r: Range) -> str:
+    """Convert a Range to compact 1-based string format.
+
+    Args:
+        r: Range Pydantic model
+
+    Returns:
+        Compact string like "1:1-1:11" (1-based)
+    """
+    return range_to_compact(r.start.line, r.start.character, r.end.line, r.end.character)
+
+
+def position_from_dict(obj: object) -> Position:
+    """Create Position from a dict (for legacy dict-based inputs).
+
+    Args:
+        obj: Dict with 'line' and 'character' keys
+
+    Returns:
+        Position Pydantic model
+    """
+    d = cast(dict[str, object], obj)
+    return Position(
+        line=get_int(d, "line", 0),
+        character=get_int(d, "character", 0),
     )
 
 
-@dataclass(frozen=True)
-class Position:
-    """LSP Position with line and character (0-based)."""
+def range_from_dict(obj: object) -> Range:
+    """Create Range from a dict (for legacy dict-based inputs).
 
-    line: int
-    character: int
+    Args:
+        obj: Dict with 'start' and 'end' keys
 
-    def to_dict(self) -> dict[str, int]:
-        """Convert to LSP Position dict format."""
-        return {"line": self.line, "character": self.character}
-
-
-@dataclass(frozen=True)
-class Range:
-    """LSP Range with start and end Position objects."""
-
-    start: Position
-    end: Position
-
-    @classmethod
-    def from_dict(cls, range_obj: object) -> Range:
-        """Create Range from LSP range dict."""
-        start = get_dict(range_obj, "start")
-        end = get_dict(range_obj, "end")
-        return cls(
-            start=Position(
-                line=get_int(start, "line", 0),
-                character=get_int(start, "character", 0),
-            ),
-            end=Position(
-                line=get_int(end, "line", 0),
-                character=get_int(end, "character", 0),
-            ),
-        )
-
-    @classmethod
-    def from_pydantic(cls, range_obj: LspRange) -> Range:
-        """Create Range from LSP Range Pydantic model.
-
-        This is the designated bridge from lsp.types.Range (Pydantic) to
-        output.formatter.Range (dataclass) per ADR-0027.
-
-        Args:
-            range_obj: Validated LSP Range Pydantic model
-
-        Returns:
-            Range dataclass instance
-        """
-        return cls(
-            start=Position(
-                line=range_obj.start.line,
-                character=range_obj.start.character,
-            ),
-            end=Position(
-                line=range_obj.end.line,
-                character=range_obj.end.character,
-            ),
-        )
-
-    def to_dict(self) -> dict[str, dict[str, int]]:
-        """Convert to LSP Range dict format with nested Position structure."""
-        return {
-            "start": self.start.to_dict(),
-            "end": self.end.to_dict(),
-        }
-
-    def to_compact(self) -> str:
-        """Convert to compact string format for TEXT/CSV output (1-based)."""
-        # LSP uses 0-based indexing, but editors/humans expect 1-based
-        start_line = self.start.line + 1
-        start_char = self.start.character + 1
-        end_line = self.end.line + 1
-        end_char = self.end.character + 1
-        return f"{start_line}:{start_char}-{end_line}:{end_char}"
+    Returns:
+        Range Pydantic model
+    """
+    d = cast(dict[str, object], obj)
+    start = get_dict(d, "start")
+    end = get_dict(d, "end")
+    return Range(
+        start=position_from_dict(start),
+        end=position_from_dict(end),
+    )
 
 
 @dataclass
@@ -142,8 +125,8 @@ class SymbolRecord:
             "file": self.file,
             "name": self.name,
             "kind_name": self.kind_name,
-            "range": self.range.to_compact(),
-            "selection_range": self.selection_range.to_compact() if self.selection_range else "",
+            "range": compact_range(self.range),
+            "selection_range": compact_range(self.selection_range) if self.selection_range else "",
             "detail": self.detail or "",
             "tags": "|".join(str(t) for t in self.tags) if self.tags else "",
             "parent": self.parent or "",
@@ -160,8 +143,8 @@ class SymbolRecord:
         return format_symbol_text_line(
             name=self.name,
             kind_name=self.kind_name,
-            range_str=self.range.to_compact(),
-            selection_range=(self.selection_range.to_compact() if self.selection_range else None),
+            range_str=compact_range(self.range),
+            selection_range=(compact_range(self.selection_range) if self.selection_range else None),
         )
 
 
@@ -174,7 +157,7 @@ class LocationRecord:
 
     def to_compact_dict(self) -> dict[str, object]:
         """Convert to dict with compact range format."""
-        return {"file": self.file, "range": self.range.to_compact()}
+        return {"file": self.file, "range": compact_range(self.range)}
 
     def get_csv_headers(self) -> list[str]:
         """Return CSV headers for location records."""
@@ -184,12 +167,12 @@ class LocationRecord:
         """Return a CSV row for this location."""
         return {
             "file": self.file,
-            "range": self.range.to_compact(),
+            "range": compact_range(self.range),
         }
 
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
-        return f"{self.file}: {self.range.to_compact()}"
+        return f"{self.file}: {compact_range(self.range)}"
 
 
 @dataclass
@@ -218,7 +201,7 @@ class DiagnosticRecord:
         """Return a CSV row for this diagnostic."""
         return {
             "file": self.file,
-            "range": self.range.to_compact(),
+            "range": compact_range(self.range),
             "severity_name": self.severity_name,
             "code": str(self.code) if self.code is not None else "",
             "message": self.message,
@@ -234,7 +217,7 @@ class DiagnosticRecord:
         parts: list[str] = [f"{self.severity_name}: {self.message}"]
         if self.code is not None and self.code != "":
             parts.append(f"code: {self.code}")
-        parts.append(f"range: {self.range.to_compact()}")
+        parts.append(f"range: {compact_range(self.range)}")
         if self.tags:
             tag_names = [get_diagnostic_tag_name(t) for t in self.tags]
             parts.append(f"tags: [{', '.join(tag_names)}]")
@@ -263,12 +246,12 @@ class CallHierarchyRecord:
             "file": self.file,
             "name": self.name,
             "kind_name": self.kind_name,
-            "range": self.range.to_compact(),
+            "range": compact_range(self.range),
         }
         if self.selection_range is not None:
-            obj["selection_range"] = self.selection_range.to_compact()
+            obj["selection_range"] = compact_range(self.selection_range)
         if self.from_ranges:
-            obj["from_ranges"] = [r.to_compact() for r in self.from_ranges]
+            obj["from_ranges"] = [compact_range(r) for r in self.from_ranges]
         return obj
 
     def get_csv_headers(self) -> list[str]:
@@ -278,20 +261,20 @@ class CallHierarchyRecord:
     def get_csv_row(self) -> dict[str, str]:
         """Return a CSV row for this call hierarchy record."""
         from_ranges_str = (
-            "|".join(r.to_compact() for r in self.from_ranges) if self.from_ranges else ""
+            "|".join(compact_range(r) for r in self.from_ranges) if self.from_ranges else ""
         )
         return {
             "file": self.file,
             "name": self.name,
             "kind_name": self.kind_name,
-            "range": self.range.to_compact(),
-            "selection_range": self.selection_range.to_compact() if self.selection_range else "",
+            "range": compact_range(self.range),
+            "selection_range": compact_range(self.selection_range) if self.selection_range else "",
             "from_ranges": from_ranges_str,
         }
 
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
-        return f"{self.file}: {self.name} ({self.kind_name}) [{self.range.to_compact()}]"
+        return f"{self.file}: {self.name} ({self.kind_name}) [{compact_range(self.range)}]"
 
 
 @dataclass
@@ -310,7 +293,7 @@ class RenameEditRecord:
         """Convert to dict with compact range format."""
         return {
             "file": self.file,
-            "range": self.range.to_compact(),
+            "range": compact_range(self.range),
             "old_text": self.old_text,
             "new_text": self.new_text,
         }
@@ -323,14 +306,14 @@ class RenameEditRecord:
         """Return a CSV row for this rename edit."""
         return {
             "file": self.file,
-            "range": self.range.to_compact(),
+            "range": compact_range(self.range),
             "old_text": self.old_text,
             "new_text": self.new_text,
         }
 
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
-        return f"{self.file}:{self.range.to_compact()} '{self.old_text}' -> '{self.new_text}'"
+        return f"{self.file}:{compact_range(self.range)} '{self.old_text}' -> '{self.new_text}'"
 
 
 @dataclass
@@ -361,9 +344,9 @@ class CompletionRecord:
         if self.documentation is not None:
             obj["documentation"] = self.documentation
         if self.range is not None:
-            obj["range"] = self.range.to_compact()
+            obj["range"] = compact_range(self.range)
         if self.position is not None:
-            obj["position"] = self.position.to_compact()
+            obj["position"] = compact_range(self.position)
         return obj
 
     def get_csv_headers(self) -> list[str]:
@@ -378,13 +361,13 @@ class CompletionRecord:
             "kind_name": self.kind_name,
             "detail": self.detail or "",
             "documentation": self.documentation or "",
-            "range": self.range.to_compact() if self.range else "",
-            "position": self.position.to_compact() if self.position else "",
+            "range": compact_range(self.range) if self.range else "",
+            "position": compact_range(self.position) if self.position else "",
         }
 
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
-        range_str = f" [{self.range.to_compact()}]" if self.range else ""
+        range_str = f" [{compact_range(self.range)}]" if self.range else ""
         detail_str = f" - {self.detail}" if self.detail else ""
         return f"{self.file}: {self.label}{detail_str}{range_str}"
 
@@ -407,7 +390,7 @@ class HoverRecord:
             "content": self.content,
         }
         if self.range is not None:
-            obj["range"] = self.range.to_compact()
+            obj["range"] = compact_range(self.range)
         return obj
 
     def get_csv_headers(self) -> list[str]:
@@ -419,12 +402,12 @@ class HoverRecord:
         return {
             "file": self.file,
             "content": self.content,
-            "range": self.range.to_compact() if self.range else "",
+            "range": compact_range(self.range) if self.range else "",
         }
 
     def get_text_line(self) -> str:
         """Return a single-line text representation."""
-        range_str = f" [{self.range.to_compact()}]" if self.range else ""
+        range_str = f" [{compact_range(self.range)}]" if self.range else ""
         return f"{self.file}: {self.content}{range_str}"
 
 
@@ -547,7 +530,7 @@ class CompactFormatter:
         name = sym.name
         kind = sym.kind
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-        range_val = Range.from_pydantic(sym.range)
+        range_val = sym.range
 
         # Optional fields
         detail = sym.detail
@@ -556,7 +539,7 @@ class CompactFormatter:
         # Preserve selectionRange if present
         selection_range: Range | None = None
         if sym.selection_range:
-            selection_range = Range.from_pydantic(sym.selection_range)
+            selection_range = sym.selection_range
 
         # Process children if depth allows
         children: list[SymbolRecord] = []
@@ -606,7 +589,7 @@ class CompactFormatter:
         else:
             uri = sym.location.uri
             file_path = normalize_uri_to_absolute(uri, self._workspace)
-            range_val = Range.from_pydantic(sym.location.range)
+            range_val = sym.location.range
 
         # Extract fields from Pydantic model
         name = sym.name
@@ -662,7 +645,7 @@ class CompactFormatter:
         name = get_str(sym, "name", "")
         kind = get_int(sym, "kind", 0)
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-        range_val = Range.from_dict(range_obj)
+        range_val = range_from_dict(range_obj)
 
         # Optional fields
         detail = get_optional_str(sym, "detail")
@@ -674,7 +657,7 @@ class CompactFormatter:
         selection_range: Range | None = None
         sel_range_obj = get_optional_dict(sym, "selectionRange")
         if sel_range_obj:
-            selection_range = Range.from_dict(sel_range_obj)
+            selection_range = range_from_dict(sel_range_obj)
 
         # Preserve data field if present
         data: object = sym.get("data")
@@ -728,13 +711,13 @@ class CompactFormatter:
                 # Pydantic model path
                 uri = loc.uri
                 file_path = normalize_uri_to_absolute(uri, self._workspace)
-                range_val = Range.from_pydantic(loc.range)
+                range_val = loc.range
             else:
                 # Dict-based input (legacy path)
                 uri = get_str(loc, "uri", "")
                 range_obj = get_dict(loc, "range")
                 file_path = normalize_uri_to_absolute(uri, self._workspace)
-                range_val = Range.from_dict(range_obj)
+                range_val = range_from_dict(range_obj)
 
             records.append(
                 LocationRecord(
@@ -760,7 +743,7 @@ class CompactFormatter:
         obj: dict[str, object] = {
             "name": rec.name,
             "kind_name": rec.kind_name,
-            "range": rec.range.to_compact(),
+            "range": compact_range(rec.range),
         }
         if rec.detail is not None:
             obj["detail"] = rec.detail
@@ -769,7 +752,7 @@ class CompactFormatter:
         if rec.tags:
             obj["tags"] = rec.tags
         if rec.selection_range is not None:
-            obj["selection_range"] = rec.selection_range.to_compact()
+            obj["selection_range"] = compact_range(rec.selection_range)
         if rec.data is not None:
             obj["data"] = rec.data
         if rec.parent is not None:
@@ -802,7 +785,7 @@ class CompactFormatter:
 
             if isinstance(diag, LspDiagnostic):
                 # Pydantic model path
-                range_val = Range.from_pydantic(diag.range)
+                range_val = diag.range
                 severity = diag.severity if diag.severity is not None else 1
                 code = diag.code
                 source = diag.source or ""
@@ -811,7 +794,7 @@ class CompactFormatter:
             else:
                 # Dict-based input (legacy path)
                 range_obj = get_dict(diag, "range")
-                range_val = Range.from_dict(range_obj)
+                range_val = range_from_dict(range_obj)
 
                 severity = get_int(diag, "severity", 1)
                 code = get_optional_int(diag, "code")
@@ -853,7 +836,7 @@ class CompactFormatter:
             Dictionary with only present fields (excludes file and source)
         """
         obj: dict[str, object] = {
-            "range": rec.range.to_compact(),
+            "range": compact_range(rec.range),
             "severity_name": rec.severity_name,
             "message": rec.message,
         }
@@ -884,18 +867,18 @@ class CompactFormatter:
         name = get_str(item, "name", "")
         kind = get_int(item, "kind", 0)
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-        range_val = Range.from_dict(range_obj)
+        range_val = range_from_dict(range_obj)
 
         # Extract selectionRange if present
         selection_range: Range | None = None
         sel_range_obj = get_optional_dict(item, "selectionRange")
         if sel_range_obj:
-            selection_range = Range.from_dict(sel_range_obj)
+            selection_range = range_from_dict(sel_range_obj)
 
         # Extract fromRanges
         from_ranges_raw = get_list(call, "fromRanges")
         from_ranges = [
-            Range.from_dict(cast(dict[str, object], r))
+            range_from_dict(cast(dict[str, object], r))
             for r in from_ranges_raw
             if isinstance(r, dict)
         ]
@@ -968,15 +951,15 @@ class CompactFormatter:
         name = item.name
         kind = item.kind
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-        range_val = Range.from_pydantic(item.range)
+        range_val = item.range
 
         # Extract selectionRange if present
         selection_range: Range | None = None
         if item.selection_range:
-            selection_range = Range.from_pydantic(item.selection_range)
+            selection_range = item.selection_range
 
         # Extract fromRanges
-        from_ranges = [Range.from_pydantic(r) for r in call.from_ranges]
+        from_ranges = list(call.from_ranges)
 
         return CallHierarchyRecord(
             file=file_path,
@@ -1040,15 +1023,15 @@ class CompactFormatter:
         name = item.name
         kind = item.kind
         kind_name = SYMBOL_KIND_MAP.get(kind, f"Unknown({kind})")
-        range_val = Range.from_pydantic(item.range)
+        range_val = item.range
 
         # Extract selectionRange if present
         selection_range: Range | None = None
         if item.selection_range:
-            selection_range = Range.from_pydantic(item.selection_range)
+            selection_range = item.selection_range
 
         # Extract fromRanges
-        from_ranges = [Range.from_pydantic(r) for r in call.from_ranges]
+        from_ranges = list(call.from_ranges)
 
         return CallHierarchyRecord(
             file=file_path,
@@ -1099,7 +1082,7 @@ class CompactFormatter:
                 # Extract range from textEdit.range
                 range_val: Range | None = None
                 if item.text_edit is not None:
-                    range_val = Range.from_pydantic(item.text_edit.range)
+                    range_val = item.text_edit.range
 
                 # Position extraction not supported in Pydantic model path
                 # (data field is not defined in CompletionItem)
@@ -1130,7 +1113,7 @@ class CompactFormatter:
                 if text_edit:
                     range_obj = get_optional_dict(text_edit, "range")
                     if range_obj:
-                        range_val = Range.from_dict(range_obj)
+                        range_val = range_from_dict(range_obj)
 
                 # Extract position from data.position
                 position_val = None
@@ -1196,7 +1179,7 @@ class CompactFormatter:
             # Extract range if present
             range_val: Range | None = None
             if hover.range is not None:
-                range_val = Range.from_pydantic(hover.range)
+                range_val = hover.range
         else:
             # Dict-based input (legacy path)
             # Extract all values BEFORE isinstance checks to avoid type narrowing issues
@@ -1231,7 +1214,7 @@ class CompactFormatter:
             # Extract range if present
             range_val = None
             if range_obj:
-                range_val = Range.from_dict(range_obj)
+                range_val = range_from_dict(range_obj)
 
         return HoverRecord(
             file=file_path,
@@ -1371,7 +1354,7 @@ def group_locations_by_file(
         result.append(
             {
                 "file": file_path,
-                "references": [{"range": r.range.to_compact()} for r in sorted_records],
+                "references": [{"range": compact_range(r.range)} for r in sorted_records],
             }
         )
 
@@ -1434,7 +1417,7 @@ def group_rename_edits_by_file(
             groups[file_path],
             key=lambda r: (r.range.start.line, r.range.start.character),
         )
-        ranges = [r.range.to_compact() for r in sorted_records]
+        ranges = [compact_range(r.range) for r in sorted_records]
         file_records.append(RenameFileRecord(file=file_path, ranges=ranges))
 
     return old_text, new_text, file_records

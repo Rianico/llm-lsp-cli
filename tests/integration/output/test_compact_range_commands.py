@@ -12,7 +12,7 @@ import yaml
 from typer.testing import CliRunner
 
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
-from llm_lsp_cli.output.formatter import CompactFormatter, HoverRecord
+from llm_lsp_cli.output.formatter import CompactFormatter, HoverRecord, compact_range
 from llm_lsp_cli.utils import OutputFormat
 
 runner = CliRunner()
@@ -374,7 +374,7 @@ class TestCompactRangeFormatConsistency:
         ]
         records = formatter.transform_completions(items, file_path="test.py")
         assert records[0].range is not None
-        assert records[0].range.to_compact() == "1:1-1:11"
+        assert compact_range(records[0].range) == "1:1-1:11"
 
     def test_range_uses_colon_separator(self, formatter: CompactFormatter) -> None:
         """Verify range format uses colon separator: line:char-line:char."""
@@ -393,7 +393,7 @@ class TestCompactRangeFormatConsistency:
         records = formatter.transform_completions(items, file_path="test.py")
         assert records[0].range is not None
         # 0-based (10,5)-(10,15) -> 1-based "11:6-11:16"
-        assert records[0].range.to_compact() == "11:6-11:16"
+        assert compact_range(records[0].range) == "11:6-11:16"
 
     def test_multi_line_range_format(self, formatter: CompactFormatter) -> None:
         """Verify multi-line ranges are formatted correctly."""
@@ -411,7 +411,7 @@ class TestCompactRangeFormatConsistency:
         ]
         records = formatter.transform_completions(items, file_path="test.py")
         assert records[0].range is not None
-        assert records[0].range.to_compact() == "1:1-6:11"
+        assert compact_range(records[0].range) == "1:1-6:11"
 
     def test_json_omits_none_fields(self, formatter: CompactFormatter) -> None:
         """Verify JSON output omits None fields."""

@@ -20,6 +20,7 @@ from llm_lsp_cli.output.formatter import (
     Position,
     Range,
     SymbolRecord,
+    compact_range,
 )
 from llm_lsp_cli.utils import OutputFormat
 
@@ -161,7 +162,7 @@ class TestDiagnosticRecordRefactor:
             end=Position(line=14, character=19),  # 0-indexed
         )
 
-        assert range_obj.to_compact() == "10:5-15:20"  # 1-indexed
+        assert compact_range(range_obj) == "10:5-15:20"  # 1-indexed
 
 
 # =============================================================================
@@ -184,7 +185,7 @@ class TestTransformDiagnostics:
         assert len(records) == 1
         rec = records[0]
         assert hasattr(rec, "range")
-        assert rec.range.to_compact() == "10:5-15:20"
+        assert compact_range(rec.range) == "10:5-15:20"
 
     def test_transform_diagnostics_preserves_severity_int(
         self, sample_lsp_diagnostic: dict[str, Any]

@@ -364,8 +364,11 @@ class WorkspaceSymbolParams(BaseModel):
     query: str
 
 
-class HoverParams(BaseModel):
-    """Parameters for textDocument/hover request."""
+class TextDocumentPositionParams(BaseModel):
+    """Base parameters for methods that operate on a position in a document.
+
+    Used by definition, hover, prepareRename, etc.
+    """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         validate_by_name=True,
@@ -377,17 +380,22 @@ class HoverParams(BaseModel):
     position: Position
 
 
-class DefinitionParams(BaseModel):
-    """Parameters for textDocument/definition request."""
+class HoverParams(TextDocumentPositionParams):
+    """Parameters for textDocument/hover request.
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        validate_by_name=True,
-        validate_by_alias=True,
-        extra="ignore",
-    )
+    Inherits from TextDocumentPositionParams.
+    """
 
-    text_document: TextDocumentIdentifier = Field(alias="textDocument")
-    position: Position
+    pass
+
+
+class DefinitionParams(TextDocumentPositionParams):
+    """Parameters for textDocument/definition request.
+
+    Inherits from TextDocumentPositionParams.
+    """
+
+    pass
 
 
 class ReferenceContext(BaseModel):
@@ -494,17 +502,13 @@ class WorkspaceDiagnosticParams(BaseModel):
     work_done_token: str | None = Field(default=None, alias="workDoneToken")
 
 
-class PrepareRenameParams(BaseModel):
-    """Parameters for textDocument/prepareRename request."""
+class PrepareRenameParams(TextDocumentPositionParams):
+    """Parameters for textDocument/prepareRename request.
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        validate_by_name=True,
-        validate_by_alias=True,
-        extra="ignore",
-    )
+    Inherits from TextDocumentPositionParams.
+    """
 
-    text_document: TextDocumentIdentifier = Field(alias="textDocument")
-    position: Position
+    pass
 
 
 class RenameParams(BaseModel):

@@ -18,7 +18,7 @@ from llm_lsp_cli.config.merge import deep_merge
 from llm_lsp_cli.domain.services.backup_manager import BackupManager
 from llm_lsp_cli.infrastructure.config.loader import ConfigLoader
 from llm_lsp_cli.ipc.protocol import serialize_for_json
-from llm_lsp_cli.output.formatter import Position
+from llm_lsp_cli.lsp.types import Position
 from pydantic import BaseModel
 
 

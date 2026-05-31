@@ -29,7 +29,7 @@ from llm_lsp_cli.lsp.types import (
     SymbolInformation,
     TextEdit,
 )
-from llm_lsp_cli.output.formatter import CompactFormatter, Range
+from llm_lsp_cli.output.formatter import CompactFormatter, Range, range_from_dict
 
 
 # =============================================================================
@@ -282,36 +282,42 @@ def dict_diagnostic() -> dict[str, object]:
 
 
 # =============================================================================
-# TEST SCENARIO B1: Range.from_pydantic() produces same Range as Range.from_dict()
+# TEST SCENARIO B1: Range types are unified (lsp.types.Range = output.formatter.Range)
 # =============================================================================
 
 
-class TestRangeFromPydantic:
-    """RED: Range.from_pydantic() must produce same output as Range.from_dict()."""
+class TestRangeUnification:
+    """Range from output.formatter is the same type as lsp.types.Range."""
 
-    def test_from_pydantic_exists(self) -> None:
-        """RED: Range must have from_pydantic classmethod."""
-        assert hasattr(Range, "from_pydantic")
+    def test_range_is_lsp_range(self) -> None:
+        """Range imported from output.formatter IS lsp.types.Range (unified)."""
+        assert Range is LspRange
 
-    def test_from_pydantic_produces_same_range_as_from_dict(
-        self, lsp_range: LspRange, dict_range: dict[str, object]
+    def test_range_from_dict_produces_valid_range(
+        self, dict_range: dict[str, object]
     ) -> None:
-        """RED: from_pydantic must produce identical Range as from_dict for equivalent data."""
-        range_via_pydantic = Range.from_pydantic(lsp_range)
-        range_via_dict = Range.from_dict(dict_range)
-
-        assert range_via_pydantic == range_via_dict
-
-    def test_from_pydantic_preserves_line_and_character(
-        self, lsp_range: LspRange
-    ) -> None:
-        """RED: from_pydantic must correctly preserve line and character values."""
-        result = Range.from_pydantic(lsp_range)
+        """range_from_dict creates a valid Range from a dict."""
+        result = range_from_dict(dict_range)
 
         assert result.start.line == 0
         assert result.start.character == 0
         assert result.end.line == 50
         assert result.end.character == 0
+
+    def test_range_from_dict_matches_direct_construction(self) -> None:
+        """range_from_dict produces equivalent Range to direct construction."""
+        from llm_lsp_cli.output.formatter import Position
+
+        dict_range: dict[str, object] = {
+            "start": {"line": 5, "character": 10},
+            "end": {"line": 5, "character": 20},
+        }
+        result = range_from_dict(dict_range)
+        expected = Range(
+            start=Position(line=5, character=10),
+            end=Position(line=5, character=20),
+        )
+        assert result == expected
 
 
 # =============================================================================

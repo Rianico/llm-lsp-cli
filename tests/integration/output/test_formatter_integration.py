@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
-from llm_lsp_cli.output.formatter import CompactFormatter
+from llm_lsp_cli.output.formatter import CompactFormatter, compact_range
 from llm_lsp_cli.utils import OutputFormat
 
 
@@ -451,7 +451,7 @@ class TestEdgeCases:
         records = formatter.transform_symbols(symbols)
 
         # Should use defaults (1:1-1:1) - range is now Range object
-        assert records[0].range.to_compact() == "1:1-1:1"
+        assert compact_range(records[0].range) == "1:1-1:1"
 
     def test_unicode_in_symbol_names(self, formatter: CompactFormatter) -> None:
         """Test handling unicode characters in symbol names."""
@@ -612,8 +612,8 @@ class TestTokenEfficiency:
         records = formatter.transform_symbols(sample_symbols)
 
         # Range should be compact: "1:1-51:1" not verbose like "line 1, column 1 to line 51, column 1"
-        assert records[0].range.to_compact() == "1:1-51:1"
-        assert records[1].range.to_compact() == "11:1-31:1"
+        assert compact_range(records[0].range) == "1:1-51:1"
+        assert compact_range(records[1].range) == "11:1-31:1"
 
     def test_absolute_paths(
         self, formatter: CompactFormatter, sample_symbols: list[dict[str, Any]]

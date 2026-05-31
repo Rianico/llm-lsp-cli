@@ -10,7 +10,8 @@ import pytest
 import yaml
 
 from llm_lsp_cli.output.dispatcher import OutputDispatcher
-from llm_lsp_cli.output.formatter import CompactFormatter, LocationRecord, Range, SymbolRecord
+from llm_lsp_cli.lsp.types import Range
+from llm_lsp_cli.output.formatter import CompactFormatter, LocationRecord, SymbolRecord, compact_range, range_from_dict
 from llm_lsp_cli.utils import OutputFormat
 
 # =============================================================================
@@ -32,22 +33,22 @@ SAMPLE_POSITION_DICT: dict[str, Any] = {"line": 10, "character": 5}
 
 
 # =============================================================================
-# RED PHASE: Position and Range dataclass tests
+# RED PHASE: Position and Range model tests
 # =============================================================================
 
 
-class TestPositionDataclass:
-    """RED: Tests for Position dataclass - FAILING until implemented."""
+class TestPositionModel:
+    """RED: Tests for Position model - FAILING until implemented."""
 
     def test_position_exists(self) -> None:
-        """RED: Position dataclass exists and can be imported."""
-        from llm_lsp_cli.output.formatter import Position
+        """RED: Position model exists and can be imported."""
+        from llm_lsp_cli.lsp.types import Position
 
         assert Position is not None
 
     def test_position_creation(self) -> None:
         """RED: Position can be created with line and character."""
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         pos = Position(line=5, character=10)
         assert pos.line == 5
@@ -55,7 +56,7 @@ class TestPositionDataclass:
 
     def test_position_equality(self) -> None:
         """RED: Two identical positions are equal."""
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         pos1 = Position(line=5, character=10)
         pos2 = Position(line=5, character=10)
@@ -63,7 +64,7 @@ class TestPositionDataclass:
 
     def test_position_inequality(self) -> None:
         """RED: Different positions are not equal."""
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         pos1 = Position(line=5, character=10)
         pos2 = Position(line=5, character=11)
@@ -71,24 +72,24 @@ class TestPositionDataclass:
 
     def test_position_to_dict(self) -> None:
         """RED: Position can be converted to dict."""
-        from llm_lsp_cli.output.formatter import Position
+        from llm_lsp_cli.lsp.types import Position
 
         pos = Position(line=5, character=10)
-        assert pos.to_dict() == {"line": 5, "character": 10}
+        assert pos.model_dump() == {"line": 5, "character": 10}
 
 
-class TestRangeDataclass:
-    """RED: Tests for Range dataclass - FAILING until implemented."""
+class TestRangeModel:
+    """RED: Tests for Range model - FAILING until implemented."""
 
     def test_range_exists(self) -> None:
-        """RED: Range dataclass exists and can be imported."""
-        from llm_lsp_cli.output.formatter import Range
+        """RED: Range model exists and can be imported."""
+        from llm_lsp_cli.lsp.types import Range
 
         assert Range is not None
 
     def test_range_creation_with_positions(self) -> None:
         """RED: Range can be created with Position objects."""
-        from llm_lsp_cli.output.formatter import Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
 
         start = Position(line=0, character=0)
         end = Position(line=10, character=0)
@@ -98,9 +99,9 @@ class TestRangeDataclass:
 
     def test_range_from_lsp_dict(self) -> None:
         """RED: Range can be created from LSP range dict."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
-        rng = Range.from_dict(SAMPLE_RANGE_DICT)
+        rng = range_from_dict(SAMPLE_RANGE_DICT)
         assert rng.start.line == 0
         assert rng.start.character == 0
         assert rng.end.line == 50
@@ -108,16 +109,16 @@ class TestRangeDataclass:
 
     def test_range_to_compact_string(self) -> None:
         """RED: Range can be formatted as compact string for TEXT/CSV."""
-        from llm_lsp_cli.output.formatter import Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
 
         start = Position(line=0, character=0)
         end = Position(line=50, character=0)
         rng = Range(start=start, end=end)
-        assert rng.to_compact() == "1:1-51:1"
+        assert compact_range(rng) == "1:1-51:1"
 
     def test_range_to_dict(self) -> None:
         """RED: Range can be converted to nested dict structure."""
-        from llm_lsp_cli.output.formatter import Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
 
         start = Position(line=0, character=0)
         end = Position(line=50, character=0)
@@ -126,11 +127,11 @@ class TestRangeDataclass:
             "start": {"line": 0, "character": 0},
             "end": {"line": 50, "character": 0},
         }
-        assert rng.to_dict() == expected
+        assert rng.model_dump() == expected
 
     def test_range_equality(self) -> None:
         """RED: Two identical ranges are equal."""
-        from llm_lsp_cli.output.formatter import Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
 
         rng1 = Range(start=Position(line=0, character=0), end=Position(line=10, character=5))
         rng2 = Range(start=Position(line=0, character=0), end=Position(line=10, character=5))
@@ -147,7 +148,8 @@ class TestSymbolRecordWithRange:
 
     def test_symbol_record_range_is_range_object(self) -> None:
         """RED: SymbolRecord.range should be a Range object, not a string."""
-        from llm_lsp_cli.output.formatter import Position, Range, SymbolRecord
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import SymbolRecord
 
         rng = Range(start=Position(line=0, character=0), end=Position(line=50, character=0))
         record = SymbolRecord(
@@ -161,7 +163,8 @@ class TestSymbolRecordWithRange:
 
     def test_symbol_record_has_selection_range_field(self) -> None:
         """RED: SymbolRecord should have optional selection_range field."""
-        from llm_lsp_cli.output.formatter import Position, Range, SymbolRecord
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import SymbolRecord
 
         sel_rng = Range(start=Position(line=0, character=6), end=Position(line=0, character=13))
         record = SymbolRecord(
@@ -176,7 +179,8 @@ class TestSymbolRecordWithRange:
 
     def test_symbol_record_has_data_field(self) -> None:
         """RED: SymbolRecord should have optional data field for LSP extensions."""
-        from llm_lsp_cli.output.formatter import Position, Range, SymbolRecord
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import SymbolRecord
 
         record = SymbolRecord(
             file="src/models.py",
@@ -194,7 +198,8 @@ class TestLocationRecordWithRange:
 
     def test_location_record_range_is_range_object(self) -> None:
         """RED: LocationRecord.range should be a Range object, not a string."""
-        from llm_lsp_cli.output.formatter import LocationRecord, Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import LocationRecord
 
         rng = Range(start=Position(line=10, character=4), end=Position(line=10, character=20))
         record = LocationRecord(file="src/main.py", range=rng)
@@ -206,7 +211,8 @@ class TestCallHierarchyRecordWithRange:
 
     def test_call_hierarchy_record_range_is_range_object(self) -> None:
         """RED: CallHierarchyRecord.range should be a Range object."""
-        from llm_lsp_cli.output.formatter import CallHierarchyRecord, Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import CallHierarchyRecord
 
         rng = Range(start=Position(line=5, character=0), end=Position(line=10, character=0))
         record = CallHierarchyRecord(
@@ -220,7 +226,8 @@ class TestCallHierarchyRecordWithRange:
 
     def test_call_hierarchy_record_from_ranges_is_list_of_range(self) -> None:
         """RED: CallHierarchyRecord.from_ranges should be list[Range]."""
-        from llm_lsp_cli.output.formatter import CallHierarchyRecord, Position, Range
+        from llm_lsp_cli.lsp.types import Position, Range
+        from llm_lsp_cli.output.formatter import CallHierarchyRecord
 
         rng1 = Range(start=Position(line=5, character=4), end=Position(line=5, character=15))
         rng2 = Range(start=Position(line=10, character=8), end=Position(line=10, character=19))
@@ -246,7 +253,7 @@ class TestTransformSymbolsReturnsRange:
 
     def test_transform_symbols_range_is_range_object(self, temp_dir: Path) -> None:
         """RED: transform_symbols should create Range objects, not strings."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -265,7 +272,7 @@ class TestTransformSymbolsReturnsRange:
 
     def test_transform_symbols_preserves_selection_range(self, temp_dir: Path) -> None:
         """RED: transform_symbols should preserve selectionRange as Range."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
         formatter = CompactFormatter(str(temp_dir))
         symbols = [
@@ -311,7 +318,7 @@ class TestTransformLocationsReturnsRange:
 
     def test_transform_locations_range_is_range_object(self, temp_dir: Path) -> None:
         """RED: transform_locations should create Range objects."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
         formatter = CompactFormatter(str(temp_dir))
         locations = [
@@ -694,7 +701,7 @@ class TestTransformSymbols:
         self, sample_workspace_symbols: list[dict[str, Any]], temp_dir: Path
     ) -> None:
         """Verify basic transformation to SymbolRecord list."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
         formatter = CompactFormatter(str(temp_dir))
         result = formatter.transform_symbols(sample_workspace_symbols)
@@ -706,7 +713,7 @@ class TestTransformSymbols:
         # File path is now absolute (resolve() for macOS /var -> /private/var)
         assert result[0].file == str((temp_dir / "src" / "models.py").resolve())
         assert isinstance(result[0].range, Range)
-        assert result[0].range.to_compact() == "1:1-51:1"
+        assert compact_range(result[0].range) == "1:1-51:1"
 
     def test_transform_includes_optional_fields(self, temp_dir: Path) -> None:
         """Verify optional field extraction."""
@@ -794,7 +801,7 @@ class TestTransformSymbols:
         ]
         result = formatter.transform_symbols(symbols)
         assert isinstance(result[0].range, Range)
-        assert result[0].range.to_compact() == "1:1-51:1"
+        assert compact_range(result[0].range) == "1:1-51:1"
 
 
 class TestTransformLocations:
@@ -804,7 +811,7 @@ class TestTransformLocations:
         self, sample_locations: list[dict[str, Any]], temp_dir: Path
     ) -> None:
         """Basic transformation to LocationRecord list."""
-        from llm_lsp_cli.output.formatter import Range
+        from llm_lsp_cli.lsp.types import Range
 
         formatter = CompactFormatter(str(temp_dir))
         result = formatter.transform_locations(sample_locations)
@@ -814,7 +821,7 @@ class TestTransformLocations:
         # File path is now absolute (resolve() for macOS /var -> /private/var)
         assert result[0].file == str((temp_dir / "src" / "main.py").resolve())
         assert isinstance(result[0].range, Range)
-        assert result[0].range.to_compact() == "6:1-6:21"
+        assert compact_range(result[0].range) == "6:1-6:21"
 
     def test_transform_locations_empty(self, temp_dir: Path) -> None:
         """Empty input."""
