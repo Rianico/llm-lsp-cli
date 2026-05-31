@@ -25,7 +25,7 @@ LANGUAGES_KEY = "languages"
 class JsonServerDefinitionRepository:
     """JSON file-based server definition repository.
 
-    Implements ServerDefinitionRepository protocol for persistent storage.
+    Provides persistent storage for server definitions.
     Uses lazy loading and thread-safe access.
 
     Attributes:

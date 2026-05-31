@@ -1,9 +1,6 @@
 """Integration tests for type-safe architecture."""
 
-from pathlib import Path
-
 from llm_lsp_cli.domain import (
-    WorkspacePath,
     LspMethodRouter,
     LspMethodConfig,
 )
@@ -12,15 +9,6 @@ from llm_lsp_cli.lsp.constants import LSPConstants
 
 class TestTypeSafeArchitecture:
     """Integration tests verifying type-safe components work together."""
-
-    def test_server_definition_type_construction(self, tmp_path: Path):
-        """Verify ServerDefinition construction with type safety."""
-        workspace = tmp_path / "workspace"
-        workspace.mkdir()
-
-        # Create workspace path (type-safe VO)
-        ws_path = WorkspacePath(workspace)
-        assert ws_path.path == workspace.resolve()
 
     def test_lsp_method_router_type_safety(self):
         """Verify LspMethodRouter returns typed configurations."""
@@ -57,21 +45,3 @@ class TestTypeSafeArchitecture:
         ws_diag_config = router.get_config(LSPConstants.WORKSPACE_DIAGNOSTIC)
         assert ws_diag_config is not None
         assert ws_diag_config.registry_method == "request_workspace_diagnostics"
-
-
-class TestProtocolImplementations:
-    """Verify concrete implementations satisfy protocols."""
-
-    def test_json_repo_satisfies_protocol(self):
-        """Verify JsonServerDefinitionRepository satisfies protocol."""
-        from llm_lsp_cli.infrastructure.config.repository.json_server_def_repo import (
-            JsonServerDefinitionRepository,
-        )
-
-        # Runtime check - repository should satisfy protocol
-        repo = JsonServerDefinitionRepository(config_file=Path("/tmp/test.json"))
-
-        # Verify protocol methods exist
-        assert callable(getattr(repo, "get", None))
-        assert callable(getattr(repo, "list_all", None))
-        assert callable(getattr(repo, "register", None))

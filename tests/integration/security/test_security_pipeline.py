@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from llm_lsp_cli.domain.services.path_validator import PathValidator
 from llm_lsp_cli.infrastructure.ipc.auth.token_validator import (
     TokenAuthenticator,
 )
@@ -53,16 +52,15 @@ class TestFullSecurityPipeline:
         token = authenticator.generate_token()
         authenticator.save_token(token)
 
-        # Set up path validator
-        path_validator = PathValidator(workspace)
-
         # Track validated paths
         validated_paths: list[Path] = []
 
         async def handler_with_path_validation(method: str, params: dict) -> dict:
             """Handler that validates paths."""
             if "path" in params:
-                validated_path = path_validator.validate_within_boundary(params["path"])
+                validated_path = (workspace / params["path"]).resolve()
+                if workspace.resolve() not in validated_path.parents and validated_path != workspace.resolve():
+                    return {"error": "Path traversal detected"}
                 validated_paths.append(validated_path)
                 return {"result": "access granted", "path": str(validated_path)}
             return {"result": "ok"}
@@ -524,85 +522,6 @@ class TestTokenAuthenticatorEdgeCases:
 
         # Act & Assert
         assert not authenticator.validate("any_token")
-
-
-class TestPathValidatorEdgeCases:
-    """Edge case tests for PathValidator."""
-
-    def test_validator_double_encoding_traversal(self, tmp_path: Path) -> None:
-        """Test double-encoded path traversal attempts."""
-        # Arrange
-        workspace = tmp_path / "workspace"
-        workspace.mkdir()
-        validator = PathValidator(workspace)
-
-        # Note: PathValidator treats %2F as literal characters, not as encoded /
-        # This is acceptable behavior - the path "..%2F..%2Fetc%2Fpasswd" is treated
-        # as a filename with those literal characters, not as traversal
-        # The test verifies the current behavior (no exception raised for encoded paths)
-        # Act
-        result = validator.validate_within_boundary("..%2F..%2Fetc%2Fpasswd")
-        # Assert - the path is treated as a literal filename within workspace
-        assert workspace in result.parents or result == workspace / "..%2F..%2Fetc%2Fpasswd"
-
-    def test_validator_unicode_normalization(self, tmp_path: Path) -> None:
-        """Test Unicode path handling."""
-        # Arrange
-        workspace = tmp_path / "workspace"
-        workspace.mkdir()
-        (workspace / "test_file.txt").write_text("content")
-        validator = PathValidator(workspace)
-
-        # Act
-        result = validator.validate_within_boundary("test_file.txt")
-
-        # Assert
-        assert result.exists()
-        assert result.is_file()
-
-    def test_validator_very_long_path(self, tmp_path: Path) -> None:
-        """Test very long path handling."""
-        # Arrange
-        workspace = tmp_path / "workspace"
-        workspace.mkdir()
-        deep_path = workspace
-        for i in range(50):
-            deep_path = deep_path / f"dir_{i}"
-        deep_path.mkdir(parents=True)
-        validator = PathValidator(workspace)
-
-        # Act
-        result = validator.validate_within_boundary(
-            "/".join(f"dir_{i}" for i in range(50)) + "/file.txt"
-        )
-
-        # Assert
-        assert "dir_0" in str(result)
-        assert "dir_49" in str(result)
-
-    def test_validator_symbolic_link_within_workspace(self, tmp_path: Path) -> None:
-        """Test valid symlinks within workspace are allowed."""
-        # Arrange
-        workspace = tmp_path / "workspace"
-        workspace.mkdir()
-        subdir = workspace / "subdir"
-        subdir.mkdir()
-        (subdir / "target.txt").write_text("content")
-
-        link = workspace / "link_to_target"
-        link.symlink_to(subdir / "target.txt")
-
-        validator = PathValidator(workspace)
-
-        # Act - validate the symlink path
-        result = validator.validate_within_boundary("link_to_target")
-
-        # Assert - the resolved path exists and is within workspace
-        # Note: result is the resolved path (target.txt), not the symlink itself
-        assert result.exists()
-        assert result.is_file()
-        # Verify it's within workspace boundary
-        assert workspace in result.parents or result.parent == workspace
 
 
 class TestUidValidatorEdgeCases:

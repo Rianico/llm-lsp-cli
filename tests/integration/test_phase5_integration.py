@@ -881,14 +881,6 @@ class TestTypeAnnotationVerification:
         assert "args" in hints
         assert "timeout_seconds" in hints
 
-    def test_workspace_path_has_type_hints(self) -> None:
-        """Test WorkspacePath has proper type hints."""
-        from llm_lsp_cli.domain.value_objects import WorkspacePath
-        import typing
-
-        hints = typing.get_type_hints(WorkspacePath)
-        assert "path" in hints
-
     def test_lsp_method_config_has_type_hints(self) -> None:
         """Test LspMethodConfig has proper type hints."""
         from llm_lsp_cli.domain.services import LspMethodConfig

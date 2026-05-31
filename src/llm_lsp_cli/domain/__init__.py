@@ -5,16 +5,13 @@ Contains enterprise logic independent of frameworks and external concerns.
 
 from .entities import ServerDefinition
 from .exceptions import PathValidationError
-from .repositories import ServerDefinitionRepository
 from .services import LspMethodConfig, LspMethodRouter
-from .value_objects import LogLevel, WorkspacePath
+from .value_objects import LogLevel
 
 __all__ = [
     "ServerDefinition",
     "PathValidationError",
-    "ServerDefinitionRepository",
     "LspMethodConfig",
     "LspMethodRouter",
-    "WorkspacePath",
     "LogLevel",
 ]

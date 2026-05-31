@@ -8,15 +8,6 @@ from llm_lsp_cli.domain.entities import ServerDefinition
 class TestJsonServerDefinitionRepository:
     """Test JsonServerDefinitionRepository functionality."""
 
-    def test_repo_implements_protocol(self) -> None:
-        """JsonServerDefinitionRepository implements ServerDefinitionRepository protocol."""
-        from llm_lsp_cli.domain.repositories import ServerDefinitionRepository
-        from llm_lsp_cli.infrastructure.config.repository import JsonServerDefinitionRepository
-
-        # This will fail at runtime if protocol not implemented
-        repo: ServerDefinitionRepository = JsonServerDefinitionRepository(Path("/tmp/test"))
-        assert repo is not None
-
     def test_repo_loads_from_config_file(self, tmp_path: Path) -> None:
         """JsonServerDefinitionRepository loads server definitions from config file."""
         # Arrange
