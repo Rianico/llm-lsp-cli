@@ -10,30 +10,8 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any, Literal, overload, override
+from typing import Any, override
 
-from llm_lsp_cli.lsp.types import (
-    CompletionItem,
-    DocumentSymbol,
-    Hover,
-    Location,
-    PrepareRenameResult,
-    SymbolInformation,
-    WorkspaceEdit,
-)
-
-from .method_registry import MethodName
-from .models import (
-    CompletionParams,
-    DaemonStatusResult,
-    EmptyParams,
-    PingResult,
-    ReferenceParams,
-    RenameParams,
-    ShutdownResult,
-    TextDocumentPositionParams,
-    WorkspaceSymbolParams,
-)
 from .protocol import (
     ERROR_INTERNAL_ERROR,
     JSONRPCResponse,
@@ -56,134 +34,25 @@ class UNIXClient:
         self._request_id = 0
         self._pending = {}
 
-    # ========================================================================
-    # @overload declarations for compile-time type safety
-    # ========================================================================
-
-    @overload
-    async def request(
-        self,
-        method: Literal["ping"],
-        params: EmptyParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> PingResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["shutdown"],
-        params: EmptyParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> ShutdownResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["status"],
-        params: EmptyParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> DaemonStatusResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/definition"],
-        params: TextDocumentPositionParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> list[Location]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/hover"],
-        params: TextDocumentPositionParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> Hover | None: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/documentSymbol"],
-        params: TextDocumentPositionParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> list[DocumentSymbol]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["workspace/symbol"],
-        params: WorkspaceSymbolParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> list[SymbolInformation]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/prepareRename"],
-        params: TextDocumentPositionParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> PrepareRenameResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/rename"],
-        params: RenameParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> WorkspaceEdit: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/references"],
-        params: ReferenceParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> list[Location]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/completion"],
-        params: CompletionParams,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> list[CompletionItem] | None: ...
-
-    # Fallback overload for unknown methods - type error (unreachable)
-    @overload
-    async def request(
-        self,
-        method: MethodName,
-        params: object,
-        reader: asyncio.StreamReader | None = None,
-        writer: asyncio.StreamWriter | None = None,
-    ) -> object: ...
-
-    # ========================================================================
-    # Generic implementation (fallback for dynamic method calls)
-    # ========================================================================
-
     async def request(
         self,
         method: str,
-        params: Any,
+        params: dict[str, Any],
         reader: asyncio.StreamReader | None = None,
         writer: asyncio.StreamWriter | None = None,
-    ) -> Any:
-        """
-        Send a request and wait for response.
+    ) -> object:
+        """Send a request and wait for response.
 
         If reader/writer not provided, creates a new connection.
+
+        Args:
+            method: RPC method name
+            params: Request parameters as dict
+            reader: Optional existing stream reader
+            writer: Optional existing stream writer
+
+        Returns:
+            Response result (type depends on method)
         """
         self._request_id += 1
         request_id = self._request_id
@@ -193,13 +62,7 @@ class UNIXClient:
         future = loop.create_future()
         self._pending[request_id] = future
 
-        # Build and send request - convert Pydantic model to dict
-        if hasattr(params, "model_dump"):
-            params_dict = params.model_dump(mode="json", by_alias=True)
-        else:
-            params_dict = params
-
-        request = build_request(method, params_dict, request_id)
+        request = build_request(method, params, request_id)
 
         close_connection = False
         if reader is None or writer is None:

@@ -43,9 +43,7 @@ if TYPE_CHECKING:
     from llm_lsp_cli.daemon import DaemonManager
 
 from pydantic import BaseModel as _BaseModel
-from pydantic import TypeAdapter
 
-from llm_lsp_cli.daemon import RESPONSE_KEYS
 from llm_lsp_cli.ipc import (
     DaemonFileParams,
     DaemonPositionParams,
@@ -401,6 +399,45 @@ def _handle_daemon_error(error: Exception, workspace_path: str, language: str) -
     return CLIError(str(error))
 
 
+def _resolve_workspace_and_language(
+    params: object,
+    language: str | None,
+) -> tuple[str, str]:
+    """Extract workspace_path and detect language from params.
+
+    Args:
+        params: Request parameters (BaseModel or dict)
+        language: Optional language override
+
+    Returns:
+        Tuple of (workspace_path, language)
+    """
+    file_path: str | None
+    if isinstance(params, (DaemonPositionParams, DaemonFileParams)):
+        workspace_path = params.workspace_path
+        file_path = params.file_path
+    elif isinstance(params, DaemonWorkspaceParams):
+        workspace_path = params.workspace_path
+        file_path = None
+    elif isinstance(params, _BaseModel):
+        workspace_path = str(Path.cwd())
+        file_path = None
+    else:
+        params_dict = cast("dict[str, object]", params) if isinstance(params, dict) else {}
+        workspace_path_val = params_dict.get("workspacePath", str(Path.cwd()))
+        workspace_path = str(workspace_path_val) if workspace_path_val else str(Path.cwd())
+        file_path_val = params_dict.get("filePath")
+        file_path = str(file_path_val) if file_path_val else None
+        if language is None:
+            language = detect_language_from_file(file_path) if file_path else "python"
+
+    if isinstance(params, _BaseModel) and language is None and file_path:
+        language = detect_language_from_file(str(file_path))
+
+    language = language or "python"
+    return workspace_path, language
+
+
 # =============================================================================
 # send_request overloads and implementation (ADR-0028)
 # =============================================================================
@@ -523,14 +560,7 @@ def send_request(
     params: object,
     language: str | None = None,
 ) -> object:
-    """Send a request to the daemon and return the typed response.
-
-    This function serves as a typed gateway at the CLI-IPC boundary:
-    - Accepts daemon RPC param models (DaemonPositionParams, etc.)
-    - Serializes BaseModel params to flat camelCase dicts
-    - Unwraps response dicts using RESPONSE_KEYS
-    - Validates inner values with Pydantic models
-    - Returns typed results for overload-matched methods
+    """Sync bridge: send a typed request to the daemon.
 
     Args:
         method: LSP method name (e.g., "textDocument/definition")
@@ -540,139 +570,20 @@ def send_request(
     Returns:
         Typed result based on method overload, or object for unknown methods
     """
-    from llm_lsp_cli.daemon_client import DaemonClient
-    from llm_lsp_cli.ipc.method_registry import MethodName
+    from llm_lsp_cli.gateway import TypedRequestGateway
 
-    # Extract workspace_path and detect language
-    file_path: str | None
-    if isinstance(params, (DaemonPositionParams, DaemonFileParams)):
-        workspace_path = params.workspace_path
-        file_path = params.file_path
-    elif isinstance(params, DaemonWorkspaceParams):
-        workspace_path = params.workspace_path
-        file_path = None
-    elif isinstance(params, _BaseModel):
-        # Fallback for other BaseModel types (shouldn't happen with current models)
-        workspace_path = str(Path.cwd())
-        file_path = None
-    else:
-        # Extract from dict
-        params_dict = cast("dict[str, object]", params) if isinstance(params, dict) else {}
-        workspace_path_val = params_dict.get("workspacePath", str(Path.cwd()))
-        workspace_path = str(workspace_path_val) if workspace_path_val else str(Path.cwd())
-        file_path_val = params_dict.get("filePath")
-        file_path = str(file_path_val) if file_path_val else None
-        if language is None:
-            language = detect_language_from_file(file_path) if file_path else "python"
+    workspace_path, language = _resolve_workspace_and_language(params, language)
+    gateway = TypedRequestGateway(workspace_path, language)
 
-    if isinstance(params, _BaseModel) and language is None and file_path:
-        language = detect_language_from_file(str(file_path))
-
-    language = language or "python"
-
-    # Serialize params for daemon
-    if isinstance(params, _BaseModel):
-        serialized_params = params.model_dump(mode="json", by_alias=True)
-    elif isinstance(params, dict):
-        serialized_params = cast("dict[str, object]", params)
-    else:
-        serialized_params = {}
-
-    client = DaemonClient(
-        workspace_path=str(workspace_path),
-        language=language,
-    )
-
-    async def send() -> object:
+    async def _send() -> object:
         try:
-            result = await client.request(cast(MethodName, method), serialized_params)
-            if not isinstance(result, dict):
-                return result
-
-            # Cast to dict[str, object] after isinstance check
-            result_dict = cast(dict[str, object], result)
-
-            # textDocument/didChange returns None (acknowledgment only, no data needed)
-            if method == "textDocument/didChange":
-                return None
-
-            # Methods that always keep dict returns (diagnostics)
-            if method in (
-                "textDocument/diagnostic",
-                "workspace/diagnostic",
-            ):
-                return result_dict
-
-            # Only validate when typed params (BaseModel) are used.
-            # Dict params maintain backward compatibility with raw responses.
-            if isinstance(params, _BaseModel):
-                # Unwrap response using RESPONSE_KEYS
-                response_key = RESPONSE_KEYS.get(method, "result")
-                inner_value = result_dict.get(response_key)
-                # Validate and return typed result
-                return _validate_response(method, inner_value)
-
-            # Dict params: return raw response for backward compat
-            return result_dict
-
+            return await gateway.request(method, params)
         except Exception as e:
-            raise _handle_daemon_error(e, str(workspace_path), language) from e
+            raise _handle_daemon_error(e, workspace_path, language) from e
         finally:
-            await client.close()
+            await gateway.close()
 
-    return asyncio.run(send())
-
-
-def _validate_response(method: str, inner_value: object) -> object:
-    """Validate inner response value with appropriate Pydantic model.
-
-    Args:
-        method: LSP method name
-        inner_value: The unwrapped inner value from daemon response
-
-    Returns:
-        Validated Pydantic model or list of models
-
-    Raises:
-        ValidationError: If validation fails (no silent fallback)
-    """
-    # Map methods to their result types
-    # Note: Some methods return lists, some return single items, some return None
-    if inner_value is None:
-        return None
-
-    # Single-item returns
-    single_item_types: dict[str, type[_BaseModel]] = {
-        "textDocument/hover": Hover,
-        "textDocument/prepareRename": PrepareRenameResult,
-        "textDocument/rename": WorkspaceEdit,
-    }
-
-    # List-item returns
-    list_item_types: dict[str, type[_BaseModel]] = {
-        "textDocument/definition": Location,
-        "textDocument/references": Location,
-        "textDocument/completion": CompletionItem,
-        "textDocument/documentSymbol": DocumentSymbol,
-        "workspace/symbol": SymbolInformation,
-        "callHierarchy/incomingCalls": CallHierarchyIncomingCall,
-        "callHierarchy/outgoingCalls": CallHierarchyOutgoingCall,
-    }
-
-    if method in single_item_types:
-        model_type = single_item_types[method]
-        adapter = TypeAdapter(model_type)
-        return adapter.validate_python(inner_value)
-
-    if method in list_item_types:
-        if not isinstance(inner_value, list):
-            return inner_value
-        model_type = list_item_types[method]
-        adapter = TypeAdapter(list[model_type])  # type: ignore[valid-type]
-        return adapter.validate_python(inner_value)
-
-    # Unknown method - return as-is
-    return inner_value
+    return asyncio.run(_send())
 
 
 def send_notification(
@@ -680,28 +591,21 @@ def send_notification(
     params: dict[str, object],
     language: str | None = None,
 ) -> None:
-    """Send a notification to the daemon (no response expected)."""
-    from llm_lsp_cli.daemon_client import DaemonClient
+    """Sync bridge: send a notification to the daemon."""
+    from llm_lsp_cli.gateway import TypedRequestGateway
 
-    workspace_path_val = params.get("workspacePath", str(Path.cwd()))
-    workspace_path = str(workspace_path_val) if workspace_path_val else str(Path.cwd())
+    workspace_path, language = _resolve_workspace_and_language(params, language)
+    gateway = TypedRequestGateway(workspace_path, language)
 
-    if language is None:
-        file_path_val = params.get("filePath")
-        file_path = str(file_path_val) if file_path_val else None
-        language = detect_language_from_file(file_path) if file_path else "python"
-
-    client = DaemonClient(workspace_path=workspace_path, language=language)
-
-    async def send() -> None:
+    async def _send() -> None:
         try:
-            await client.send_notification(method, params)
+            await gateway.notify(method, params)
         except Exception as e:
             raise _handle_daemon_error(e, workspace_path, language) from e
         finally:
-            await client.close()
+            await gateway.close()
 
-    asyncio.run(send())
+    asyncio.run(_send())
 
 
 def output_result(

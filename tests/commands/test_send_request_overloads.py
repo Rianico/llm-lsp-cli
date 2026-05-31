@@ -380,8 +380,8 @@ class TestSendRequestDictReturns:
 class TestSendRequestUnknownMethod:
     """Test fallback behavior for unknown methods."""
 
-    def test_unknown_method_with_dict_params_returns_raw_response(self) -> None:
-        """Unknown method with dict params returns raw response (backward compat)."""
+    def test_unknown_method_with_dict_params_returns_unwrapped_value(self) -> None:
+        """Unknown method with dict params returns unwrapped result value."""
         from llm_lsp_cli.commands.shared import send_request
 
         params = {"key": "value"}
@@ -396,8 +396,8 @@ class TestSendRequestUnknownMethod:
 
             result = send_request("unknown/method", params, language="python")
 
-            # Dict params: raw response returned for backward compat
-            assert result == daemon_response
+            # Gateway always unwraps using RESPONSE_KEYS
+            assert result == "data"
 
 
 class TestSendRequestValidationFailure:

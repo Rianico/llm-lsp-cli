@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Literal, overload
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.daemon import DaemonManager
@@ -19,27 +18,6 @@ from llm_lsp_cli.exceptions import (
     DaemonStartupTimeoutError,
 )
 from llm_lsp_cli.ipc import UNIXClient
-from llm_lsp_cli.ipc.method_registry import MethodName
-from llm_lsp_cli.ipc.models import (
-    CompletionParams,
-    DaemonStatusResult,
-    EmptyParams,
-    PingResult,
-    ReferenceParams,
-    RenameParams,
-    ShutdownResult,
-    TextDocumentPositionParams,
-    WorkspaceSymbolParams,
-)
-from llm_lsp_cli.lsp.types import (
-    CompletionItem,
-    DocumentSymbol,
-    Hover,
-    Location,
-    PrepareRenameResult,
-    SymbolInformation,
-    WorkspaceEdit,
-)
 
 
 class DaemonClient:
@@ -102,103 +80,10 @@ class DaemonClient:
         self._client = None
         self._manager = None
 
-    # =========================================================================
-    # @overload declarations for compile-time type safety
-    # =========================================================================
-
-    @overload
     async def request(
         self,
-        method: Literal["ping"],
-        params: EmptyParams,
-    ) -> PingResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["shutdown"],
-        params: EmptyParams,
-    ) -> ShutdownResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["status"],
-        params: EmptyParams,
-    ) -> DaemonStatusResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/definition"],
-        params: TextDocumentPositionParams,
-    ) -> list[Location]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/hover"],
-        params: TextDocumentPositionParams,
-    ) -> Hover | None: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/documentSymbol"],
-        params: TextDocumentPositionParams,
-    ) -> list[DocumentSymbol]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["workspace/symbol"],
-        params: WorkspaceSymbolParams,
-    ) -> list[SymbolInformation]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/prepareRename"],
-        params: TextDocumentPositionParams,
-    ) -> PrepareRenameResult: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/rename"],
-        params: RenameParams,
-    ) -> WorkspaceEdit: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/references"],
-        params: ReferenceParams,
-    ) -> list[Location]: ...
-
-    @overload
-    async def request(
-        self,
-        method: Literal["textDocument/completion"],
-        params: CompletionParams,
-    ) -> list[CompletionItem] | None: ...
-
-    # Fallback overload - type error for unknown methods
-    @overload
-    async def request(
-        self,
-        method: MethodName,
-        params: object,
-    ) -> object: ...
-
-    # =========================================================================
-    # Generic implementation
-    # =========================================================================
-
-    async def request(
-        self,
-        method: MethodName,
-        params: object,
+        method: str,
+        params: dict[str, object],
     ) -> object:
         """Send an LSP request, auto-starting daemon if needed.
 
@@ -207,7 +92,7 @@ class DaemonClient:
             params: Request parameters as dict
 
         Returns:
-            LSP response (typed based on method via UNIXClient overloads)
+            LSP response (type depends on method)
 
         Raises:
             DaemonStartupError: If daemon fails to start
@@ -225,7 +110,6 @@ class DaemonClient:
         )
 
         try:
-            # UNIXClient has overloads that provide typed returns for known methods
             response = await self._client.request(method, params)
             return response
         except FileNotFoundError:
