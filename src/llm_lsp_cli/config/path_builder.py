@@ -6,11 +6,18 @@ LSP responses are inherently dynamic, so object is used for dict value types.
 
 from __future__ import annotations
 
+import hashlib
+import os
+import re
 import warnings
 from pathlib import Path
 
+import logging
+
 from llm_lsp_cli.config.defaults import DEFAULT_CONFIG
 from llm_lsp_cli.utils.type_helpers import get_dict, get_str
+
+logger = logging.getLogger(__name__)
 
 
 class RuntimePathBuilder:
@@ -19,6 +26,25 @@ class RuntimePathBuilder:
     Handles construction of socket, PID, log, and daemon log file paths
     using a flat directory structure under .llm-lsp-cli/.
     """
+
+    @staticmethod
+    def _build_socket_dir(workspace_path: str) -> Path:
+        """Build socket directory path under /tmp.
+
+        Uses sanitized workspace name + SHA-256 hash prefix to create
+        a deterministic, collision-resistant directory name that stays
+        well within the 104-char UNIX socket path limit on macOS.
+
+        Args:
+            workspace_path: Absolute workspace directory path.
+
+        Returns:
+            Path to socket directory under /tmp/llm-lsp-cli/.
+        """
+        name = Path(workspace_path).name
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", name)[:20]
+        path_hash = hashlib.sha256(workspace_path.encode()).hexdigest()[:8]
+        return Path(f"/tmp/llm-lsp-cli-{os.getuid()}") / f"{sanitized}_{path_hash}"
 
     @staticmethod
     def get_runtime_base_dir(workspace_path: str | None = None) -> Path:
@@ -63,19 +89,22 @@ class RuntimePathBuilder:
         base_dir: Path | None = None,
         lsp_server_name: str | None = None,
     ) -> Path:
-        """Build socket file path.
+        """Build socket file path under /tmp.
+
+        Socket files are stored in /tmp/llm-lsp-cli/{sanitized}_{hash}/
+        to avoid exceeding the 104-char UNIX socket path limit on macOS.
 
         Args:
             workspace_path: Workspace directory path.
             language: Language identifier.
-            base_dir: Optional base directory override.
+            base_dir: Optional base directory override (for testing).
             lsp_server_name: Optional server name override.
 
         Returns:
             Path to the socket file.
         """
         if base_dir is None:
-            base_dir = cls.get_runtime_base_dir(workspace_path)
+            base_dir = cls._build_socket_dir(workspace_path)
         if lsp_server_name is None:
             lsp_server_name = cls._get_lsp_server_name(language)
         return base_dir / f"{lsp_server_name}.sock"
@@ -88,7 +117,10 @@ class RuntimePathBuilder:
         base_dir: Path | None = None,
         lsp_server_name: str | None = None,
     ) -> Path:
-        """Build PID file path.
+        """Build PID file path in workspace.
+
+        PID files remain in workspace/.llm-lsp-cli/ for discoverability,
+        unlike socket files which live in /tmp.
 
         Args:
             workspace_path: Workspace directory path.
@@ -99,9 +131,11 @@ class RuntimePathBuilder:
         Returns:
             Path to the PID file.
         """
-        return cls.build_socket_path(
-            workspace_path, language, base_dir, lsp_server_name
-        ).with_suffix(".pid")
+        if base_dir is None:
+            base_dir = cls.get_runtime_base_dir(workspace_path)
+        if lsp_server_name is None:
+            lsp_server_name = cls._get_lsp_server_name(language)
+        return base_dir / f"{lsp_server_name}.pid"
 
     @classmethod
     def build_log_file_path(
@@ -169,3 +203,24 @@ class RuntimePathBuilder:
         if base_dir is None:
             base_dir = cls.get_runtime_base_dir(workspace_path)
         return base_dir / "diagnostics.log"
+
+
+def create_socket_symlink(workspace_path: str, socket_dir: Path) -> None:
+    """Create symlink from workspace to socket directory.
+
+    Creates a symlink at {workspace}/.llm-lsp-cli/socket pointing to
+    the /tmp socket directory for discoverability.
+
+    Args:
+        workspace_path: Absolute workspace directory path.
+        socket_dir: Path to the socket directory under /tmp.
+    """
+    workspace_socket = Path(workspace_path) / ".llm-lsp-cli" / "socket"
+    workspace_socket.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if workspace_socket.is_symlink() or workspace_socket.exists():
+            workspace_socket.unlink()
+        workspace_socket.symlink_to(socket_dir)
+    except OSError as e:
+        logger.warning(f"Failed to create socket symlink {workspace_socket} -> {socket_dir}: {e}")

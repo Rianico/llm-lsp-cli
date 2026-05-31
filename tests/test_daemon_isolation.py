@@ -1,5 +1,6 @@
 """Tests for daemon isolation with workspace-specific paths."""
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -167,7 +168,9 @@ class TestDaemonIsolation:
         assert daemon_log != lsp_log
         assert daemon_log.name == "daemon.log"
         assert lsp_log.name != "daemon.log"
-        assert daemon_log.parent == lsp_log.parent
+        # Daemon log stays in workspace, LSP log is in /tmp (deprecated)
+        assert ".llm-lsp-cli" in str(daemon_log)
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(lsp_log)
 
     def test_daemon_manager_has_daemon_log_file(self, temp_dir: Path) -> None:
         """Test DaemonManager has daemon_log_file attribute."""

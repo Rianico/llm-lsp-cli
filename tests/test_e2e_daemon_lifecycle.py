@@ -93,7 +93,9 @@ class TestE2EIPCCommunication:
 
             # Test ping
             result = await client.request("ping", {})
-            assert result == {"status": "pong"}
+            assert result["status"] == "healthy"
+            assert result["daemon"] is True
+            assert "lsp_server" in result
 
             # Test status
             result = await client.request("status", {})
@@ -541,7 +543,9 @@ class TestE2EConcurrentRequests:
 
             # All should succeed
             for result in results:
-                assert result == {"status": "pong"}
+                assert result["status"] == "healthy"
+                assert result["daemon"] is True
+                assert "lsp_server" in result
 
             await client.close()
 
@@ -604,7 +608,8 @@ class TestE2EConcurrentRequests:
             results = await asyncio.gather(*tasks)
 
             # All should succeed
-            assert results[0] == {"status": "pong"}
+            assert results[0]["status"] == "healthy"
+            assert results[0]["daemon"] is True
             assert results[1]["running"] is True
             assert "locations" in results[2]
             assert "locations" in results[3]
@@ -639,7 +644,9 @@ class TestE2ERequestHandlerFeatures:
             language="python",
         )
         result = await handler.handle("ping", {})
-        assert result == {"status": "pong"}
+        assert result["status"] == "healthy"
+        assert result["daemon"] is True
+        assert "lsp_server" in result
 
     @pytest.mark.asyncio
     async def test_status(self, temp_workspace: Path) -> None:

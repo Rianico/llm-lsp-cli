@@ -197,11 +197,16 @@ class PrepareRenameParams(TextDocumentPositionParams):
 
 
 class PingResult(BaseModel):
-    """Result of ping request."""
+    """Result of ping request.
+
+    Includes daemon and language server health status for health checks.
+    """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore")
 
-    status: Literal["ok"]
+    status: Literal["ok", "healthy", "unhealthy"]
+    daemon: bool = True
+    lsp_server: bool = True
 
 
 class ShutdownResult(BaseModel):

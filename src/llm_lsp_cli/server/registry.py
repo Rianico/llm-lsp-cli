@@ -33,6 +33,11 @@ class ServerRegistry:
         self._config = None  # Cached config
         self._lsp_conf = lsp_conf
 
+    @property
+    def has_workspaces(self) -> bool:
+        """Check if any workspaces are registered."""
+        return bool(self._workspaces)
+
     def _load_config(self) -> ClientConfig:
         """Load configuration from file."""
         if self._config is None:

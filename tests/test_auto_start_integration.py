@@ -8,6 +8,7 @@ Run with:
 """
 
 import asyncio
+import os
 import shutil
 import time
 from collections.abc import Generator
@@ -563,8 +564,7 @@ class TestAutoStartEdgeCases:
             workspace_a.mkdir(parents=True, exist_ok=True)
             workspace_b.mkdir(parents=True, exist_ok=True)
 
-            # With flat structure, each workspace has its own .llm-lsp-cli directory
-            # Don't override base_dir - let each workspace use its own
+            # Socket paths are under /tmp/llm-lsp-cli/ with sanitized names
             socket_a = ConfigManager.build_socket_path(
                 workspace_path=str(workspace_a),
                 language="python",
@@ -575,9 +575,12 @@ class TestAutoStartEdgeCases:
             )
 
             assert socket_a != socket_b
-            # Each workspace should have its own .llm-lsp-cli directory
-            assert str(workspace_a) in str(socket_a)
-            assert str(workspace_b) in str(socket_b)
+            # Both should be under /tmp/llm-lsp-cli-{uid}/
+            assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_a)
+            assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_b)
+            # Each should contain their workspace name (sanitized)
+            assert "ws-a-" in str(socket_a)
+            assert "ws-b-" in str(socket_b)
         finally:
             shutil.rmtree(workspace_a, ignore_errors=True)
             shutil.rmtree(workspace_b, ignore_errors=True)
@@ -690,7 +693,9 @@ class TestRealServerIntegration:
 
             # Run client request
             result = await asyncio.wait_for(run_client(), timeout=5.0)
-            assert result == {"status": "pong"}
+            assert result["status"] == "healthy"
+            assert result["daemon"] is True
+            assert "lsp_server" in result
         finally:
             await server.stop()
 

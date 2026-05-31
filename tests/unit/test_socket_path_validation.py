@@ -1,20 +1,17 @@
-"""Tests for socket path length validation."""
+"""Tests for socket path validation with /tmp-based socket paths."""
 
-import pytest
+import os
 from pathlib import Path
 
 from llm_lsp_cli.daemon import DaemonManager
 
 
 class TestSocketPathLengthValidation:
-    """Tests for socket path length validation in DaemonManager.start()."""
+    """Tests for socket path handling with /tmp-based paths."""
 
-    def test_socket_path_too_long_raises_error(self, tmp_path: Path) -> None:
-        """Test that DaemonManager.start() raises error for socket path >= 100 chars."""
-        # Create a workspace with a very long path name
-        # We need to create a path that when combined with the runtime directory
-        # and socket filename exceeds 100 characters
-        long_workspace_name = "a" * 80  # Very long workspace name
+    def test_long_workspace_path_produces_short_socket_path(self, tmp_path: Path) -> None:
+        """Long workspace paths should produce short socket paths under /tmp."""
+        long_workspace_name = "a" * 80
         long_workspace = tmp_path / long_workspace_name
         long_workspace.mkdir(parents=True, exist_ok=True)
 
@@ -23,22 +20,15 @@ class TestSocketPathLengthValidation:
             language="python",
         )
 
-        # Socket path should be too long
+        # Socket path should now be short (under /tmp)
         socket_path_str = str(manager.socket_path)
-        assert len(socket_path_str) >= 100, (
-            f"Socket path ({len(socket_path_str)} chars) should be >= 100"
+        assert len(socket_path_str) < 100, (
+            f"Socket path ({len(socket_path_str)} chars) should be < 100"
         )
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in socket_path_str
 
-        # start() should raise RuntimeError about socket path length
-        with pytest.raises(RuntimeError, match="Socket path too long"):
-            manager.start()
-
-    def test_socket_path_flat_structure_correct(self, tmp_path: Path) -> None:
-        """Test that socket paths use flat directory structure.
-
-        Verifies the flat structure: {workspace}/.llm-lsp-cli/{server}.sock
-        """
-        # Create a workspace
+    def test_socket_path_uses_tmp_directory(self, tmp_path: Path) -> None:
+        """Socket paths should be under /tmp/llm-lsp-cli/."""
         workspace = tmp_path / "test-workspace"
         workspace.mkdir(parents=True, exist_ok=True)
 
@@ -47,8 +37,6 @@ class TestSocketPathLengthValidation:
             language="python",
         )
 
-        # Socket path should use flat structure
         socket_path_str = str(manager.socket_path)
-        # Verify it ends with the expected pattern (server name may vary based on config)
-        assert socket_path_str.endswith(".llm-lsp-cli/sock") or "langserver.sock" in socket_path_str
-        assert "test-workspace" in socket_path_str
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in socket_path_str
+        assert socket_path_str.endswith(".sock")

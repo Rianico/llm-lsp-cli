@@ -17,6 +17,7 @@ from daemon import DaemonContext
 from daemon.pidfile import PIDLockFile as PidFile
 
 from llm_lsp_cli.config import ConfigManager
+from llm_lsp_cli.config.path_builder import create_socket_symlink
 from llm_lsp_cli.domain.services import LspMethodRouter
 from llm_lsp_cli.ipc import UNIXServer
 from llm_lsp_cli.ipc.protocol import serialize_for_json
@@ -155,6 +156,68 @@ def cleanup_runtime_files(
     logger.info("[CLEANUP] Cleanup complete")
 
 
+def cleanup_unhealthy_sockets(socket_base_dir: str | None = None) -> list[Path]:
+    """Clean up socket directories with no healthy daemon.
+
+    Iterates all directories under the socket base directory and removes
+    those where no daemon process is running or the daemon is unhealthy.
+
+    Args:
+        socket_base_dir: Base directory containing socket directories.
+
+    Returns:
+        List of cleaned directory paths.
+    """
+    if socket_base_dir is None:
+        socket_base_dir = f"/tmp/llm-lsp-cli-{os.getuid()}"
+
+    base = Path(socket_base_dir)
+    if not base.is_dir():
+        return []
+
+    cleaned: list[Path] = []
+    for socket_dir in base.iterdir():
+        if not socket_dir.is_dir():
+            continue
+
+        # Try to determine workspace from socket directory
+        # Socket dir name format: {sanitized}_{hash}
+        # We can't recover the original workspace path, so we check health directly
+        sock_files = list(socket_dir.glob("*.sock"))
+        if not sock_files:
+            # No socket files, remove empty directory
+            import shutil
+
+            shutil.rmtree(socket_dir)
+            cleaned.append(socket_dir)
+            continue
+
+        # Check if any daemon is healthy by trying to ping
+        is_healthy = False
+        for sock_file in sock_files:
+            try:
+                from llm_lsp_cli.ipc import UNIXClient
+                from llm_lsp_cli.ipc.models import PingResult
+
+                client = UNIXClient(str(sock_file), timeout=2.0)
+                raw = asyncio.run(client.request("ping", {}))
+                result = PingResult.model_validate(raw)
+                if result.status == "healthy":
+                    is_healthy = True
+                    break
+            except Exception:
+                continue
+
+        if not is_healthy:
+            import shutil
+
+            shutil.rmtree(socket_dir)
+            cleaned.append(socket_dir)
+            logger.info(f"[CLEANUP] Removed unhealthy socket directory: {socket_dir}")
+
+    return cleaned
+
+
 class DaemonManager:
     """Manages the daemon process lifecycle for a specific workspace and language."""
 
@@ -245,24 +308,39 @@ class DaemonManager:
             os.kill(pid, signal.SIGKILL)
             logger.info(f"Sent SIGKILL to daemon (PID: {pid})")
 
+    def _check_health(self) -> bool:
+        """Check if daemon and language servers are healthy.
+
+        Returns:
+            True if daemon responds to ping with healthy status, False otherwise.
+        """
+        from llm_lsp_cli.ipc import UNIXClient
+        from llm_lsp_cli.ipc.models import PingResult
+
+        try:
+            client = UNIXClient(str(self.socket_path), timeout=2.0)
+            raw = asyncio.run(client.request("ping", {}))
+            result = PingResult.model_validate(raw)
+            return result.status == "healthy"
+        except Exception:
+            return False
+
     def start(self, diagnostic_log: bool = False) -> None:
         """Start the daemon process in background.
+
+        If daemon is already running and healthy, prints warning and returns.
+        If daemon is running but unhealthy, stops and restarts.
+        If daemon is not running, starts normally.
 
         Args:
             diagnostic_log: If True, configure diagnostic logger to write to diagnostics.log
         """
         if self.is_running():
-            raise RuntimeError("Daemon is already running")
-
-        # Validate socket path length (UNIX socket limit is 108 characters)
-        # macOS has a lower limit, so we use 100 as a safe maximum
-        socket_path_str = str(self.socket_path)
-        if len(socket_path_str) >= 100:
-            raise RuntimeError(
-                f"Socket path too long ({len(socket_path_str)} chars, max ~100): "
-                + f"{socket_path_str}\n"
-                + "Try using a shorter workspace path or set TMPDIR to a shorter path."
-            )
+            if self._check_health():
+                logger.warning("Daemon is already running and healthy.")
+                return
+            logger.warning("Daemon is running but unhealthy. Restarting...")
+            self.stop()
 
         # Ensure directories exist
         _ = ConfigManager.ensure_runtime_dir()
@@ -270,13 +348,18 @@ class DaemonManager:
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
         self.daemon_log_file.parent.mkdir(parents=True, exist_ok=True)
 
+        # Create symlink from workspace to socket directory for discoverability
+        create_socket_symlink(self.workspace_path, self.socket_path.parent)
+
         # Start daemon context with exception wrapper
         # This ensures exceptions are logged before the daemon process exits
+        stdout_fd = open(self.daemon_log_file, "a")  # noqa: SIM115
+        stderr_fd = open(self.daemon_log_file, "a")  # noqa: SIM115
         try:
             with DaemonContext(
                 pidfile=PidFile(str(self.pid_file)),
-                stdout=open(self.daemon_log_file, "a"),
-                stderr=open(self.daemon_log_file, "a"),
+                stdout=stdout_fd,
+                stderr=stderr_fd,
                 umask=_DAEMON_UMASK,
             ):
                 logger.info("Daemon starting...")
@@ -300,6 +383,10 @@ class DaemonManager:
             # This ensures the error is captured even if daemon context swallows it
             logger.exception(f"Daemon startup failed: {e}")
             raise
+        finally:
+            # Close FDs if DaemonContext didn't take ownership (e.g., __init__ raised)
+            stdout_fd.close()
+            stderr_fd.close()
 
     def stop(self) -> None:
         """Stop the daemon process."""
@@ -449,19 +536,21 @@ class RequestHandler:
         logger.debug(f"Received request: {method} with params: {params}")
 
         if method == "ping":
-            return {"status": "pong"}
+            return {"status": "healthy", "daemon": True, "lsp_server": self._registry.has_workspaces}
 
         elif method == "shutdown":
             self._shutdown = True
             return {"status": "shutting_down"}
 
         elif method == "status":
+            socket_path = ConfigManager.build_socket_path(self._workspace_path, self._language)
             return {
                 "running": True,
                 "workspace": self._workspace_path,
                 "language": self._language,
-                "socket": str(
-                    ConfigManager.build_socket_path(self._workspace_path, self._language)
+                "socket": str(socket_path),
+                "workspace_socket": str(
+                    Path(self._workspace_path) / ".llm-lsp-cli" / "socket"
                 ),
                 "pid": os.getpid(),
             }

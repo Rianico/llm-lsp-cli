@@ -1,5 +1,6 @@
 """Tests for runtime path building with flat directory structure."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -41,10 +42,10 @@ class TestRuntimePathBuilderFlatStructure:
         # Assert
         assert not hasattr(RuntimePathBuilder, "_build_workspace_subdir")
 
-    def test_build_socket_path_flat_structure(
+    def test_build_socket_path_under_tmp(
         self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """build_socket_path() uses flat directory structure."""
+        """build_socket_path() uses /tmp directory for sockets."""
         # Arrange
         project_dir = temp_dir / "my-project"
         project_dir.mkdir()
@@ -56,11 +57,12 @@ class TestRuntimePathBuilderFlatStructure:
             language="python",
         )
 
-        # Assert - use resolve() to handle macOS /var vs /private/var symlinks
-        assert socket_path.parent.resolve() == (project_dir / ".llm-lsp-cli").resolve()
+        # Assert - socket should be under /tmp/llm-lsp-cli/
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_path)
         assert socket_path.suffix == ".sock"
-        # Path should NOT contain workspace name subdirectory
-        assert "my-project" not in socket_path.parent.name
+        # Should contain sanitized name and hash
+        dir_name = socket_path.parent.name
+        assert "_" in dir_name
 
     def test_different_projects_different_socket_paths(
         self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
@@ -79,9 +81,9 @@ class TestRuntimePathBuilderFlatStructure:
 
         # Assert
         assert socket_a != socket_b
-        # Both should be in their respective .llm-lsp-cli directories
-        assert socket_a.parent.resolve() == (project_a / ".llm-lsp-cli").resolve()
-        assert socket_b.parent.resolve() == (project_b / ".llm-lsp-cli").resolve()
+        # Both should be under /tmp/llm-lsp-cli/
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_a)
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_b)
 
     def test_same_project_same_language_consistent_paths(
         self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
@@ -102,24 +104,18 @@ class TestRuntimePathBuilderFlatStructure:
     def test_socket_path_length_within_unix_limit(
         self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Flat structure saves characters vs old subdir approach."""
-        # Arrange: Create a project directory
-        project_dir = temp_dir / "my-project"
+        """Socket path under /tmp stays within UNIX socket limit."""
+        # Arrange: Create a project directory with long name
+        project_dir = temp_dir / "my-project-with-very-long-name"
         project_dir.mkdir()
         monkeypatch.chdir(project_dir)
 
         # Act
         socket_path = ConfigManager.build_socket_path(str(project_dir), "python")
 
-        # Assert
-        # The flat structure saves ~20-30 characters vs old subdir approach
-        # Old: {base}/llm-lsp-cli/{name}-{hash}/{server}.sock
-        # New: {base}/.llm-lsp-cli/{server}.sock
-        # Savings: no workspace name + hash subdirectory (~15-25 chars)
-        # Verify flat structure (no workspace name in parent dir)
-        assert socket_path.parent.name == ".llm-lsp-cli"
-        # Verify path doesn't contain workspace hash pattern
-        assert not any(c.isdigit() for c in socket_path.parent.name.replace(".llm-lsp-cli", ""))
+        # Assert - should be well under 100 chars
+        assert len(str(socket_path)) <= 100
+        assert f"/tmp/llm-lsp-cli-{os.getuid()}/" in str(socket_path)
 
 
 class TestConfigManagerRuntimeDir:

@@ -51,7 +51,9 @@ class TestRequestHandler:
         """Test ping request."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
         result = await handler.handle("ping", {})
-        assert result == {"status": "pong"}
+        assert result["status"] == "healthy"
+        assert result["daemon"] is True
+        assert "lsp_server" in result
 
     @pytest.mark.asyncio
     async def test_status(self) -> None:

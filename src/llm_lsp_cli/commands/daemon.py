@@ -6,6 +6,7 @@ LSP responses are inherently dynamic, so object is used for dict value types.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 import typer
@@ -183,7 +184,30 @@ def status(
         pid = manager.get_pid()
         typer.echo(f"Daemon is running (PID: {pid})")
         typer.echo(f"Socket: {manager.socket_path}")
+        workspace_socket = Path(workspace_path) / ".llm-lsp-cli" / "socket"
+        typer.echo(f"Workspace socket (.llm-lsp-cli/socket): {workspace_socket}")
+        typer.echo(f"Logs: {Path(workspace_path) / '.llm-lsp-cli'}")
         typer.echo(f"Workspace: {workspace_path}")
         typer.echo(f"Language: {detected_language}")
     else:
         typer.echo("Daemon is not running.")
+
+
+@app.command()
+def clean() -> None:
+    """Clean up unhealthy socket directories.
+
+    Removes socket directories in /tmp/llm-lsp-cli/ where no daemon
+    process is running or the daemon is unhealthy.
+    """
+    from llm_lsp_cli.daemon import cleanup_unhealthy_sockets
+
+    typer.echo("Cleaning up unhealthy socket directories...")
+    cleaned = cleanup_unhealthy_sockets()
+
+    if cleaned:
+        typer.echo(f"Cleaned {len(cleaned)} unhealthy socket directory(ies):")
+        for path in cleaned:
+            typer.echo(f"  - {path}")
+    else:
+        typer.echo("No unhealthy socket directories found.")
