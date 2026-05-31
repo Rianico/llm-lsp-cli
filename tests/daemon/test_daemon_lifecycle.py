@@ -71,8 +71,8 @@ class TestShutdownAllCalled:
         workspace_path_obj.mkdir(parents=True, exist_ok=True)
 
         with (
-            patch("llm_lsp_cli.daemon.RequestHandler", return_value=mock_handler),
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_unix_server),
+            patch("llm_lsp_cli.daemon.runner.RequestHandler", return_value=mock_handler),
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_unix_server),
         ):
             # Start daemon task
             daemon_task = asyncio.create_task(
@@ -128,8 +128,8 @@ class TestShutdownOrderEnforcement:
         mock_unix_server.stop.side_effect = track_stop
 
         with (
-            patch("llm_lsp_cli.daemon.RequestHandler", return_value=mock_handler),
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_unix_server),
+            patch("llm_lsp_cli.daemon.runner.RequestHandler", return_value=mock_handler),
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_unix_server),
         ):
             # Start daemon task
             daemon_task = asyncio.create_task(
@@ -178,8 +178,8 @@ class TestShutdownAllErrorsDoNotPreventCleanup:
         mock_registry.shutdown_all.side_effect = Exception("LSP shutdown failed")
 
         with (
-            patch("llm_lsp_cli.daemon.RequestHandler", return_value=mock_handler),
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_unix_server),
+            patch("llm_lsp_cli.daemon.runner.RequestHandler", return_value=mock_handler),
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_unix_server),
         ):
             # Start daemon task
             daemon_task = asyncio.create_task(
@@ -251,8 +251,8 @@ class TestMultipleWorkspacesAllShutdown:
         handler.shutdown_servers = registry.shutdown_all
 
         with (
-            patch("llm_lsp_cli.daemon.RequestHandler", return_value=handler),
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_unix_server),
+            patch("llm_lsp_cli.daemon.runner.RequestHandler", return_value=handler),
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_unix_server),
         ):
             # Start daemon task
             daemon_task = asyncio.create_task(

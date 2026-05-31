@@ -177,8 +177,8 @@ class TestRunDaemonSignalHandling:
         socket_path = tmp_path / "test.sock"
 
         with (
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_server),
-            patch("llm_lsp_cli.daemon.asyncio.get_event_loop") as mock_loop_getter,
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_server),
+            patch("llm_lsp_cli.daemon.runner.asyncio.get_event_loop") as mock_loop_getter,
         ):
             mock_loop = MagicMock()
             mock_loop_getter.return_value = mock_loop
@@ -189,7 +189,7 @@ class TestRunDaemonSignalHandling:
 
             with (
                 caplog.at_level(logging.INFO),
-                patch("llm_lsp_cli.daemon.asyncio.Event", return_value=shutdown_event),
+                patch("llm_lsp_cli.daemon.runner.asyncio.Event", return_value=shutdown_event),
                 pytest.raises(asyncio.CancelledError),
             ):
                 await run_daemon(
@@ -216,9 +216,9 @@ class TestRunDaemonSignalHandling:
         pid_file.touch()
 
         with (
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_server),
-            patch("llm_lsp_cli.daemon.cleanup_runtime_files") as mock_cleanup,
-            patch("llm_lsp_cli.daemon.asyncio.get_event_loop") as mock_loop_getter,
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_server),
+            patch("llm_lsp_cli.daemon.runner.cleanup_runtime_files") as mock_cleanup,
+            patch("llm_lsp_cli.daemon.runner.asyncio.get_event_loop") as mock_loop_getter,
         ):
             mock_loop = MagicMock()
             mock_loop_getter.return_value = mock_loop
@@ -230,7 +230,7 @@ class TestRunDaemonSignalHandling:
             shutdown_event = MagicMock()
             shutdown_event.wait = AsyncMock()  # Returns immediately
 
-            with patch("llm_lsp_cli.daemon.asyncio.Event", return_value=shutdown_event):
+            with patch("llm_lsp_cli.daemon.runner.asyncio.Event", return_value=shutdown_event):
                 # Simulate normal shutdown: server.start then wait, then stop
                 mock_server.start = AsyncMock()
 
@@ -257,9 +257,9 @@ class TestRunDaemonSignalHandling:
         pid_file = tmp_path / "daemon.pid"
 
         with (
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_server),
-            patch("llm_lsp_cli.daemon.cleanup_runtime_files") as mock_cleanup,
-            patch("llm_lsp_cli.daemon.asyncio.get_event_loop") as mock_loop_getter,
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_server),
+            patch("llm_lsp_cli.daemon.runner.cleanup_runtime_files") as mock_cleanup,
+            patch("llm_lsp_cli.daemon.runner.asyncio.get_event_loop") as mock_loop_getter,
         ):
             mock_loop = MagicMock()
             mock_loop_getter.return_value = mock_loop
@@ -288,9 +288,9 @@ class TestRunDaemonSignalHandling:
         socket_path = tmp_path / "test.sock"
 
         with (
-            patch("llm_lsp_cli.daemon.UNIXServer", return_value=mock_server),
-            patch("llm_lsp_cli.daemon.cleanup_runtime_files"),
-            patch("llm_lsp_cli.daemon.asyncio.get_event_loop") as mock_loop_getter,
+            patch("llm_lsp_cli.daemon.runner.UNIXServer", return_value=mock_server),
+            patch("llm_lsp_cli.daemon.runner.cleanup_runtime_files"),
+            patch("llm_lsp_cli.daemon.runner.asyncio.get_event_loop") as mock_loop_getter,
         ):
             mock_loop = MagicMock()
             mock_loop_getter.return_value = mock_loop

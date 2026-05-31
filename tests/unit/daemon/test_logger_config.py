@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from llm_lsp_cli.daemon import _configure_logger_levels
+from llm_lsp_cli.daemon.cleanup import _configure_logger_levels
 from llm_lsp_cli.lsp.transport import TRACE_LEVEL
 
 

@@ -26,8 +26,8 @@ class TestLspConstantUsage:
         return occurrences
 
     def test_daemon_does_not_duplicate_lsp_methods(self):
-        """Verify daemon.py does not have duplicated LSP method strings."""
-        daemon_file = Path("src/llm_lsp_cli/daemon.py")
+        """Verify daemon handler does not have duplicated LSP method strings."""
+        handler_file = Path("src/llm_lsp_cli/daemon/handler.py")
 
         # These strings should NOT appear as raw strings
         lsp_methods = [
@@ -39,23 +39,20 @@ class TestLspConstantUsage:
             "workspace/symbol",
         ]
 
-        occurrences = self._find_string_literals(daemon_file, lsp_methods)
+        occurrences = self._find_string_literals(handler_file, lsp_methods)
 
-        # Daemon should import from LSPConstants, not duplicate strings
+        # Daemon handler should import from LSPConstants, not duplicate strings
         assert len(occurrences) == 0, (
-            f"Found duplicated LSP method strings in daemon.py: {occurrences}"
+            f"Found duplicated LSP method strings in daemon/handler.py: {occurrences}"
         )
 
     def test_daemon_imports_lsp_constants(self):
-        """Verify daemon.py imports LSPConstants."""
-        daemon_file = Path("src/llm_lsp_cli/daemon.py")
-        source = daemon_file.read_text()
+        """Verify daemon handler imports LSPConstants."""
+        handler_file = Path("src/llm_lsp_cli/daemon/handler.py")
+        source = handler_file.read_text()
 
-        # Should import LSPConstants
-        assert (
-            "from llm_lsp_cli.lsp.constants import LSPConstants" in source
-            or "import LSPConstants" in source
-        )
+        # Should import LSPConstants (may be combined with other imports)
+        assert "LSPConstants" in source
 
     def test_registry_uses_lsp_constants(self):
         """Verify server registry is properly structured.

@@ -79,7 +79,7 @@ class TestRunDaemonTraceConfiguration:
 
         # Mock the server and signal handling to prevent actual daemon startup
         with (
-            patch("llm_lsp_cli.daemon.UNIXServer") as mock_server_class,
+            patch("llm_lsp_cli.daemon.runner.UNIXServer") as mock_server_class,
             patch("asyncio.get_event_loop") as mock_get_loop,
         ):
             mock_server = MagicMock()
@@ -92,7 +92,7 @@ class TestRunDaemonTraceConfiguration:
             # and cleanup to avoid file operations
             with (
                 patch.object(asyncio.Event, "wait", return_value=None),
-                patch("llm_lsp_cli.daemon.cleanup_runtime_files"),
+                patch("llm_lsp_cli.daemon.cleanup.cleanup_runtime_files"),
                 suppress(Exception),
             ):
                 await run_daemon(
@@ -110,7 +110,7 @@ class TestRunDaemonTraceConfiguration:
         """trace=True sets llm_lsp_cli.lsp.transport logger to TRACE level."""
         import inspect
 
-        from llm_lsp_cli.daemon import _configure_logger_levels
+        from llm_lsp_cli.daemon.cleanup import _configure_logger_levels
 
         # The transport logger should be set to TRACE_LEVEL when trace=True
         # This is verified by checking the helper function implementation

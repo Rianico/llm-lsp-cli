@@ -199,3 +199,6 @@ class LSPConstants:
     ERROR_UNKNOWN_ERROR_CODE: int
     ERROR_REQUEST_CANCELLED: int
     ERROR_CONTENT_MODIFIED: int
+
+
+RESPONSE_KEYS: dict[str, str]

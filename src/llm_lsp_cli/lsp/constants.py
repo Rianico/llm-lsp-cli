@@ -186,3 +186,22 @@ class LSPConstants:
     ERROR_UNKNOWN_ERROR_CODE: int = -32001
     ERROR_REQUEST_CANCELLED: int = -32800
     ERROR_CONTENT_MODIFIED: int = -32801
+
+
+# Response key for each LSP method
+# Module-level constant for import by commands/shared.py (ADR-0028)
+RESPONSE_KEYS: dict[str, str] = {
+    LSPConstants.DEFINITION: "locations",
+    LSPConstants.REFERENCES: "locations",
+    LSPConstants.COMPLETION: "items",
+    LSPConstants.HOVER: "hover",
+    LSPConstants.DOCUMENT_SYMBOL: "symbols",
+    LSPConstants.DIAGNOSTIC: "diagnostics",
+    LSPConstants.WORKSPACE_SYMBOL: "symbols",
+    LSPConstants.WORKSPACE_DIAGNOSTIC: "diagnostics",
+    LSPConstants.CALL_HIERARCHY_INCOMING_CALLS: "calls",
+    LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS: "calls",
+    LSPConstants.PREPARE_RENAME: "prepare_rename",
+    LSPConstants.RENAME: "workspace_edit",
+    LSPConstants.TEXT_DOCUMENT_DID_CHANGE: "status",
+}

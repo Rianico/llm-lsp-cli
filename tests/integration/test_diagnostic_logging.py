@@ -22,7 +22,7 @@ class TestDiagnosticLoggerConfiguration:
 
         try:
             # Act - configure with flag disabled
-            from llm_lsp_cli.daemon import _configure_diagnostic_logger
+            from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
             # Should not configure when path is None
             _configure_diagnostic_logger_enabled = False  # Flag not enabled
@@ -40,7 +40,7 @@ class TestDiagnosticLoggerConfiguration:
     def test_diagnostic_logger_configured_with_flag(self, tmp_path: Path) -> None:
         """Test diagnostic logger is configured with FileHandler when flag enabled."""
         # Arrange
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         diagnostic_log_path = tmp_path / "diagnostics.log"
         diagnostic_logger = logging.getLogger("llm_lsp_cli.lsp.diagnostic")
@@ -74,7 +74,7 @@ class TestDiagnosticLoggerConfiguration:
         import os
         import stat
 
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         diagnostic_log_path = tmp_path / "diagnostics.log"
 
@@ -105,7 +105,7 @@ class TestDiagnosticLoggerReceivesFullData:
         # Arrange
         import io
 
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         diagnostic_log_path = tmp_path / "diagnostics.log"
         diagnostic_logger = logging.getLogger("llm_lsp_cli.lsp.diagnostic")
@@ -166,7 +166,7 @@ class TestRunDaemonDiagnosticConfig:
 
     def test_configure_diagnostic_logger_function_exists(self) -> None:
         """Test that _configure_diagnostic_logger helper function exists."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         # Verify the function exists and is callable
         assert callable(_configure_diagnostic_logger)

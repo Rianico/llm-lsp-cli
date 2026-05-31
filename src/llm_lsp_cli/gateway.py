@@ -11,7 +11,6 @@ from typing import Literal, cast, overload
 
 from pydantic import BaseModel, TypeAdapter
 
-from llm_lsp_cli.daemon import RESPONSE_KEYS
 from llm_lsp_cli.ipc.cli_params import (
     DaemonFileParams,
     DaemonPositionParams,
@@ -21,6 +20,7 @@ from llm_lsp_cli.ipc.cli_params import (
 )
 from llm_lsp_cli.ipc.method_registry import MethodName
 from llm_lsp_cli.ipc.models import EmptyParams
+from llm_lsp_cli.lsp.constants import RESPONSE_KEYS
 from llm_lsp_cli.lsp.types import (
     CallHierarchyIncomingCall,
     CallHierarchyOutgoingCall,

@@ -228,18 +228,18 @@ class TestLSPClientAccessors:
 
 
 class TestSerializationRemovedFromDaemon:
-    """Verify _to_json_serializable is removed from daemon.py."""
+    """Verify _to_json_serializable is removed from daemon package."""
 
     def test_to_json_serializable_removed_from_daemon(self) -> None:
-        """TS-07: _to_json_serializable function should not exist in daemon.py."""
-        daemon_path = Path("src/llm_lsp_cli/daemon.py")
-        assert daemon_path.exists(), f"daemon.py not found: {daemon_path}"
+        """TS-07: _to_json_serializable function should not exist in daemon package."""
+        handler_path = Path("src/llm_lsp_cli/daemon/handler.py")
+        assert handler_path.exists(), f"daemon/handler.py not found: {handler_path}"
 
-        content = daemon_path.read_text()
+        content = handler_path.read_text()
         matches = re.findall(r"_to_json_serializable", content)
 
         assert len(matches) == 0, (
-            f"Found {len(matches)} reference(s) to _to_json_serializable in daemon.py. "
+            f"Found {len(matches)} reference(s) to _to_json_serializable in daemon/handler.py. "
             f"Serialization should be moved to ipc/protocol.py"
         )
 
@@ -250,23 +250,23 @@ class TestSerializationRemovedFromDaemon:
 
 
 class TestNoPrivateCacheAccess:
-    """Verify daemon.py doesn't access _diagnostic_cache directly."""
+    """Verify daemon handler doesn't access _diagnostic_cache directly."""
 
     def test_no_private_cache_access_in_daemon(self) -> None:
-        """TS-08: daemon.py should not access _diagnostic_cache directly.
+        """TS-08: daemon handler should not access _diagnostic_cache directly.
 
         Use public accessor methods instead of private _diagnostic_cache.
         """
-        daemon_path = Path("src/llm_lsp_cli/daemon.py")
-        assert daemon_path.exists(), f"daemon.py not found: {daemon_path}"
+        handler_path = Path("src/llm_lsp_cli/daemon/handler.py")
+        assert handler_path.exists(), f"daemon/handler.py not found: {handler_path}"
 
-        content = daemon_path.read_text()
+        content = handler_path.read_text()
         # Look for _diagnostic_cache access (not in comments or strings)
         # Pattern: client._diagnostic_cache or cache = client._diagnostic_cache
         matches = re.findall(r"\._diagnostic_cache", content)
 
         assert len(matches) == 0, (
-            f"Found {len(matches)} direct access(es) to _diagnostic_cache in daemon.py. "
+            f"Found {len(matches)} direct access(es) to _diagnostic_cache in daemon/handler.py. "
             f"Use public accessor methods (get_diagnostic_cache_state, etc.) instead."
         )
 
@@ -286,10 +286,10 @@ class TestTypedLSPParameters:
         (e.g., DocumentSymbolParams, DocumentDiagnosticParams) instead of
         dict[str, object].
         """
-        daemon_path = Path("src/llm_lsp_cli/daemon.py")
-        assert daemon_path.exists(), f"daemon.py not found: {daemon_path}"
+        handler_path = Path("src/llm_lsp_cli/daemon/handler.py")
+        assert handler_path.exists(), f"daemon/handler.py not found: {handler_path}"
 
-        content = daemon_path.read_text()
+        content = handler_path.read_text()
 
         # Check if _send_lsp_request has typed params
         # Pattern: lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams
@@ -335,21 +335,21 @@ class TestLSPParamsURIAccess:
 
 
 class TestNoPyrightSuppressionsInDaemon:
-    """Verify daemon.py has no pyright suppressions."""
+    """Verify daemon package has no pyright suppressions."""
 
     def test_daemon_py_no_pyright_suppressions(self) -> None:
-        """TS-11: daemon.py should have no pyright suppressions.
+        """TS-11: daemon package should have no pyright suppressions.
 
         All type issues should be fixed properly, not suppressed.
         """
-        daemon_path = Path("src/llm_lsp_cli/daemon.py")
-        assert daemon_path.exists(), f"daemon.py not found: {daemon_path}"
+        handler_path = Path("src/llm_lsp_cli/daemon/handler.py")
+        assert handler_path.exists(), f"daemon/handler.py not found: {handler_path}"
 
-        content = daemon_path.read_text()
+        content = handler_path.read_text()
         matches = re.findall(r"#\s*pyright:", content)
 
         assert len(matches) == 0, (
-            f"Found {len(matches)} pyright suppression(s) in daemon.py. "
+            f"Found {len(matches)} pyright suppression(s) in daemon/handler.py. "
             f"Fix the underlying type issues instead of suppressing."
         )
 
@@ -365,7 +365,7 @@ class TestSuppressionsInDesignatedZones:
     def test_suppressions_only_in_designated_zones(self) -> None:
         """TS-12: Pyright suppressions should only exist in designated zones.
 
-        This test checks only daemon.py and the files directly modified in this refactor.
+        This test checks only daemon package and the files directly modified in this refactor.
         Other files may have pre-existing suppressions outside scope.
 
         Designated zones:
@@ -373,12 +373,12 @@ class TestSuppressionsInDesignatedZones:
         - src/llm_lsp_cli/ipc/
 
         Files checked:
-        - src/llm_lsp_cli/daemon.py
+        - src/llm_lsp_cli/daemon/handler.py
         - src/llm_lsp_cli/lsp/client.py
         """
         # Only check files directly modified in this refactor
         files_to_check = [
-            Path("src/llm_lsp_cli/daemon.py"),
+            Path("src/llm_lsp_cli/daemon/handler.py"),
             Path("src/llm_lsp_cli/lsp/client.py"),
         ]
 

@@ -46,8 +46,8 @@ class TestStartWithHealthCheck:
         manager = DaemonManager(str(workspace), "python")
 
         # Mock the actual start process to avoid daemon context
-        with patch("llm_lsp_cli.daemon.DaemonContext"):
-            with patch("llm_lsp_cli.daemon.asyncio.run"):
+        with patch("llm_lsp_cli.daemon.manager.DaemonContext"):
+            with patch("llm_lsp_cli.daemon.manager.asyncio.run"):
                 try:
                     manager.start()
                 except Exception:
@@ -69,8 +69,8 @@ class TestStartWithHealthCheck:
         manager = DaemonManager(str(workspace), "python")
 
         # Mock the actual start process
-        with patch("llm_lsp_cli.daemon.DaemonContext"):
-            with patch("llm_lsp_cli.daemon.asyncio.run"):
+        with patch("llm_lsp_cli.daemon.manager.DaemonContext"):
+            with patch("llm_lsp_cli.daemon.manager.asyncio.run"):
                 try:
                     manager.start()
                 except Exception:

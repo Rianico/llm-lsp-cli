@@ -33,7 +33,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_creates_file_handler(self, tmp_path: Path) -> None:
         """_configure_diagnostic_logger creates a FileHandler."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -44,7 +44,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_sets_propagate_false(self, tmp_path: Path) -> None:
         """Diagnostic logger has propagate=False to prevent duplicate logging."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -54,7 +54,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_sets_debug_level(self, tmp_path: Path) -> None:
         """Diagnostic logger level is set to DEBUG."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -64,7 +64,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_handler_level_is_debug(self, tmp_path: Path) -> None:
         """FileHandler level is set to DEBUG."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -77,7 +77,7 @@ class TestConfigureDiagnosticLogger:
     )
     def test_file_permissions_restrictive(self, tmp_path: Path) -> None:
         """Diagnostic log file has restrictive permissions (0o600)."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -89,7 +89,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_writes_to_correct_file(self, tmp_path: Path) -> None:
         """Diagnostic logger writes to the specified file."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -107,7 +107,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_parent_directory_created(self, tmp_path: Path) -> None:
         """Parent directory is created if it doesn't exist."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "nested" / "dir" / "diagnostics.log"
         assert not log_path.parent.exists()
@@ -118,7 +118,7 @@ class TestConfigureDiagnosticLogger:
 
     def test_logger_name_is_correct(self, tmp_path: Path) -> None:
         """Diagnostic logger uses correct name."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -132,7 +132,7 @@ class TestDiagnosticLoggerIsolation:
 
     def test_no_propagation_to_parent(self, tmp_path: Path) -> None:
         """Diagnostic logger does not propagate to parent loggers."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
@@ -142,7 +142,7 @@ class TestDiagnosticLoggerIsolation:
 
     def test_separate_from_transport_logger(self, tmp_path: Path) -> None:
         """Diagnostic logger is separate from transport logger."""
-        from llm_lsp_cli.daemon import _configure_diagnostic_logger
+        from llm_lsp_cli.daemon.cleanup import _configure_diagnostic_logger
 
         log_path = tmp_path / "diagnostics.log"
         _configure_diagnostic_logger(log_path)
