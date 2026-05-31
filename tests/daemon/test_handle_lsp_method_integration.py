@@ -14,17 +14,14 @@ from llm_lsp_cli.lsp.constants import LSPConstants
 def mock_registry() -> AsyncMock:
     """Mock ServerRegistry with async methods."""
     registry = AsyncMock()
-    registry.request_diagnostics = AsyncMock(return_value=[])
-    registry.request_document_symbols = AsyncMock(return_value=[])
-    registry.request_workspace_symbols = AsyncMock(return_value=[])
+    registry.request = AsyncMock(return_value=[])
 
     # Mock workspace with ensure_initialized that returns a client
     mock_workspace = MagicMock()
     mock_client = AsyncMock()
     mock_client.open_document = AsyncMock(return_value="file:///test/file.py")
     mock_client.close_document = AsyncMock()
-    mock_client.request_diagnostics = AsyncMock(return_value=[])
-    mock_client.request_document_symbols = AsyncMock(return_value=[])
+    mock_client.request = AsyncMock(return_value=[])
     # ensure_initialized should return the client
     mock_workspace.ensure_initialized = AsyncMock(return_value=mock_client)
 
@@ -82,13 +79,6 @@ class TestDiagnosticMethodDocumentSync:
             "filePath": str(test_file),
         }
 
-        # Patch DocumentSyncContext to track usage
-        with patch.object(handler, "_handle_lsp_method"):
-            # We need to test the actual implementation
-            # For now, this test will fail because DocumentSyncContext is not integrated
-            pass
-
-        # This test verifies the integration - will fail until P1 is implemented
         result = await handler._handle_lsp_method(LSPConstants.DIAGNOSTIC, params)
 
         # Verify response structure
@@ -149,7 +139,7 @@ class TestPerFileLockSerialization:
         # Mock the registry and client properly
         mock_workspace = MagicMock()
         mock_client = AsyncMock()
-        mock_client.request_diagnostics = slow_request
+        mock_client.request = slow_request
         mock_client.open_document = AsyncMock(return_value=str(test_file.as_uri()))
         mock_client.close_document = AsyncMock()
         mock_workspace.ensure_initialized = AsyncMock(return_value=mock_client)
@@ -195,8 +185,8 @@ class TestWorkspaceSymbolBypassesDocumentSync:
 
         result = await handler._handle_lsp_method(LSPConstants.WORKSPACE_SYMBOL, params)
 
-        # Verify registry method was called
-        mock_registry.request_workspace_symbols.assert_called_once()
+        # Verify registry.request was called
+        mock_registry.request.assert_called_once()
         assert "symbols" in result
 
 
@@ -229,7 +219,7 @@ class TestDocumentSyncExceptionSafety:
         self,
         tmp_path: Path,
     ) -> None:
-        """Verify didClose is NOT sent even if registry method raises.
+        """Verify didClose is NOT sent even if request raises.
 
         Per ADR-001, files remain open for the session lifetime.
         """
@@ -241,7 +231,7 @@ class TestDocumentSyncExceptionSafety:
         # Mock client to raise exception
         mock_workspace = MagicMock()
         mock_client = AsyncMock()
-        mock_client.request_diagnostics = AsyncMock(side_effect=RuntimeError("LSP error"))
+        mock_client.request = AsyncMock(side_effect=RuntimeError("LSP error"))
         mock_client.open_document = AsyncMock(return_value=str(test_file.as_uri()))
         mock_client.close_document = AsyncMock()
         mock_workspace.ensure_initialized = AsyncMock(return_value=mock_client)
@@ -259,8 +249,3 @@ class TestDocumentSyncExceptionSafety:
 
         # Verify close_document was NOT called despite exception (ADR-001)
         mock_client.close_document.assert_not_called()
-
-
-# Note: TestSendLspRequestHelper class removed.
-# _send_lsp_request is an internal helper tested indirectly through
-# the main integration tests. Explicit unit tests would be redundant.

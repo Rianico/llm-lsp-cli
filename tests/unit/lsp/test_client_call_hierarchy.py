@@ -366,7 +366,115 @@ class TestCallHierarchyTwoStepProtocol:
         assert second_call[0][0] == "callHierarchy/incomingCalls"
 
     @pytest.mark.asyncio
-    async def test_outgoing_calls_calls_prepare_first(
+    async def test_request_method_incoming_calls_with_text_doc_params(
+        self, lsp_client_with_mocked_transport: LSPClient, mock_transport_for_call_hierarchy: AsyncMock
+    ) -> None:
+        """request() with textDocument/position params does prepare+calls (daemon path)."""
+        client = lsp_client_with_mocked_transport
+        transport = mock_transport_for_call_hierarchy
+
+        # This is the path the daemon handler uses: textDocument/position params
+        # without a pre-prepared "item" key
+        transport.send_request.side_effect = [
+            CALL_HIERARCHY_PREPARE_RESPONSE["items"],
+            CALL_HIERARCHY_INCOMING_RESPONSE["calls"],
+        ]
+
+        params: dict[str, object] = {
+            "textDocument": {"uri": "file:///test.py"},
+            "position": {"line": 10, "character": 4},
+        }
+        result = await client.request(
+            "callHierarchy/incomingCalls", params
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["from_"]["name"] == "caller_function"
+
+        # Verify two transport calls were made
+        assert transport.send_request.call_count == 2
+        first_call = transport.send_request.call_args_list[0]
+        assert first_call[0][0] == "textDocument/prepareCallHierarchy"
+        second_call = transport.send_request.call_args_list[1]
+        assert second_call[0][0] == "callHierarchy/incomingCalls"
+
+    @pytest.mark.asyncio
+    async def test_request_method_incoming_calls_with_prepared_item(
+        self, lsp_client_with_mocked_transport: LSPClient, mock_transport_for_call_hierarchy: AsyncMock
+    ) -> None:
+        """request() with pre-prepared item skips prepare step."""
+        client = lsp_client_with_mocked_transport
+        transport = mock_transport_for_call_hierarchy
+
+        transport.send_request.return_value = CALL_HIERARCHY_INCOMING_RESPONSE["calls"]
+
+        params: dict[str, object] = {
+            "item": CALL_HIERARCHY_PREPARE_RESPONSE["items"][0],
+        }
+        result = await client.request(
+            "callHierarchy/incomingCalls", params
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+
+        # Only one transport call (incomingCalls), no prepare step
+        assert transport.send_request.call_count == 1
+        first_call = transport.send_request.call_args_list[0]
+        assert first_call[0][0] == "callHierarchy/incomingCalls"
+
+    @pytest.mark.asyncio
+    async def test_request_method_outgoing_calls_with_text_doc_params(
+        self, lsp_client_with_mocked_transport: LSPClient, mock_transport_for_call_hierarchy: AsyncMock
+    ) -> None:
+        """request() with textDocument/position params does prepare+calls for outgoing."""
+        client = lsp_client_with_mocked_transport
+        transport = mock_transport_for_call_hierarchy
+
+        transport.send_request.side_effect = [
+            CALL_HIERARCHY_PREPARE_RESPONSE["items"],
+            CALL_HIERARCHY_OUTGOING_RESPONSE["calls"],
+        ]
+
+        params: dict[str, object] = {
+            "textDocument": {"uri": "file:///test.py"},
+            "position": {"line": 10, "character": 4},
+        }
+        result = await client.request(
+            "callHierarchy/outgoingCalls", params
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["to"]["name"] == "helper_function"
+
+        assert transport.send_request.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_request_method_incoming_calls_prepare_returns_empty(
+        self, lsp_client_with_mocked_transport: LSPClient, mock_transport_for_call_hierarchy: AsyncMock
+    ) -> None:
+        """request() returns empty when prepareCallHierarchy returns empty."""
+        client = lsp_client_with_mocked_transport
+        transport = mock_transport_for_call_hierarchy
+
+        transport.send_request.return_value = []
+
+        params: dict[str, object] = {
+            "textDocument": {"uri": "file:///test.py"},
+            "position": {"line": 10, "character": 4},
+        }
+        result = await client.request(
+            "callHierarchy/incomingCalls", params
+        )
+
+        assert result == []
+        # Only prepare was called, not incomingCalls
+        assert transport.send_request.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_request_method_outgoing_calls_calls_prepare_first(
         self, lsp_client_with_mocked_transport: LSPClient, mock_transport_for_call_hierarchy: AsyncMock
     ) -> None:
         """Outgoing calls must call prepareCallHierarchy before outgoingCalls."""

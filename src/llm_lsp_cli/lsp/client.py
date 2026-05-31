@@ -1,7 +1,7 @@
 """LSP client implementation.
 
-This module handles LSP response data via TypedLSPTransport.
-All LSP responses are validated through the typed transport layer.
+This module handles LSP response data. All LSP responses are normalized
+through the _RESPONSE_HANDLERS registry.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ import asyncio
 import contextlib
 import logging
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -19,8 +21,7 @@ from llm_lsp_cli.infrastructure.lsp.progress_handler import ProgressHandler
 from . import types as lsp
 from .cache import DiagnosticCache, FileState
 from .constants import LSPConstants
-from .transport import LSPError
-from .typed_transport import TypedLSPTransport
+from .transport import LSPError, StdioTransport
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,214 @@ _WORKSPACE_INDEX_TIMEOUT = 10.0
 _WORKSPACE_DIAGNOSTIC_TIMEOUT = 30.0
 _WORKSPACE_INDEX_WAIT = 2.0
 _DOCUMENT_READY_WAIT = 2.0
+
+
+# =============================================================================
+# Response Handler Registry
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class ResponseHandler:
+    """Configures how to normalize an LSP response."""
+
+    normalize: Callable[[object], object]
+    wrap_key: str
+
+
+def _normalize_locations(result: object) -> object:
+    """Normalize definition/references response to list[Location]."""
+    if result is None:
+        return []
+    if isinstance(result, list):
+        locations: list[lsp.Location] = []
+        for item in cast(list[object], result):
+            if isinstance(item, dict) and "targetUri" in item:
+                link = lsp.LocationLink.model_validate(item)
+                locations.append(
+                    lsp.Location(uri=link.target_uri, range=link.target_range)
+                )
+            else:
+                locations.append(lsp.Location.model_validate(item))
+        return locations
+    if isinstance(result, dict):
+        return [lsp.Location.model_validate(result)]
+    return []
+
+
+def _normalize_completions(result: object) -> object:
+    """Normalize completion response to list[CompletionItem]."""
+    if result is None:
+        return []
+    if isinstance(result, list):
+        return [lsp.CompletionItem.model_validate(item) for item in cast(list[object], result)]
+    if isinstance(result, dict):
+        result_dict = cast(dict[str, object], result)
+        items_val = result_dict.get("items", [])
+        items = cast(list[object], items_val) if isinstance(items_val, list) else []
+        return [lsp.CompletionItem.model_validate(item) for item in items]
+    return []
+
+
+def _normalize_hover(result: object) -> object:
+    """Normalize hover response to Hover | None."""
+    if result is None:
+        return None
+    return lsp.Hover.model_validate(result)
+
+
+def _normalize_document_symbols(result: object) -> object:
+    """Normalize documentSymbol response to list[DocumentSymbol]."""
+    if result is None:
+        return []
+
+    # Handle dict with 'items' key
+    if isinstance(result, dict):
+        result_dict = cast(dict[str, object], result)
+        items_val = result_dict.get("items", [])
+        if items_val is None:
+            return []
+        if not isinstance(items_val, list):
+            return []
+        result = cast(list[object], items_val)
+
+    if not isinstance(result, list):
+        return []
+
+    symbols: list[lsp.DocumentSymbol] = []
+    for item in cast(list[object], result):
+        if not isinstance(item, dict):
+            continue
+        try:
+            symbols.append(lsp.DocumentSymbol.model_validate(item))
+        except Exception:
+            try:
+                sym_info = lsp.SymbolInformation.model_validate(item)
+                if sym_info.location:
+                    symbols.append(
+                        lsp.DocumentSymbol.model_validate(
+                            {
+                                "name": sym_info.name,
+                                "kind": sym_info.kind,
+                                "range": sym_info.location.range.model_dump(),
+                                "selectionRange": sym_info.location.range.model_dump(),
+                                "deprecated": sym_info.deprecated,
+                            }
+                        )
+                    )
+            except Exception:
+                pass
+    return symbols
+
+
+def _normalize_workspace_symbols(result: object) -> object:
+    """Normalize workspace/symbol response to list[SymbolInformation]."""
+    if result is None or not isinstance(result, list):
+        return []
+    symbols: list[lsp.SymbolInformation] = []
+    for item in cast(list[object], result):
+        symbols.append(lsp.SymbolInformation.model_validate(item))
+    return symbols
+
+
+def _normalize_call_hierarchy_items(result: object) -> object:
+    """Normalize prepareCallHierarchy response to list[dict]."""
+    if result is None:
+        return []
+    if isinstance(result, list):
+        return cast(list[dict[str, object]], result)
+    if isinstance(result, dict) and "items" in result:
+        items = cast(dict[str, object], result).get("items")
+        if items is None:
+            return []
+        return cast(list[dict[str, object]], items) if isinstance(items, list) else []
+    return []
+
+
+def _normalize_call_hierarchy_calls(
+    result: object, is_incoming: bool
+) -> list[dict[str, object]]:
+    """Normalize incomingCalls/outgoingCalls response."""
+    if result is None:
+        return []
+    if isinstance(result, list):
+        calls = cast(list[object], result)
+    elif isinstance(result, dict) and "calls" in result:
+        calls_result = cast(dict[str, object], result).get("calls")
+        if calls_result is None:
+            return []
+        calls = cast(list[object], calls_result) if isinstance(calls_result, list) else []
+    else:
+        return []
+
+    if is_incoming:
+        normalized_calls: list[dict[str, object]] = []
+        for call in calls:
+            if isinstance(call, dict):
+                call_dict = cast(dict[str, object], call)
+                normalized_call = dict(call_dict)
+                if "from" in call_dict:
+                    normalized_call["from_"] = call_dict["from"]
+                    del normalized_call["from"]
+                normalized_calls.append(normalized_call)
+        return normalized_calls
+
+    typed_calls: list[dict[str, object]] = []
+    for call in calls:
+        if isinstance(call, dict):
+            typed_calls.append(cast(dict[str, object], call))
+    return typed_calls
+
+
+def _normalize_prepare_rename(result: object) -> object:
+    """Normalize prepareRename response."""
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        if "start" in result and "end" in result and "range" not in result:
+            return lsp.Range.model_validate(result)
+        return lsp.PrepareRenameResult.model_validate(result)
+    return None
+
+
+def _normalize_rename(result: object) -> object:
+    """Normalize rename response to WorkspaceEdit."""
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        return lsp.WorkspaceEdit.model_validate(result)
+    return None
+
+
+_RESPONSE_HANDLERS: dict[str, ResponseHandler] = {
+    LSPConstants.DEFINITION: ResponseHandler(
+        normalize=_normalize_locations, wrap_key="locations"
+    ),
+    LSPConstants.REFERENCES: ResponseHandler(
+        normalize=_normalize_locations, wrap_key="locations"
+    ),
+    LSPConstants.COMPLETION: ResponseHandler(
+        normalize=_normalize_completions, wrap_key="items"
+    ),
+    LSPConstants.HOVER: ResponseHandler(
+        normalize=_normalize_hover, wrap_key="hover"
+    ),
+    LSPConstants.DOCUMENT_SYMBOL: ResponseHandler(
+        normalize=_normalize_document_symbols, wrap_key="symbols"
+    ),
+    LSPConstants.WORKSPACE_SYMBOL: ResponseHandler(
+        normalize=_normalize_workspace_symbols, wrap_key="symbols"
+    ),
+    LSPConstants.PREPARE_CALL_HIERARCHY: ResponseHandler(
+        normalize=_normalize_call_hierarchy_items, wrap_key="items"
+    ),
+    LSPConstants.PREPARE_RENAME: ResponseHandler(
+        normalize=_normalize_prepare_rename, wrap_key="prepare_rename"
+    ),
+    LSPConstants.RENAME: ResponseHandler(
+        normalize=_normalize_rename, wrap_key="workspace_edit"
+    ),
+}
 
 
 class LSPClient:
@@ -41,7 +250,7 @@ class LSPClient:
     trace: bool
     timeout: float
     lsp_conf: str | None
-    _transport: TypedLSPTransport | None
+    _transport: StdioTransport | None
     _initialized: bool
     _open_files: dict[str, tuple[str, int, asyncio.Event]]
     _capabilities: dict[str, object] | None
@@ -86,9 +295,184 @@ class LSPClient:
         # Server info from initialize response
         self._server_info = {}
 
+    async def request(self, method: str, params: dict[str, object]) -> object:
+        """Send an LSP request and return normalized response.
+
+        Dispatches through _RESPONSE_HANDLERS registry. For diagnostics,
+        special cache-aware logic is used.
+
+        Args:
+            method: LSP method name (e.g., "textDocument/definition")
+            params: LSP request parameters (already constructed by caller)
+
+        Returns:
+            Normalized response (type depends on method)
+
+        Raises:
+            LSPError: If server returns an error
+            ValueError: If method is unknown
+        """
+        # Special handling for diagnostics (cache-aware)
+        if method == LSPConstants.DIAGNOSTIC:
+            return await self._request_diagnostics(params)
+        if method == LSPConstants.WORKSPACE_DIAGNOSTIC:
+            return await self._request_workspace_diagnostics(params)
+
+        # Two-step call hierarchy protocol
+        if method == LSPConstants.CALL_HIERARCHY_INCOMING_CALLS:
+            return await self._request_call_hierarchy(params, is_incoming=True)
+        if method == LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS:
+            return await self._request_call_hierarchy(params, is_incoming=False)
+
+        handler = _RESPONSE_HANDLERS.get(method)
+        if handler is None:
+            raise ValueError(f"Unknown LSP method: {method}")
+
+        assert self._transport is not None
+        result = await self._transport.send_request(method, params, timeout=self.timeout)
+
+        return handler.normalize(result)
+
+    async def _request_diagnostics(self, params: dict[str, object]) -> object:
+        """Request diagnostics with cache-aware logic.
+
+        Args:
+            params: LSP request parameters for textDocument/diagnostic
+
+        Returns:
+            Normalized diagnostic response
+        """
+        assert self._transport is not None
+
+        # Extract URI from params for cache lookup
+        text_doc = params.get("textDocument", {})
+        uri = ""
+        if isinstance(text_doc, dict):
+            uri_val = cast(dict[str, object], text_doc).get("uri", "")
+            uri = uri_val if isinstance(uri_val, str) else ""
+
+        # Extract mtime from params if provided (custom extension)
+        mtime_val = params.get("_mtime")
+        mtime: float | None = mtime_val if isinstance(mtime_val, (int, float)) else None
+
+        file_state = await self._diagnostic_cache.get_file_state(uri)
+
+        # Optimization: Skip server request if cache is valid
+        if file_state.last_result_id is not None and mtime is not None:
+            is_stale = await self._diagnostic_cache.is_stale(uri, mtime)
+            if not is_stale:
+                self._log_cache_hit(uri, file_state, mtime)
+                return list(file_state.document_diagnostics)
+
+        # Build clean params (remove custom _mtime field)
+        clean_params: dict[str, object] = {
+            "textDocument": {"uri": uri},
+            "previousResultId": file_state.last_result_id,
+        }
+
+        try:
+            result = await self._transport.send_request(
+                LSPConstants.DIAGNOSTIC, clean_params, timeout=self.timeout
+            )
+            diagnostics, result_id = self._normalize_document_diagnostics(result)
+            await self._diagnostic_cache.update_document_diagnostics(uri, diagnostics, result_id)
+            if mtime is not None:
+                await self._diagnostic_cache.set_mtime(uri, mtime)
+            return diagnostics
+        except Exception as e:
+            logger.warning(f"textDocument/diagnostic failed: {e}, using cached")
+            return await self._diagnostic_cache.get_diagnostics(uri)
+
+    async def _request_workspace_diagnostics(self, _params: dict[str, object]) -> object:
+        """Request workspace diagnostics (returns cached data from progress notifications).
+
+        Args:
+            _params: LSP request parameters (unused; workspace diagnostics
+                are driven by $/progress notifications)
+
+        Returns:
+            List of WorkspaceDiagnosticItem objects
+        """
+        try:
+            _ = await asyncio.wait_for(
+                self._workspace_indexed.wait(),
+                timeout=_WORKSPACE_DIAGNOSTIC_TIMEOUT,
+            )
+        except TimeoutError:
+            logger.warning("Workspace indexing timed out, diagnostics may be incomplete")
+
+        return await self._diagnostic_cache.get_all_workspace_diagnostics()
+
+    async def _request_call_hierarchy(
+        self, params: dict[str, object], is_incoming: bool
+    ) -> object:
+        """Request call hierarchy (two-step protocol).
+
+        Accepts either:
+        - {"item": CallHierarchyItem} — item already prepared by caller
+        - {"textDocument": ..., "position": ...} — performs prepareCallHierarchy first
+
+        Args:
+            params: LSP request parameters
+            is_incoming: True for incoming calls, False for outgoing
+
+        Returns:
+            Normalized call hierarchy calls
+        """
+        assert self._transport is not None
+
+        item = params.get("item")
+
+        # If no pre-prepared item, do the prepare step using textDocument/position
+        if item is None:
+            text_doc = params.get("textDocument")
+            position = params.get("position")
+            if not isinstance(text_doc, dict) or not isinstance(position, dict):
+                return []
+
+            prepare_params: dict[str, object] = {
+                "textDocument": text_doc,
+                "position": position,
+            }
+            try:
+                prepare_result = await self._transport.send_request(
+                    LSPConstants.PREPARE_CALL_HIERARCHY,
+                    prepare_params,
+                    timeout=self.timeout,
+                )
+            except Exception as e:
+                if self._is_method_not_found_error(e):
+                    logger.warning("prepareCallHierarchy not supported by server")
+                    return []
+                raise
+
+            items = self._normalize_call_hierarchy_items(prepare_result)
+            if not items:
+                return []
+            item = items[0]
+
+        call_params: dict[str, object] = {"item": item}
+        method = (
+            LSPConstants.CALL_HIERARCHY_INCOMING_CALLS
+            if is_incoming
+            else LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS
+        )
+
+        try:
+            result = await self._transport.send_request(
+                method, call_params, timeout=self.timeout
+            )
+            return _normalize_call_hierarchy_calls(result, is_incoming=is_incoming)
+        except Exception as e:
+            if self._is_method_not_found_error(e):
+                direction = "incoming" if is_incoming else "outgoing"
+                logger.warning(f"callHierarchy/{direction}Calls not supported by server")
+                return []
+            raise
+
     async def initialize(self) -> lsp.InitializeResult:
         """Initialize the LSP connection."""
-        self._transport = TypedLSPTransport(
+        self._transport = StdioTransport(
             command=self.server_command,
             args=self.server_args,
             cwd=str(self.workspace_path),
@@ -122,10 +506,13 @@ class LSPClient:
             self._handle_work_done_progress_create_request,
         )
 
-        # Send initialize request via typed transport
+        # Send initialize request
         init_params = self._build_initialize_params()
         assert self._transport is not None
-        result = await self._transport.send_initialize(init_params, timeout=self.timeout)
+        result_raw = await self._transport.send_request(
+            "initialize", init_params, timeout=self.timeout
+        )
+        result = lsp.InitializeResult.model_validate(result_raw)
 
         # Store capabilities as dict for server_capabilities property
         self._capabilities = result.capabilities.model_dump(mode="json", by_alias=True)
@@ -528,7 +915,10 @@ class LSPClient:
         params = {"query": query}
 
         assert self._transport is not None
-        return await self._transport.send_workspace_symbol(params, timeout=self.timeout)
+        result = await self._transport.send_request(
+            LSPConstants.WORKSPACE_SYMBOL, params, timeout=self.timeout
+        )
+        return _normalize_workspace_symbols(result)  # type: ignore[return-value]
 
     async def request_diagnostics(
         self,
@@ -1228,10 +1618,10 @@ class LSPClient:
         params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
-        return await self._transport.send_prepare_rename(
-            params,
-            timeout=self.timeout,
+        result = await self._transport.send_request(
+            LSPConstants.PREPARE_RENAME, params, timeout=self.timeout
         )
+        return _normalize_prepare_rename(result)  # type: ignore[return-value]
 
     async def request_rename(
         self,
@@ -1261,10 +1651,10 @@ class LSPClient:
         params: dict[str, object] = params_model.model_dump(mode="json", by_alias=True)
 
         assert self._transport is not None
-        return await self._transport.send_rename(
-            params,
-            timeout=self.timeout,
+        result = await self._transport.send_request(
+            LSPConstants.RENAME, params, timeout=self.timeout
         )
+        return _normalize_rename(result)  # type: ignore[return-value]
 
     def _is_method_not_found_error(self, error: object) -> bool:
         """Check if error is a MethodNotFound (-32601) error.

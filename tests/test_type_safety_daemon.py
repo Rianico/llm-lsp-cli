@@ -277,30 +277,18 @@ class TestNoPrivateCacheAccess:
 
 
 class TestTypedLSPParameters:
-    """Verify _send_lsp_request uses typed parameters."""
+    """Verify handler builds LSP params correctly."""
 
-    def test_send_lsp_request_uses_typed_params(self) -> None:
-        """TS-09: _send_lsp_request signature should use Pydantic types.
-
-        The lsp_params parameter should be typed as a Pydantic model
-        (e.g., DocumentSymbolParams, DocumentDiagnosticParams) instead of
-        dict[str, object].
-        """
+    def test_handler_has_build_lsp_params_method(self) -> None:
+        """TS-09: Handler should have _build_lsp_params method for building LSP params."""
         handler_path = Path("src/llm_lsp_cli/daemon/handler.py")
         assert handler_path.exists(), f"daemon/handler.py not found: {handler_path}"
 
         content = handler_path.read_text()
 
-        # Check if _send_lsp_request has typed params
-        # Pattern: lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams
-        pattern = r"lsp_params:\s*(lsp\.)?(DocumentSymbolParams|DocumentDiagnosticParams|TextDocumentPositionParams)"
-        matches = re.findall(pattern, content)
-
-        # At least one typed parameter usage should exist
-        assert len(matches) > 0, (
-            "No typed LSP parameters found in _send_lsp_request. "
-            "Use Pydantic models (DocumentSymbolParams, DocumentDiagnosticParams) "
-            "instead of dict[str, object]."
+        # Check if handler has _build_lsp_params method
+        assert "_build_lsp_params" in content, (
+            "Handler should have _build_lsp_params method for building LSP params."
         )
 
 

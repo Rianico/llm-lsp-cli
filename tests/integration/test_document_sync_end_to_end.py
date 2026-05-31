@@ -166,7 +166,7 @@ class TestEndToEndDocumentSync:
         # Mock workspace and client
         mock_workspace = MagicMock()
         mock_client = AsyncMock()
-        mock_client.request_diagnostics = track_concurrency
+        mock_client.request = track_concurrency
         mock_client.open_document = AsyncMock(side_effect=lambda fp, content: fp.as_uri())
         mock_client.close_document = AsyncMock()
         mock_workspace.ensure_initialized = AsyncMock(return_value=mock_client)

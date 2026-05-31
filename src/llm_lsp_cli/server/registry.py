@@ -5,7 +5,6 @@ Uses object for unknown data fields; specific types for known structures.
 """
 
 import asyncio
-from collections.abc import Sequence
 from pathlib import Path
 
 from llm_lsp_cli.config import ClientConfig, ConfigManager
@@ -139,141 +138,25 @@ class ServerRegistry:
 
             return self._workspaces[workspace_key]
 
-    async def request_definition(
+    async def request(
         self,
         workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> Sequence[object]:
-        """Request definition at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_definition(file_path, line, column)
-
-    async def request_references(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> Sequence[object]:
-        """Request references at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_references(file_path, line, column)
-
-    async def request_completions(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> Sequence[object]:
-        """Request completions at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_completions(file_path, line, column)
-
-    async def request_hover(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
+        method: str,
+        params: dict[str, object],
     ) -> object:
-        """Request hover at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_hover(file_path, line, column)
+        """Send a generic LSP request via the client.
 
-    async def request_document_symbols(
-        self,
-        workspace_path: str,
-        file_path: str,
-    ) -> Sequence[object]:
-        """Request document symbols."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_document_symbols(file_path)
+        Args:
+            workspace_path: Path to the workspace
+            method: LSP method name (e.g., "textDocument/definition")
+            params: LSP request parameters (already constructed by caller)
 
-    async def request_workspace_symbols(
-        self,
-        workspace_path: str,
-        query: str,
-    ) -> Sequence[object]:
-        """Request workspace symbols."""
+        Returns:
+            Normalized response from the LSP server
+        """
         workspace = await self.get_or_create_workspace(workspace_path)
         client = await workspace.ensure_initialized()
-        return await client.request_workspace_symbols(query)
-
-    async def request_diagnostics(
-        self,
-        workspace_path: str,
-        file_path: str,
-    ) -> Sequence[object]:
-        """Request diagnostics for a single document."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_diagnostics(file_path)
-
-    async def request_workspace_diagnostics(
-        self,
-        workspace_path: str,
-    ) -> Sequence[object]:
-        """Request diagnostics for entire workspace."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_workspace_diagnostics()
-
-    async def request_call_hierarchy_incoming(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> Sequence[object]:
-        """Request incoming calls at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_call_hierarchy_incoming(file_path, line, column)
-
-    async def request_call_hierarchy_outgoing(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> Sequence[object]:
-        """Request outgoing calls at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_call_hierarchy_outgoing(file_path, line, column)
-
-    async def request_prepare_rename(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-    ) -> object:
-        """Request prepare rename at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_prepare_rename(file_path, line, column)
-
-    async def request_rename(
-        self,
-        workspace_path: str,
-        file_path: str,
-        line: int,
-        column: int,
-        new_name: str,
-    ) -> object:
-        """Request rename at position."""
-        workspace = await self.get_or_create_workspace(workspace_path)
-        client = await workspace.ensure_initialized()
-        return await client.request_rename(file_path, line, column, new_name)
+        return await client.request(method, params)
 
     async def shutdown_all(self) -> None:
         """Shutdown all workspaces."""

@@ -1,7 +1,7 @@
 """LSP stdio transport layer.
 
 This module handles raw LSP JSON-RPC messages.
-All responses return `object` to enforce type boundary via TypedLSPTransport.
+All responses return `object` to enforce type boundary via StdioTransport.
 """
 
 import asyncio

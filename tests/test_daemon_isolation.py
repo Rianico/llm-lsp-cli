@@ -197,7 +197,7 @@ class TestDaemonManagerIsolation:
 
         handler = RequestHandler(workspace_path="/workspace/test-project", language="python")
 
-        with patch.object(handler._registry, "request_definition") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = []
 
             await handler.handle(
@@ -212,7 +212,8 @@ class TestDaemonManagerIsolation:
 
             mock_req.assert_awaited_once()
             call_args = mock_req.call_args
-            assert call_args.kwargs["workspace_path"] == "/workspace/test-project"
+            # First positional arg is workspace_path
+            assert call_args[0][0] == "/workspace/test-project"
 
     @pytest.mark.asyncio
     async def test_status_includes_workspace_info(self) -> None:

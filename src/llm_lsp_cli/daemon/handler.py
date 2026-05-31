@@ -4,40 +4,17 @@ import asyncio
 import logging
 import os
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from llm_lsp_cli.config import ConfigManager
 from llm_lsp_cli.daemon.document_sync import DocumentSyncContext
 from llm_lsp_cli.domain.services import LspMethodRouter
 from llm_lsp_cli.domain.services.lsp_method_router import LspMethodConfig, ParamCategory
 from llm_lsp_cli.ipc.protocol import serialize_for_json
-from llm_lsp_cli.lsp import types as lsp
 from llm_lsp_cli.lsp.constants import RESPONSE_KEYS, LSPConstants
 from llm_lsp_cli.server import ServerRegistry
 
-if TYPE_CHECKING:
-    from llm_lsp_cli.lsp.client import LSPClient
-
 logger = logging.getLogger("llm-lsp-cli.daemon")
-
-# Valid registry method names for validation.
-# Actual dispatch uses bound methods from the registry instance.
-_VALID_REGISTRY_METHODS: frozenset[str] = frozenset({
-    "request_definition",
-    "request_references",
-    "request_completions",
-    "request_hover",
-    "request_document_symbols",
-    "request_workspace_symbols",
-    "request_diagnostics",
-    "request_workspace_diagnostics",
-    "request_call_hierarchy_incoming",
-    "request_call_hierarchy_outgoing",
-    "request_prepare_rename",
-    "request_rename",
-})
 
 
 def extract_registry_params(
@@ -236,130 +213,79 @@ class RequestHandler:
         Raises:
             ValueError: If required parameters are missing
         """
-        # Get method config from router
         config = self._router.get_config(method)
         if config is None:
             raise ValueError(f"Unknown LSP method: {method}")
 
-        registry_method = config.registry_method
         response_key = self.RESPONSE_KEYS.get(method, "result")
 
-        # Log method entry with parameters
         logger.debug(f"Handling LSP method: {method} with params: {params}")
 
         # Check if this method requires document synchronization
-        # Methods that operate on specific files need didOpen -> request
-        # (files stay open per ADR-0008)
-        requires_doc_sync = registry_method in {
+        requires_doc_sync = config.registry_method in {
             "request_diagnostics",
             "request_document_symbols",
         }
 
         if requires_doc_sync:
-            # Extract file path from params
-            file_path_val = params.get("filePath")
-            if file_path_val is None:
-                raise ValueError("Missing 'filePath' parameter")
-            if not isinstance(file_path_val, str):
-                raise ValueError("'filePath' must be a string")
-
-            file_path_obj = Path(file_path_val)
-
-            # Get workspace path for registry call
-            workspace_path_val = params.get("workspacePath", ".")
-            if not isinstance(workspace_path_val, str):
-                workspace_path_val = "."
-
-            # Get workspace and ensure client is initialized
-            workspace = await self._registry.get_or_create_workspace(workspace_path_val)
-            client = await workspace.ensure_initialized()
-
-            # Use per-file lock to serialize requests for the same file
-            lock = self._get_file_lock(file_path_obj)
-            async with lock, DocumentSyncContext(client, file_path_obj) as uri:
-                # Build typed params for the LSP request
-                text_doc_id = lsp.TextDocumentIdentifier(uri=uri)
-                if registry_method == "request_diagnostics":
-                    lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams = (
-                        lsp.DocumentDiagnosticParams(textDocument=text_doc_id)
-                    )
-                else:
-                    lsp_params = lsp.DocumentSymbolParams(textDocument=text_doc_id)
-                return await self._send_lsp_request(
-                    method,
-                    registry_method,
-                    response_key,
-                    lsp_params,
-                    client,
-                    str(file_path_obj),
-                )
+            return await self._handle_doc_sync_method(method, params, response_key)
         else:
-            # Non file-specific methods (workspace symbols, workspace diagnostics)
-            # or position-based methods that use _ensure_open internally
-            return await self._handle_standard_lsp_method(
-                method, params, registry_method, response_key
-            )
+            return await self._handle_standard_lsp_method(method, params, response_key)
 
-    async def _send_lsp_request(
+    async def _handle_doc_sync_method(
         self,
         method: str,
-        registry_method: str,
+        params: dict[str, object],
         response_key: str,
-        lsp_params: lsp.DocumentSymbolParams | lsp.DocumentDiagnosticParams,
-        client: LSPClient,
-        file_path: str,
     ) -> dict[str, object]:
-        """Send LSP request using client directly.
+        """Handle LSP methods that require document synchronization.
 
-        When called from document sync context, we use the client directly
-        to avoid double-opening the document.
+        These methods need didOpen -> request -> done (files stay open per ADR-0008).
+        Uses DocumentSyncContext for proper file lifecycle management.
 
         Args:
-            method: LSP method name (for logging)
-            registry_method: Name of registry method (for routing)
+            method: LSP method name
+            params: Request parameters
             response_key: Key to use in response dict
-            lsp_params: Typed LSP request parameters
-            client: LSPClient instance to use
-            file_path: File path for fallback
 
         Returns:
             Response dict with appropriate key
         """
+        file_path_val = params.get("filePath")
+        if file_path_val is None:
+            raise ValueError("Missing 'filePath' parameter")
+        if not isinstance(file_path_val, str):
+            raise ValueError("'filePath' must be a string")
+
+        file_path_obj = Path(file_path_val)
+        workspace_path_val = params.get("workspacePath", ".")
+        if not isinstance(workspace_path_val, str):
+            workspace_path_val = "."
+
+        workspace = await self._registry.get_or_create_workspace(workspace_path_val)
+        client = await workspace.ensure_initialized()
+
+        lock = self._get_file_lock(file_path_obj)
         try:
-            # Extract URI from typed params
-            uri = lsp_params.text_document.uri
+            async with lock, DocumentSyncContext(client, file_path_obj) as uri:
+                lsp_params: dict[str, object] = {"textDocument": {"uri": uri}}
 
-            # Get file mtime for cache staleness check
-            # Per ADR-0008: mtime is ground truth for cache validation
-            mtime: float | None = None
-            try:
-                mtime = os.stat(file_path).st_mtime
-            except OSError:
-                # File may have been deleted or permission denied
-                # Proceed with mtime=None to force server query
-                logger.debug(f"Could not stat file {file_path}, proceeding without mtime")
+                # For diagnostics, pass mtime for cache optimization
+                if method == LSPConstants.DIAGNOSTIC:
+                    try:
+                        lsp_params["_mtime"] = os.stat(str(file_path_obj)).st_mtime
+                    except OSError:
+                        logger.debug(
+                            f"Could not stat file {file_path_obj}, "
+                            "proceeding without mtime"
+                        )
 
-            # Call client method directly with uri to avoid _ensure_open
-            # Result type varies: diagnostics -> list[dict], symbols -> list[DocumentSymbol]
-            result: object
-            if registry_method == "request_diagnostics":
-                result = await client.request_diagnostics(file_path=file_path, uri=uri, mtime=mtime)
-            elif registry_method == "request_document_symbols":
-                result = await client.request_document_symbols(file_path=file_path, uri=uri)
-            else:
-                # Should never happen - only diagnostics and document_symbols
-                raise ValueError(f"Unsupported doc sync method: {registry_method}")
+                result = await client.request(method, lsp_params)
 
-            logger.debug(f"Client method {registry_method} returned for {method}")
-
-            # Convert Pydantic models to JSON-serializable dicts
-            result = serialize_for_json(result)
-
-            # Wrap result with appropriate response key
-            if response_key == "hover":
-                return {response_key: result} if result else {}
-            return {response_key: result}
-
+                result = serialize_for_json(result)
+                if response_key == "hover":
+                    return {response_key: result} if result else {}
+                return {response_key: result}
         except Exception as e:
             logger.exception(f"Error handling LSP method {method}: {e}")
             raise
@@ -368,52 +294,40 @@ class RequestHandler:
         self,
         method: str,
         params: dict[str, object],
-        registry_method: str,
         response_key: str,
     ) -> dict[str, object]:
         """Handle standard LSP methods that don't require document sync.
 
-        Uses extract_registry_params() for param extraction and dispatches
-        to the registry method via getattr.
+        Builds LSP params from RPC params and dispatches via client.request().
 
         Args:
             method: LSP method name
             params: Request parameters
-            registry_method: Name of registry method to call
             response_key: Key to use in response dict
 
         Returns:
             Response dict with appropriate key
         """
         try:
-            # Get method config from router
             config = self._router.get_config(method)
             if config is None:
                 raise ValueError(f"Unknown LSP method: {method}")
 
-            # Extract validated params using the router config
-            extracted = extract_registry_params(
-                config, params, self._DEFAULT_WORKSPACE
-            )
+            extracted = extract_registry_params(config, params, self._DEFAULT_WORKSPACE)
 
-            # Validate rename requires newName
-            if registry_method == "request_rename" and "new_name" not in extracted:
+            if config.registry_method == "request_rename" and "new_name" not in extracted:
                 raise ValueError("Missing 'newName' parameter")
 
-            # Dispatch to registry method via validated lookup
-            if registry_method not in _VALID_REGISTRY_METHODS:
-                raise ValueError(f"Unknown registry method: {registry_method}")
-            registry_fn: Callable[..., Awaitable[object]] = getattr(
-                self._registry, registry_method
-            )
-            result: object = await registry_fn(**extracted)
+            # Build LSP params from extracted RPC params
+            lsp_params = self._build_lsp_params(method, extracted)
+
+            # Get workspace and client
+            workspace_path = str(extracted.get("workspace_path", self._DEFAULT_WORKSPACE))
+            result = await self._registry.request(workspace_path, method, lsp_params)
 
             logger.debug(f"Registry method returned for {method}")
 
-            # Convert Pydantic models to JSON-serializable dicts
             result = serialize_for_json(result)
-
-            # Wrap result with appropriate response key
             if response_key == "hover":
                 return {response_key: result} if result else {}
             return {response_key: result}
@@ -421,6 +335,81 @@ class RequestHandler:
         except Exception as e:
             logger.exception(f"Error handling LSP method {method}: {e}")
             raise
+
+    def _build_lsp_params(
+        self, method: str, extracted: dict[str, object]
+    ) -> dict[str, object]:
+        """Build LSP params dict from extracted RPC params.
+
+        Args:
+            method: LSP method name
+            extracted: Extracted and validated RPC params (snake_case)
+
+        Returns:
+            LSP params dict ready for client.request()
+        """
+        file_path = extracted.get("file_path")
+        raw_line = extracted.get("line", 0)
+        raw_column = extracted.get("column", 0)
+        line = int(raw_line) if isinstance(raw_line, (int, float)) else 0
+        column = int(raw_column) if isinstance(raw_column, (int, float)) else 0
+
+        if method == LSPConstants.WORKSPACE_SYMBOL:
+            query = str(extracted.get("query", ""))
+            return {"query": query}
+
+        if method == LSPConstants.WORKSPACE_DIAGNOSTIC:
+            return {}
+
+        if file_path is not None:
+            # Resolve file path relative to workspace
+            workspace_path = str(extracted.get("workspace_path", self._DEFAULT_WORKSPACE))
+            path = Path(str(file_path))
+            if not path.is_absolute():
+                path = Path(workspace_path) / path
+            path = path.resolve()
+            uri = path.as_uri()
+
+            text_doc: dict[str, object] = {"uri": uri}
+            position: dict[str, object] = {"line": line, "character": column}
+
+            if method == LSPConstants.DEFINITION:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.REFERENCES:
+                return {
+                    "textDocument": text_doc,
+                    "position": position,
+                    "context": {"includeDeclaration": True},
+                }
+            if method == LSPConstants.COMPLETION:
+                return {
+                    "textDocument": text_doc,
+                    "position": position,
+                    "context": {"triggerKind": 1},
+                }
+            if method == LSPConstants.HOVER:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.DOCUMENT_SYMBOL:
+                return {"textDocument": text_doc}
+            if method == LSPConstants.DIAGNOSTIC:
+                return {"textDocument": text_doc}
+            if method == LSPConstants.PREPARE_CALL_HIERARCHY:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.CALL_HIERARCHY_INCOMING_CALLS:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.CALL_HIERARCHY_OUTGOING_CALLS:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.PREPARE_RENAME:
+                return {"textDocument": text_doc, "position": position}
+            if method == LSPConstants.RENAME:
+                new_name = str(extracted.get("new_name", ""))
+                return {
+                    "textDocument": text_doc,
+                    "position": position,
+                    "newName": new_name,
+                }
+
+        return {}
 
     async def _handle_did_change(self, params: dict[str, object]) -> dict[str, object]:
         """Handle textDocument/didChange for external file change notification.

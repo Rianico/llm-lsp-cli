@@ -81,20 +81,20 @@ class TestClientLoggerIntegration:
             server_args=["hello"],
         )
 
-        # Mock TypedLSPTransport
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.stop = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
-        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-            capabilities=lsp.ServerCapabilities()
-        ))
+        # Mock StdioTransport
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.stop = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
+        mock_transport.send_request = AsyncMock(return_value={
+            "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+        })
 
         with (
-            patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport),
+            patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport),
             patch.object(client, "_wait_for_workspace_index", AsyncMock()),
         ):
             result = await client.initialize()

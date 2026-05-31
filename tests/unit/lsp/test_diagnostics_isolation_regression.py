@@ -24,21 +24,21 @@ async def lsp_client(temp_dir: Path) -> LSPClient:
         language_id="python",
     )
 
-    mock_typed_transport = MagicMock()
-    mock_typed_transport.start = AsyncMock()
-    mock_typed_transport.stop = AsyncMock()
-    mock_typed_transport.send_notification = AsyncMock()
-    mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-    mock_typed_transport.send_request = AsyncMock()
-    mock_typed_transport.on_notification = MagicMock()
-    mock_typed_transport.on_request = MagicMock()
-    mock_typed_transport.send_initialize = AsyncMock(
-        return_value=lsp.InitializeResult(capabilities=lsp.ServerCapabilities())
-    )
+    mock_transport = MagicMock()
+    mock_transport.start = AsyncMock()
+    mock_transport.stop = AsyncMock()
+    mock_transport.send_notification = AsyncMock()
+    mock_transport.send_request_fire_and_forget = AsyncMock()
+    mock_transport.send_request = AsyncMock()
+    mock_transport.on_notification = MagicMock()
+    mock_transport.on_request = MagicMock()
+    mock_transport.send_request.return_value = {
+        "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+    }
 
-    with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+    with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
         await client.initialize()
-        client._mock_transport = mock_typed_transport  # type: ignore
+        client._mock_transport = mock_transport  # type: ignore
         yield client
 
 

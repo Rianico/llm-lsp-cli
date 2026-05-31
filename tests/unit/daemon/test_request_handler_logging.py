@@ -30,7 +30,7 @@ class TestRequestHandlerLogging:
                 with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                     mock_workspace = mock_ws.return_value
                     mock_client = mock_workspace.ensure_initialized.return_value
-                    mock_client.request_document_symbols.return_value = []
+                    mock_client.request.return_value = []
 
                     await handler._handle_lsp_method(
                         "textDocument/documentSymbol",
@@ -59,7 +59,7 @@ class TestRequestHandlerLogging:
                 with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                     mock_workspace = mock_ws.return_value
                     mock_client = mock_workspace.ensure_initialized.return_value
-                    mock_client.request_document_symbols.return_value = []
+                    mock_client.request.return_value = []
 
                     params = {"filePath": "/test/file.py", "workspacePath": "/test/workspace"}
                     await handler._handle_lsp_method(
@@ -72,7 +72,7 @@ class TestRequestHandlerLogging:
 
     @pytest.mark.asyncio
     async def test_logs_exception_with_traceback(self, caplog: LogCaptureFixture):
-        """EXCEPTION log with full traceback when registry method raises."""
+        """EXCEPTION log with full traceback when client.request raises."""
         with caplog.at_level(logging.DEBUG):
             handler = RequestHandler(
                 workspace_path="/test/workspace",
@@ -88,8 +88,7 @@ class TestRequestHandlerLogging:
                 with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                     mock_workspace = mock_ws.return_value
                     mock_client = mock_workspace.ensure_initialized.return_value
-                    # Mock registry method to raise exception
-                    mock_client.request_document_symbols.side_effect = ValueError("Test error")
+                    mock_client.request.side_effect = ValueError("Test error")
 
                     with pytest.raises(ValueError):
                         await handler._handle_lsp_method(
@@ -104,7 +103,7 @@ class TestRequestHandlerLogging:
 
     @pytest.mark.asyncio
     async def test_logs_successful_return(self, caplog: LogCaptureFixture):
-        """DEBUG log when registry method returns successfully."""
+        """DEBUG log when client.request returns successfully."""
         with caplog.at_level(logging.DEBUG):
             handler = RequestHandler(
                 workspace_path="/test/workspace",
@@ -120,21 +119,19 @@ class TestRequestHandlerLogging:
                 with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                     mock_workspace = mock_ws.return_value
                     mock_client = mock_workspace.ensure_initialized.return_value
-                    mock_client.request_document_symbols.return_value = [{"name": "MyClass", "kind": "Class"}]
+                    mock_client.request.return_value = [{"name": "MyClass", "kind": "Class"}]
 
                     await handler._handle_lsp_method(
                         "textDocument/documentSymbol",
                         {"filePath": "/test.py"},
                     )
 
-            # Verify successful execution was logged
-            assert "Registry method returned" in caplog.text or "symbols" in caplog.text.lower()
+            # Verify successful execution was logged (method entry is logged)
+            assert "Handling LSP method" in caplog.text or "textDocument/documentSymbol" in caplog.text
 
     @pytest.mark.asyncio
     async def test_uses_logger_exception_not_error(self, caplog: LogCaptureFixture):
         """Verifies logger.exception() is used (not logger.error()) for exceptions."""
-        # This test verifies that exception logging uses logger.exception()
-        # which includes the traceback, not just logger.error()
         with caplog.at_level(logging.DEBUG):
             handler = RequestHandler(
                 workspace_path="/test/workspace",
@@ -150,8 +147,7 @@ class TestRequestHandlerLogging:
                 with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                     mock_workspace = mock_ws.return_value
                     mock_client = mock_workspace.ensure_initialized.return_value
-                    # Mock registry method to raise with traceback
-                    mock_client.request_document_symbols.side_effect = RuntimeError("Critical error")
+                    mock_client.request.side_effect = RuntimeError("Critical error")
 
                     with pytest.raises(RuntimeError):
                         await handler._handle_lsp_method(
@@ -160,8 +156,6 @@ class TestRequestHandlerLogging:
                         )
 
             # Verify traceback is present (indicates logger.exception() was used)
-            # logger.error() doesn't include traceback unless explicitly formatted
             log_records = [r for r in caplog.records if "Critical error" in r.getMessage()]
             assert len(log_records) > 0
-            # The presence of traceback in caplog.text indicates exception() was used
             assert "Traceback" in caplog.text

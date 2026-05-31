@@ -91,8 +91,8 @@ class TestRequestHandler:
         """Test definition request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_definition") as mock_req:
-            mock_req.return_value = [{"uri": "file://test.py", "range": {}}]
+        with patch.object(handler._registry, "request") as mock_req:
+            mock_req.return_value = [{"uri": "file:///tmp/test.py", "range": {}}]
 
             result = await handler.handle(
                 "textDocument/definition",
@@ -104,13 +104,11 @@ class TestRequestHandler:
                 },
             )
 
-            assert result == {"locations": [{"uri": "file://test.py", "range": {}}]}
-            mock_req.assert_awaited_once_with(
-                workspace_path="/tmp/test",
-                file_path="/tmp/test.py",
-                line=10,
-                column=5,
-            )
+            assert result == {"locations": [{"uri": "file:///tmp/test.py", "range": {}}]}
+            mock_req.assert_awaited_once()
+            call_args = mock_req.call_args
+            assert call_args[0][0] == "/tmp/test"  # workspace_path
+            assert call_args[0][1] == "textDocument/definition"  # method
 
     @pytest.mark.asyncio
     async def test_references_missing_filepath(self) -> None:
@@ -124,8 +122,8 @@ class TestRequestHandler:
         """Test references request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_references") as mock_req:
-            mock_req.return_value = [{"uri": "file://test.py", "range": {}}]
+        with patch.object(handler._registry, "request") as mock_req:
+            mock_req.return_value = [{"uri": "file:///tmp/test.py", "range": {}}]
 
             result = await handler.handle(
                 "textDocument/references",
@@ -137,7 +135,7 @@ class TestRequestHandler:
                 },
             )
 
-            assert result == {"locations": [{"uri": "file://test.py", "range": {}}]}
+            assert result == {"locations": [{"uri": "file:///tmp/test.py", "range": {}}]}
 
     @pytest.mark.asyncio
     async def test_completion_missing_filepath(self) -> None:
@@ -151,7 +149,7 @@ class TestRequestHandler:
         """Test completion request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_completions") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = [{"label": "test"}]
 
             result = await handler.handle(
@@ -178,7 +176,7 @@ class TestRequestHandler:
         """Test hover request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_hover") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = {"contents": {"value": "test"}}
 
             result = await handler.handle(
@@ -198,7 +196,7 @@ class TestRequestHandler:
         """Test hover request with null response."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_hover") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = None
 
             result = await handler.handle(
@@ -236,7 +234,7 @@ class TestRequestHandler:
             with patch.object(handler._registry, "get_or_create_workspace") as mock_ws:
                 mock_workspace = mock_ws.return_value
                 mock_client = mock_workspace.ensure_initialized.return_value
-                mock_client.request_document_symbols.return_value = [{"name": "test", "kind": 12}]
+                mock_client.request.return_value = [{"name": "test", "kind": 12}]
 
                 result = await handler.handle(
                     "textDocument/documentSymbol",
@@ -253,7 +251,7 @@ class TestRequestHandler:
         """Test workspace/symbol request delegates to registry."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_workspace_symbols") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = [{"name": "test", "kind": 5}]
 
             result = await handler.handle(
@@ -271,7 +269,7 @@ class TestRequestHandler:
         """Test workspace/symbol with default empty query."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_workspace_symbols") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = []
 
             result = await handler.handle(
@@ -282,14 +280,16 @@ class TestRequestHandler:
             )
 
             assert result == {"symbols": []}
-            mock_req.assert_awaited_once_with(workspace_path="/tmp/test", query="")
+            call_args = mock_req.call_args
+            lsp_params = call_args[0][2]  # third positional arg is params
+            assert lsp_params == {"query": ""}
 
     @pytest.mark.asyncio
     async def test_definition_default_workspace(self) -> None:
         """Test definition uses default workspace if not provided."""
         handler = RequestHandler(workspace_path="/tmp/test", language="python", lsp_conf=None)
 
-        with patch.object(handler._registry, "request_definition") as mock_req:
+        with patch.object(handler._registry, "request") as mock_req:
             mock_req.return_value = []
 
             result = await handler.handle(

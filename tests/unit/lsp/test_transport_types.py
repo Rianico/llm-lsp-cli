@@ -80,11 +80,11 @@ class TestPyrightSuppressions:
             f"{file_level_suppressions}"
         )
 
-    def test_typed_transport_py_no_file_level_suppressions(self) -> None:
-        """T3.2: typed_transport.py has no file-level pyright suppressions."""
-        import llm_lsp_cli.lsp.typed_transport as typed_transport_module
+    def test_client_py_no_file_level_suppressions(self) -> None:
+        """T3.2: client.py has no file-level pyright suppressions."""
+        import llm_lsp_cli.lsp.client as client_module
 
-        source_path = Path(typed_transport_module.__file__)
+        source_path = Path(client_module.__file__)
         content = source_path.read_text()
         lines = content.splitlines()[:20]
 
@@ -94,6 +94,6 @@ class TestPyrightSuppressions:
         ]
 
         assert len(file_level_suppressions) == 0, (
-            f"Found file-level pyright suppressions in typed_transport.py: "
+            f"Found file-level pyright suppressions in client.py: "
             f"{file_level_suppressions}"
         )

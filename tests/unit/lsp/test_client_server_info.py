@@ -20,19 +20,18 @@ class TestLSPClientServerInfo:
         from llm_lsp_cli.lsp import types as lsp
         from llm_lsp_cli.lsp.client import LSPClient
 
-        # Create a mock TypedLSPTransport
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
-        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-            capabilities=lsp.ServerCapabilities(),
-            server_info={"name": "test-server"}
-        ))
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
+        mock_transport.send_request = AsyncMock(return_value={
+            "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+            "serverInfo": {"name": "test-server"},
+        })
 
-        with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+        with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
             client = LSPClient(
                 workspace_path="/tmp/test",
                 server_command="test-server",
@@ -49,18 +48,17 @@ class TestLSPClientServerInfo:
         from llm_lsp_cli.lsp import types as lsp
         from llm_lsp_cli.lsp.client import LSPClient
 
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
-        # No server_info in InitializeResult
-        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-            capabilities=lsp.ServerCapabilities()
-        ))
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
+        mock_transport.send_request = AsyncMock(return_value={
+            "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+        })
 
-        with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+        with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
             client = LSPClient(
                 workspace_path="/tmp/test",
                 server_command="test-server",
@@ -77,18 +75,18 @@ class TestLSPClientServerInfo:
         from llm_lsp_cli.lsp import types as lsp
         from llm_lsp_cli.lsp.client import LSPClient
 
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
-        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-            capabilities=lsp.ServerCapabilities(),
-            server_info={"name": "pyright", "version": "1.2.3"}
-        ))
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
+        mock_transport.send_request = AsyncMock(return_value={
+            "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+            "serverInfo": {"name": "pyright", "version": "1.2.3"},
+        })
 
-        with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+        with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
             client = LSPClient(
                 workspace_path="/tmp/test",
                 server_command="test-server",
@@ -106,24 +104,24 @@ class TestLSPClientServerInfo:
         from llm_lsp_cli.lsp import types as lsp
         from llm_lsp_cli.lsp.client import LSPClient
 
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
 
-        with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+        with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
             client = LSPClient(
                 workspace_path="/tmp/test",
                 server_command="test-server",
             )
 
             # First initialize returns server A
-            mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-                capabilities=lsp.ServerCapabilities(),
-                server_info={"name": "server-a"}
-            ))
+            mock_transport.send_request = AsyncMock(return_value={
+                "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+                "serverInfo": {"name": "server-a"},
+            })
             await client.initialize()
             assert client.server_info["name"] == "server-a"
 
@@ -131,10 +129,10 @@ class TestLSPClientServerInfo:
             client._initialized = False
 
             # Second initialize returns server B
-            mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-                capabilities=lsp.ServerCapabilities(),
-                server_info={"name": "server-b"}
-            ))
+            mock_transport.send_request = AsyncMock(return_value={
+                "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+                "serverInfo": {"name": "server-b"},
+            })
             await client.initialize()
             assert client.server_info["name"] == "server-b"
 
@@ -161,18 +159,18 @@ class TestLSPClientServerInfo:
         from llm_lsp_cli.lsp import types as lsp
         from llm_lsp_cli.lsp.client import LSPClient
 
-        mock_typed_transport = MagicMock()
-        mock_typed_transport.start = AsyncMock()
-        mock_typed_transport.send_notification = AsyncMock()
-        mock_typed_transport.send_request_fire_and_forget = AsyncMock()
-        mock_typed_transport.on_notification = MagicMock()
-        mock_typed_transport.on_request = MagicMock()
-        mock_typed_transport.send_initialize = AsyncMock(return_value=lsp.InitializeResult(
-            capabilities=lsp.ServerCapabilities(),
-            server_info={"name": "basedpyright", "version": "1.15.0"}
-        ))
+        mock_transport = MagicMock()
+        mock_transport.start = AsyncMock()
+        mock_transport.send_notification = AsyncMock()
+        mock_transport.send_request_fire_and_forget = AsyncMock()
+        mock_transport.on_notification = MagicMock()
+        mock_transport.on_request = MagicMock()
+        mock_transport.send_request = AsyncMock(return_value={
+            "capabilities": lsp.ServerCapabilities().model_dump(mode="json", by_alias=True),
+            "serverInfo": {"name": "basedpyright", "version": "1.15.0"},
+        })
 
-        with patch("llm_lsp_cli.lsp.client.TypedLSPTransport", return_value=mock_typed_transport):
+        with patch("llm_lsp_cli.lsp.client.StdioTransport", return_value=mock_transport):
             client = LSPClient(
                 workspace_path="/tmp/test",
                 server_command="basedpyright-langserver",
@@ -181,4 +179,3 @@ class TestLSPClientServerInfo:
 
             assert client.server_info["name"] == "basedpyright"
             assert client.server_info["version"] == "1.15.0"
-
